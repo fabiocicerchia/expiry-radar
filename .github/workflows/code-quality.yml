@@ -9,6 +9,26 @@ permissions:
   contents: read
 
 jobs:
+  # Nothing else in CI compiles the Go code — without this job a broken build
+  # only shows up at release time.
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: build
+        run: go build ./...
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   quality:
     runs-on: ubuntu-latest
     steps:

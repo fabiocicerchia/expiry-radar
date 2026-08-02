@@ -69,7 +69,7 @@ func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, do
 	if err != nil {
 		return time.Time{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return time.Time{}, fmt.Errorf("RDAP lookup: %s", resp.Status)
 	}

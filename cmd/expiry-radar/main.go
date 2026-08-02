@@ -46,7 +46,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		timeout     = fs.Duration("timeout", 2*time.Minute, "overall collection timeout")
 	)
 	fs.Usage = func() {
-		fmt.Fprint(fs.Output(), "expiry-radar — one inventory of everything that expires, ranked by blast radius.\n\n"+
+		_, _ = fmt.Fprint(fs.Output(), "expiry-radar — one inventory of everything that expires, ranked by blast radius.\n\n"+
 			"All sources are read-only. See docs/ for the exact IAM policy and RBAC Role.\n\n")
 		fs.PrintDefaults()
 	}
@@ -76,16 +76,21 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	now := time.Now()
 	scored := filter(rank.Rank(items, cfg.Overrides, now), *within, *minPriority)
 
-	w := stdout
+	w, closeOut := stdout, func() error { return nil }
 	if *out != "" {
 		f, err := os.Create(*out)
 		if err != nil {
 			return 2, err
 		}
-		defer f.Close()
-		w = f
+		w, closeOut = f, f.Close
 	}
-	if err := output.RenderAt(w, scored, output.Format(*format), output.Options{Now: now}); err != nil {
+	err = output.RenderAt(w, scored, output.Format(*format), output.Options{Now: now})
+	// Close reports the final flush: a silently truncated report on disk reads
+	// exactly like a clean estate.
+	if cerr := closeOut(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		return 2, err
 	}
 

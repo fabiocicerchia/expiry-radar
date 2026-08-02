@@ -1,5 +1,6 @@
 site_name: expiry-radar
-site_description: One inventory of everything that expires, ranked by blast radius.
+site_description: >-
+  One inventory of everything that expires, ranked by blast radius.
 repo_url: https://github.com/fabiocicerchia/expiry-radar
 docs_dir: docs
 

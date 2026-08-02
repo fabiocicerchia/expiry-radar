@@ -104,7 +104,7 @@ func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, err
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	state := conn.(*tls.Conn).ConnectionState()
 	if len(state.PeerCertificates) == 0 {

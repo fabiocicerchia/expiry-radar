@@ -92,7 +92,7 @@ func (s *VaultSource) do(ctx context.Context, client *http.Client, method, path 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("%s %s: permission denied (a read-only policy needs read+list on this path)", method, path)
 	}

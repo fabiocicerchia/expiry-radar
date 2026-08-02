@@ -1,0 +1,7 @@
+[gandalf]
+# This is a Go module with zero .py files. gandalf classifies the repo as
+# "python" because docs/requirements.txt exists (mkdocs deps for readthedocs),
+# which switches on the Python-only gates: `tests` runs pytest and fails with
+# "no tests ran", `atheris` wants a Python fuzz harness. Go tests run under the
+# `go_test` gate.
+skip = ["tests", "atheris"]

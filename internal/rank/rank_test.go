@@ -182,3 +182,69 @@ func TestAMalformedGlobSilentlyMatchesNothing(t *testing.T) {
 		t.Error("...which is exactly why it has to be rejected before it gets here")
 	}
 }
+
+// Equal priority is common — same kind, same labels, different dates — and an
+// unstable answer there means the top of the report reshuffles between runs.
+func TestTiesBreakOnTheSoonerExpiry(t *testing.T) {
+	items := []source.Item{
+		item(source.KindTLSCert, "later", 60, nil),
+		item(source.KindTLSCert, "sooner", 60, nil),
+	}
+	// Same kind and no labels, so priority differs only through daysLeft; force
+	// an exact tie by giving both the same expiry.
+	items[1].Expires = items[0].Expires
+	got := Rank(items, nil, now)
+	if got[0].Priority != got[1].Priority {
+		t.Fatalf("test setup: expected a priority tie, got %v vs %v", got[0].Priority, got[1].Priority)
+	}
+	if got[0].Item.Name != "later" {
+		t.Errorf("a tie must keep input order, got %s first", got[0].Item.Name)
+	}
+
+	items[1].Expires = now.Add(24 * time.Hour) // now genuinely sooner
+	got = Rank(items, nil, now)
+	if got[0].Item.Name != "sooner" {
+		t.Errorf("the sooner expiry must lead, got %s", got[0].Item.Name)
+	}
+}
+
+// An unrecognised kind, or one with nothing to infer from, still has to be
+// ranked: dropping it or scoring it 0 hides it under everything else.
+func TestUnknownKindStillGetsRanked(t *testing.T) {
+	got := Rank([]source.Item{item(source.Kind("something-new"), "mystery", 10, nil)}, nil, now)
+	if len(got) != 1 {
+		t.Fatalf("want 1 scored item, got %d", len(got))
+	}
+	if got[0].BlastRadius <= 0 || got[0].BlastRadius > 1 {
+		t.Errorf("unknown kind needs a usable default blast radius, got %v", got[0].BlastRadius)
+	}
+	if got[0].Why == "" {
+		t.Error("every score has to explain itself, even the fallback one")
+	}
+}
+
+func TestScoresStayInRangeAtBothExtremes(t *testing.T) {
+	items := []source.Item{
+		// Everything that adds: public, prod, wildcard, many hosts, huge traffic.
+		item(source.KindDomain, "prod-checkout", -30, map[string]string{
+			source.LabelPublic:  "true",
+			source.LabelTraffic: "100000",
+			source.LabelHosts:   "*.a.com,b.com,c.com,d.com,e.com",
+			"environment":       "production",
+		}),
+		// Everything that subtracts.
+		item(source.KindVaultLease, "dev-unused", 400, map[string]string{
+			source.LabelIngressClass: "nginx-internal",
+			"environment":            "dev",
+			"in-use":                 "false",
+		}),
+	}
+	for _, s := range Rank(items, nil, now) {
+		if s.BlastRadius < 0 || s.BlastRadius > 1 {
+			t.Errorf("%s: blast radius %v escaped 0..1", s.Item.Name, s.BlastRadius)
+		}
+		if s.Priority < 0 || s.Priority > 1 {
+			t.Errorf("%s: priority %v escaped 0..1", s.Item.Name, s.Priority)
+		}
+	}
+}

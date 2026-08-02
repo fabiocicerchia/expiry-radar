@@ -64,7 +64,7 @@ func (s *K8sSource) Collect(ctx context.Context) ([]Item, error) {
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode == http.StatusForbidden {
 			return fmt.Errorf("GET %s: forbidden — expiry-radar needs list on ingresses and secrets (see docs/rbac-readonly.yaml)", path)
 		}

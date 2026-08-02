@@ -2,6 +2,10 @@ module github.com/fabiocicerchia/local-ai-lab/expiry-radar
 
 go 1.24
 
+// Minimum build toolchain: every govulncheck finding on this module is a
+// stdlib CVE fixed by 1.26.5 (crypto/tls, crypto/x509, net, net/http, os).
+toolchain go1.26.5
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.3
 	github.com/aws/aws-sdk-go-v2/config v1.32.34
