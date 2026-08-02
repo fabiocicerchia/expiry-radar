@@ -1,0 +1,34 @@
+{
+  "endpoints": [
+    { "host": "shop.example.com", "labels": { "traffic": "2400", "public": "true" } },
+    { "host": "admin.internal.example.com:8443", "labels": { "ingress.class": "nginx-internal" } }
+  ],
+  "domains": ["example.com", "example.net"],
+  "k8s": {
+    "enabled": true,
+    "server": "",
+    "namespaces": ["prod", "payments"],
+    "caFile": "",
+    "insecure": false
+  },
+  "vault": {
+    "enabled": false,
+    "addr": "",
+    "namespace": "",
+    "pkiMounts": ["pki_int"],
+    "maxCerts": 500
+  },
+  "aws": {
+    "enabled": false,
+    "region": "eu-west-1",
+    "profile": "",
+    "maxKeyAgeDays": 90,
+    "skipACM": false,
+    "skipIAM": false,
+    "skipSecrets": false
+  },
+  "overrides": [
+    { "match": "payments/*", "blastRadius": 1.0 },
+    { "match": "*sandbox*", "blastRadius": 0.05 }
+  ]
+}

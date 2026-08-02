@@ -1,0 +1,52 @@
+# Least privilege for the Kubernetes source: two list verbs, nothing else.
+#
+# secretsmanager-style caveat: `list` on secrets returns their contents, so this
+# ServiceAccount can read every TLS private key in the namespaces it covers.
+# Scope it to the namespaces that actually have ingress certificates
+# (`k8s.namespaces` in the config) rather than granting the ClusterRole, unless
+# you genuinely need a cluster-wide inventory.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: expiry-radar
+  namespace: platform
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: expiry-radar-readonly
+  namespace: prod
+rules:
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: expiry-radar-readonly
+  namespace: prod
+subjects:
+  - kind: ServiceAccount
+    name: expiry-radar
+    namespace: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: expiry-radar-readonly
+---
+# Cluster-wide variant. Only if you need every namespace inventoried at once.
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: expiry-radar-readonly
+# rules:
+#   - apiGroups: ["networking.k8s.io"]
+#     resources: ["ingresses"]
+#     verbs: ["list"]
+#   - apiGroups: [""]
+#     resources: ["secrets"]
+#     verbs: ["list"]
