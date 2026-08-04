@@ -176,6 +176,89 @@ func TestPrometheusEscapesLabelValues(t *testing.T) {
 	}
 }
 
+func TestHTMLReportIsSelfContainedAndFlagsTheDeadline(t *testing.T) {
+	out := render(t, FormatHTML)
+	for _, want := range []string{"payments/checkout.example.com", "internet-facing", "12d", "2026-08-13", `class="urgent"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	// A report that pulls in a CDN is a report that renders blank in an email
+	// client, offline, or behind a strict CSP.
+	if strings.Contains(out, "http://") || strings.Contains(out, "https://") {
+		t.Error("the report must reference no external resources")
+	}
+}
+
+func TestHTMLEscapesNamesFromUntrustedSources(t *testing.T) {
+	items := sample()
+	items[0].Item.Name = `<script>alert(1)</script>` // certificates and registries are not trusted input
+	var b bytes.Buffer
+	if err := RenderAt(&b, items, FormatHTML, Options{Now: now}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "<script>alert") {
+		t.Errorf("name was not escaped:\n%s", b.String())
+	}
+}
+
+// The whole point of grouping is that everything belonging to one domain is read
+// together — the cert, the registration, and the wildcard in front of it.
+func TestHTMLGroupsRowsUnderTheDomainTheyBelongTo(t *testing.T) {
+	items := []rank.Scored{
+		{Item: source.Item{Kind: source.KindDomain, Name: "example.com", Expires: now.AddDate(0, 0, 40), Source: "domain:rdap"}, DaysLeft: 40},
+		{Item: source.Item{Kind: source.KindTLSCert, Name: "*.example.com", Expires: now.AddDate(0, 0, 9), Source: "tls:endpoint"}, DaysLeft: 9},
+		{Item: source.Item{Kind: source.KindIntermediate, Name: "Issuing CA", Expires: now.AddDate(0, 0, 400), Source: "tls:chain"}, DaysLeft: 400},
+		{Item: source.Item{Kind: source.KindSecret, Name: "db-password", Namespace: "payments", Expires: now.AddDate(0, 0, -2), Source: "vault"}, DaysLeft: -2},
+	}
+	groups, stats := groupRows(items)
+
+	got := map[string]int{}
+	for _, g := range groups {
+		got[g.Name] = len(g.Rows)
+	}
+	want := map[string]int{"example.com": 2, "shared chain": 1, "payments": 1}
+	if len(got) != len(want) {
+		t.Fatalf("groups = %v, want %v", got, want)
+	}
+	for name, n := range want {
+		if got[name] != n {
+			t.Errorf("group %q has %d rows, want %d", name, got[name], n)
+		}
+	}
+	// The group headline must be the worst deadline in it, not the first row.
+	for _, g := range groups {
+		if g.Name == "example.com" && g.Soonest != "9d" {
+			t.Errorf("example.com soonest = %q, want 9d", g.Soonest)
+		}
+	}
+	if stats.Total != 4 || stats.Expired != 1 || stats.In14 != 1 || stats.In30 != 1 {
+		t.Errorf("stats = %+v, want 4 total / 1 expired / 1 in14 / 1 in30", stats)
+	}
+	if stats.NextName != "payments/db-password" {
+		t.Errorf("soonest = %q, want the already-expired secret", stats.NextName)
+	}
+}
+
+func TestHTMLShipsTheFilterControls(t *testing.T) {
+	out := render(t, FormatHTML)
+	for _, want := range []string{`id="q"`, `data-kind="domain"`, `data-kind="tls_cert"`, `data-sev=`, `data-text=`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing filter hook %q", want)
+		}
+	}
+}
+
+func TestHTMLSaysSoWhenThereIsNothing(t *testing.T) {
+	var b bytes.Buffer
+	if err := RenderAt(&b, nil, FormatHTML, Options{Now: now}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.String(), "Nothing expiring") {
+		t.Errorf("an empty report must say it is empty:\n%s", b.String())
+	}
+}
+
 func TestUnknownFormatIsAnError(t *testing.T) {
 	if err := RenderAt(&bytes.Buffer{}, sample(), Format("csv"), Options{Now: now}); err == nil {
 		t.Fatal("expected an error for an unknown format")

@@ -36,7 +36,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	fs := flag.NewFlagSet("expiry-radar", flag.ContinueOnError)
 	var (
 		cfgPath     = fs.String("config", "expiry-radar.json", "config file listing the read-only sources to scan")
-		format      = fs.String("format", string(output.FormatTable), "output format: table, json, ical, prometheus")
+		format      = fs.String("format", string(output.FormatTable), "output format: table, json, ical, prometheus, html")
 		endpoints   = fs.String("endpoints", "", "comma-separated hosts to probe over TLS, in addition to the config")
 		domains     = fs.String("domains", "", "comma-separated domains to check via RDAP, in addition to the config")
 		within      = fs.Int("within", 0, "only report items expiring within N days (0 = everything)")
