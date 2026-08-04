@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/source"
+	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
 var now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)

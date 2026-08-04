@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/config"
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/output"
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/rank"
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/source"
+	"github.com/fabiocicerchia/expiry-radar/internal/config"
+	"github.com/fabiocicerchia/expiry-radar/internal/output"
+	"github.com/fabiocicerchia/expiry-radar/internal/rank"
+	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/fabiocicerchia/local-ai-lab/expiry-radar
+module github.com/fabiocicerchia/expiry-radar
 
 go 1.24
 

@@ -14,7 +14,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/rank"
+	"github.com/fabiocicerchia/expiry-radar/internal/rank"
 )
 
 type Format string

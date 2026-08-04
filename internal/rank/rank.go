@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/source"
+	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
 // Scored pairs an item with its computed urgency.

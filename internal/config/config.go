@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/rank"
-	"github.com/fabiocicerchia/local-ai-lab/expiry-radar/internal/source"
+	"github.com/fabiocicerchia/expiry-radar/internal/rank"
+	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
 type File struct {
