@@ -1,6 +1,7 @@
 package source
 
 import (
+	"bufio"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -9,7 +10,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -133,6 +136,85 @@ func TestDomainSourceSaysSoWhenTheRegistryHidesTheDate(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no expiration event") {
 		t.Fatalf("want a clear 'no expiration event' error, got %v", err)
 	}
+}
+
+func TestDomainSourceFallsBackToWhoisWhenTheTLDHasNoRDAP(t *testing.T) {
+	rdap := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound) // .it is one of ~240 TLDs missing from IANA's bootstrap
+	}))
+	defer rdap.Close()
+
+	// One listener plays both roles: IANA referral, then the registry itself.
+	whois := whoisStub(t, map[string]string{
+		"it":                "\nwhois:        127.0.0.1:PORT\n\n",
+		"fabiocicerchia.it": "Domain:             fabiocicerchia.it\nExpire Date:        2026-08-18\n",
+	})
+
+	s := &DomainSource{Domains: []string{"fabiocicerchia.it"}, Bootstrap: rdap.URL, IANAWhois: whois, Timeout: 5 * time.Second}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 1 || items[0].Source != "domain:whois" {
+		t.Fatalf("want one domain:whois item, got %+v", items)
+	}
+	if want := time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC); !items[0].Expires.Equal(want) {
+		t.Errorf("expires = %v, want %v", items[0].Expires, want)
+	}
+}
+
+func TestWhoisExpirationReadsTheFormatsRegistriesActuallyUse(t *testing.T) {
+	for text, want := range map[string]time.Time{
+		"Expire Date:        2026-08-18":                       time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC),
+		"    Expiry date:  13-Dec-2034":                        time.Date(2034, 12, 13, 0, 0, 0, 0, time.UTC),
+		"paid-till:     2026-09-30T21:00:00Z":                  time.Date(2026, 9, 30, 21, 0, 0, 0, time.UTC),
+		"Registry Expiry Date: 2027-03-04T05:06:07Z":           time.Date(2027, 3, 4, 5, 6, 7, 0, time.UTC),
+		"Domain:  x.de\nStatus: connect\nChanged: today":       {}, // DENIC publishes no expiry at all
+		"Expiry date: not available\nrenewal date: 2028-01-02": time.Date(2028, 1, 2, 0, 0, 0, 0, time.UTC),
+	} {
+		got, err := whoisExpiration(text)
+		if want.IsZero() {
+			if err == nil {
+				t.Errorf("%q: want an error, got %v", text, got)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("%q: %v", text, err)
+		} else if !got.Equal(want) {
+			t.Errorf("%q: got %v, want %v", text, got, want)
+		}
+	}
+}
+
+// whoisStub serves canned port-43 responses keyed by query, and returns its
+// address. "PORT" in a reply is replaced with the stub's own port so it can
+// refer callers back to itself.
+func whoisStub(t *testing.T, replies map[string]string) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer func() { _ = conn.Close() }()
+				q, err := bufio.NewReader(conn).ReadString('\n')
+				if err != nil {
+					return
+				}
+				reply := replies[strings.TrimSpace(q)]
+				_, _ = io.WriteString(conn, strings.ReplaceAll(reply, "PORT", strings.TrimPrefix(ln.Addr().String(), "127.0.0.1:")))
+			}()
+		}
+	}()
+	return ln.Addr().String()
 }
 
 func TestK8sSourceTakesExpiryFromTheSecretAndContextFromTheIngress(t *testing.T) {
