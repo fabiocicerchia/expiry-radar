@@ -211,7 +211,7 @@ func (d rdapDomain) expiration() (time.Time, error) {
 				return t, nil
 			}
 		}
-		return time.Time{}, fmt.Errorf("unparseable expiration date %q", e.Date)
+		return time.Time{}, fmt.Errorf("unparsable expiration date %q", e.Date)
 	}
 	return time.Time{}, fmt.Errorf("no expiration event (some registries hide it from anonymous queries)")
 }

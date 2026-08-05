@@ -26,7 +26,7 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 		{"wrong type", `{"domains": "example.com"}`, "cannot unmarshal"},
 		{"typo in a source key", `{"vualt": {"enabled": true}}`, "unknown field"},
 		{"override with no pattern", `{"overrides": [{"blastRadius": 1}]}`, "no match pattern"},
-		{"unparseable glob", `{"overrides": [{"match": "pay[ments", "blastRadius": 1}]}`, "syntax error"},
+		{"unparsable glob", `{"overrides": [{"match": "pay[ments", "blastRadius": 1}]}`, "syntax error"},
 		{"blast radius out of range", `{"overrides": [{"match": "x", "blastRadius": 4}]}`, "outside 0..1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
