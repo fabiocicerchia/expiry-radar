@@ -32,4 +32,4 @@ usage or config · `3` partial results, at least one source failed. A source tha
 fails still returns what it managed to read, and the failure is printed to
 stderr — a report that quietly lost a source reads exactly like a clean estate.
 
-The [README](../README.md) covers what expiry-radar does and why.
+The [README](README.md) covers what expiry-radar does and why.
