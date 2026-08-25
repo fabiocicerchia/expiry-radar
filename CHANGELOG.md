@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.0.1...v1.1.0) (2026-08-25)
+
+
+### Features
+
+* **docs:** build the docs site in Actions and drop Read the Docs ([#24](https://github.com/fabiocicerchia/expiry-radar/issues/24)) ([9e32012](https://github.com/fabiocicerchia/expiry-radar/commit/9e3201228d683fe6df895316b0bea6bcf552b8c0))
+
 ## [1.0.1](https://github.com/fabiocicerchia/expiry-radar/compare/v1.0.0...v1.0.1) (2026-08-13)
 
 
