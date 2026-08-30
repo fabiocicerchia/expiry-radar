@@ -128,5 +128,6 @@ nav:
   - Home: README.md
   - Architecture: architecture.md
   - Getting Started: getting-started.md
+  - Editor integration: editors.md
   - Output formats: outputs.md
   - Sources and permissions: sources.md

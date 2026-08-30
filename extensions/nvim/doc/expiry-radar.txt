@@ -1,0 +1,239 @@
+*expiry-radar.txt*   One inventory of everything that expires, in Neovim
+
+==============================================================================
+CONTENTS                                                *expiry-radar-contents*
+
+  1. Introduction ........................... |expiry-radar-introduction|
+  2. Requirements ........................... |expiry-radar-requirements|
+  3. Setup .................................. |expiry-radar-setup|
+  4. Commands ............................... |expiry-radar-commands|
+  5. Configuration .......................... |expiry-radar-configuration|
+  6. Diagnostics ............................ |expiry-radar-diagnostics|
+  7. Statusline ............................. |expiry-radar-statusline|
+  8. API .................................... |expiry-radar-api|
+  9. Health ................................. |expiry-radar-health|
+
+==============================================================================
+1. INTRODUCTION                                     *expiry-radar-introduction*
+
+expiry-radar inventories everything that expires across an estate — TLS
+certificates, the intermediate CAs nobody tracks, secrets, IAM keys, Vault
+leases, domains — and ranks it by blast radius, so the certificate on the
+payment path outranks the one on a staging dashboard.
+
+This plugin runs that CLI and puts its answers where you already look: the
+quickfix list, diagnostics on the config file, a float, and one string for
+your statusline.
+
+Two things it deliberately does NOT do:
+
+- It never collects on a keystroke, and never on every save. A collection
+  dials real hosts, queries RDAP and calls cloud APIs; registries rate-limit
+  RDAP, and expiry dates move on the scale of days. See
+  |expiry-radar-config-trigger|.
+- It never quietly drops a source that failed. A run that lost an account
+  produces an inventory that reads exactly like a clean estate, which is the
+  failure this tool exists to prevent — so a lost source is on the float, in
+  the statusline, and in a notification.
+
+==============================================================================
+2. REQUIREMENTS                                     *expiry-radar-requirements*
+
+- Neovim 0.11 or newer (`vim.system`, `vim.fs.root`, `vim.validate`).
+- The `expiry-radar` binary: >
+    go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest
+<
+  Or `make build` in a checkout, which writes `./bin/expiry-radar`.
+
+The plugin finds the binary on its own: `./bin/expiry-radar` in the project,
+then `expiry-radar` on `$PATH`, then `$GOBIN`, `$GOPATH/bin` and `~/go/bin`.
+Point `cmd` at it when it lives somewhere else.
+
+==============================================================================
+3. SETUP                                                   *expiry-radar-setup*
+
+`setup()` is optional — a command used before it runs gets the defaults. Call
+it to change them: >lua
+
+    require('expiry-radar').setup({
+      collect = { trigger = 'interval', interval_minutes = 120 },
+      diagnostics = { warn_within_days = 21 },
+    })
+<
+With lazy.nvim: >lua
+
+    {
+      'fabiocicerchia/expiry-radar',
+      -- The plugin is a subdirectory of the CLI's repository.
+      config = function()
+        require('expiry-radar').setup({})
+      end,
+      cmd = { 'ExpiryRadar', 'ExpiryRadarReport', 'ExpiryRadarList' },
+    }
+<
+Sources are opt-in: nothing runs implicitly. Point the plugin at an
+`expiry-radar.json` (`:ExpiryRadarConfig` creates one), or set `endpoints` and
+`domains` in `setup()` for a config-free project.
+
+==============================================================================
+4. COMMANDS                                             *expiry-radar-commands*
+
+                                                                *:ExpiryRadar*
+:ExpiryRadar            Collect now. Preempts a running automatic collection.
+
+                                                          *:ExpiryRadarReport*
+:ExpiryRadarReport      The inventory in a float: failed sources first, then
+                        every item grouped by deadline, ranked by blast
+                        radius. `q` or `<Esc>` closes it.
+
+                                                            *:ExpiryRadarList*
+:ExpiryRadarList        Every item in the quickfix list. Items declared in the
+                        config file jump to the line that declared them;
+                        everything else carries its facts as text, because a
+                        certificate discovered on an Ingress has nowhere in
+                        this repository to jump to.
+
+                                                          *:ExpiryRadarFilter*
+:ExpiryRadarFilter      Pick one deadline window or one kind; its items go to
+                        the quickfix list.
+
+                                                           *:ExpiryRadarHover*
+:ExpiryRadarHover       What the inventory already knows about the host or
+                        domain under the cursor — including the intermediate
+                        CAs its chain depends on. Says explicitly when a
+                        source failed, because "clean" and "never checked" are
+                        not the same answer.
+
+                                                           *:ExpiryRadarProbe*
+:ExpiryRadarProbe [host]
+                        Probe one host right now, ignoring the config: its
+                        certificate, its chain and its registration. Without
+                        an argument it uses the host under the cursor, and
+                        prompts if there isn't one.
+
+                                                          *:ExpiryRadarExport*
+:ExpiryRadarExport [format] [path]
+                        Render a report to a file. Formats: `html`, `ical`,
+                        `json`, `prometheus`. Prompts when given nothing.
+                        The iCal feed is renewals as calendar events, with the
+                        alarm lead time set by blast radius.
+
+                                                          *:ExpiryRadarConfig*
+:ExpiryRadarConfig      Open the config file, creating it from
+                        `expiry-radar.example.json` if there isn't one.
+
+                                                          *:ExpiryRadarCancel*
+:ExpiryRadarCancel      Cancel the running collection.
+
+                                                             *:ExpiryRadarLog*
+:ExpiryRadarLog         What ran, what it took, and every source that failed.
+
+==============================================================================
+5. CONFIGURATION                                   *expiry-radar-configuration*
+
+Defaults: >lua
+
+    require('expiry-radar').setup({
+      enabled = true,
+      cmd = {},              -- empty auto-detects; see |expiry-radar-requirements|
+      config_path = '',      -- empty uses <root>/expiry-radar.json
+      endpoints = {},        -- extra hosts, on top of the config file
+      domains = {},          -- extra domains, on top of the config file
+      extra_args = {},       -- appended to every invocation, verbatim
+
+      collect = {
+        trigger = 'on_config_save_and_interval',
+        debounce_ms = 1500,
+        interval_minutes = 60,
+        on_startup = true,
+        timeout_ms = 120000,
+        within_days = 0,     -- 0 is everything, which is the point
+        min_priority = 0,
+      },
+
+      diagnostics = {
+        enabled = true,
+        warn_within_days = 14,
+        info_within_days = 30,
+      },
+
+      status = { warn_within_days = 14 },
+    })
+<
+                                                 *expiry-radar-config-trigger*
+`collect.trigger` is one of:
+
+  `on_config_save`               collect when the config file is saved
+  `on_config_save_and_interval`  that, plus a periodic refresh (default)
+  `interval`                     only refresh periodically
+  `manual`                       only when a command asks
+
+Only the config file triggers a collection on save. Every other save in a
+repository has nothing to do with what the estate has expiring.
+
+`collect.within_days` and `collect.min_priority` are passed to the CLI, not
+applied to the list afterwards, so an export contains exactly what the list
+shows rather than a wider set.
+
+==============================================================================
+6. DIAGNOSTICS                                       *expiry-radar-diagnostics*
+
+Items declared in the config file are published as diagnostics on the line
+that declared them: the `host` in `endpoints`, the string in `domains`.
+
+Everything else — a certificate on an Ingress, a key in IAM, a lease in Vault
+— gets none. Nothing in the repository declared it, so there is no honest line
+to attach it to; those live in the list and the float.
+
+Severity follows the deadline, never the ranking:
+
+  expired                          ERROR
+  within `warn_within_days`          WARN
+  within `info_within_days`          INFO
+  beyond that                      nothing published
+
+A certificate on the payment path ninety days out is the top of the list and
+still nothing to interrupt an edit over.
+
+==============================================================================
+7. STATUSLINE                                         *expiry-radar-statusline*
+
+`require('expiry-radar').statusline()` returns one string: the soonest
+deadline, marked, with `(incomplete)` appended when the last run lost a
+source. The soonest deadline rather than the highest priority — one string in
+the corner is a clock.
+
+lualine: >lua
+
+    sections = { lualine_x = { require('expiry-radar').statusline } }
+<
+==============================================================================
+8. API                                                       *expiry-radar-api*
+
+                                                  *expiry-radar.collect()*
+`collect({ manual?, reason?, on_done? })`  Run one collection.
+                                                   *expiry-radar.cancel()*
+`cancel({ quiet? })`                       Cancel the running collection.
+                                                 *expiry-radar.snapshot()*
+`snapshot()`                               The last completed collection:
+                                         `items`, `warnings`, `config_path`, `at`.
+                                                    *expiry-radar.items()*
+`items()`                                  Its items, ranked.
+                                              *expiry-radar.is_collecting()*
+`is_collecting()`                          Whether one is running.
+                                               *expiry-radar.statusline()*
+`statusline()`                             See |expiry-radar-statusline|.
+                                                     *expiry-radar.root()*
+`root()`                                   The project root in use.
+
+==============================================================================
+9. HEALTH                                                 *expiry-radar-health*
+
+`:checkhealth expiry-radar` answers the question a collection cannot: why it
+produced nothing at all. It checks the binary, the config file, and — for
+every source the config enables — whether the credentials that source needs
+are actually in the environment Neovim was launched from. Credentials never
+come from the config file, so an enabled source with an empty environment is
+the most common way to get a clean-looking report missing an entire account.
+
+vim:tw=78:ts=8:ft=help:norl:

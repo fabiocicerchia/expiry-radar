@@ -1,0 +1,360 @@
+{
+  "name": "expiry-radar",
+  "displayName": "expiry-radar — Expiry Inventory",
+  "description": "Everything that expires — TLS certs, intermediate CAs, secrets, IAM keys, Vault leases, domains — ranked by blast radius, in a panel, on the status bar, and as the full HTML report inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "fabiocicerchia",
+  "license": "Apache-2.0",
+  "pricing": "Free",
+  "sponsor": {
+    "url": "https://github.com/sponsors/fabiocicerchia"
+  },
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#171A20",
+    "theme": "dark"
+  },
+  "qna": "https://github.com/fabiocicerchia/expiry-radar/issues",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "expiry",
+    "tls",
+    "certificate",
+    "secret rotation",
+    "domain"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fabiocicerchia/expiry-radar.git",
+    "directory": "extensions/vscode"
+  },
+  "homepage": "https://github.com/fabiocicerchia/expiry-radar/tree/main/extensions/vscode",
+  "bugs": {
+    "url": "https://github.com/fabiocicerchia/expiry-radar/issues"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "expiryRadar",
+          "title": "expiry-radar",
+          "icon": "media/radar.svg"
+        }
+      ]
+    },
+    "views": {
+      "expiryRadar": [
+        {
+          "id": "expiryRadar.inventory",
+          "name": "Expiring",
+          "contextualTitle": "expiry-radar",
+          "icon": "media/radar.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "expiryRadar.scan",
+        "title": "Refresh Inventory",
+        "category": "expiry-radar",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "expiryRadar.showReport",
+        "title": "Open Report",
+        "category": "expiry-radar",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "expiryRadar.exportReport",
+        "title": "Export Report…",
+        "category": "expiry-radar",
+        "icon": "$(save-as)"
+      },
+      {
+        "command": "expiryRadar.probeHost",
+        "title": "Probe a Host…",
+        "category": "expiry-radar",
+        "icon": "$(radio-tower)"
+      },
+      {
+        "command": "expiryRadar.openConfig",
+        "title": "Open Config File",
+        "category": "expiry-radar",
+        "icon": "$(json)"
+      },
+      {
+        "command": "expiryRadar.checkEnvironment",
+        "title": "Check Environment (Doctor)",
+        "category": "expiry-radar",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "expiryRadar.cancel",
+        "title": "Cancel Running Collection",
+        "category": "expiry-radar"
+      },
+      {
+        "command": "expiryRadar.showLog",
+        "title": "Show Log",
+        "category": "expiry-radar",
+        "icon": "$(output)"
+      },
+      {
+        "command": "expiryRadar.filterItems",
+        "title": "Filter Items",
+        "category": "expiry-radar",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "expiryRadar.groupByKind",
+        "title": "Group by Kind",
+        "category": "expiry-radar",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "expiryRadar.groupByRank",
+        "title": "Show as One Ranked List",
+        "category": "expiry-radar",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "expiryRadar.expandAll",
+        "title": "Expand All",
+        "category": "expiry-radar",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "expiryRadar.copyItem",
+        "title": "Copy Details",
+        "category": "expiry-radar"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "expiryRadar.scan",
+          "when": "view == expiryRadar.inventory",
+          "group": "navigation@1"
+        },
+        {
+          "command": "expiryRadar.groupByRank",
+          "when": "view == expiryRadar.inventory && expiryRadar.grouping == kind",
+          "group": "navigation@2"
+        },
+        {
+          "command": "expiryRadar.groupByKind",
+          "when": "view == expiryRadar.inventory && expiryRadar.grouping == rank",
+          "group": "navigation@2"
+        },
+        {
+          "command": "expiryRadar.filterItems",
+          "when": "view == expiryRadar.inventory",
+          "group": "navigation@3"
+        },
+        {
+          "command": "expiryRadar.showReport",
+          "when": "view == expiryRadar.inventory",
+          "group": "navigation@4"
+        },
+        {
+          "command": "expiryRadar.expandAll",
+          "when": "view == expiryRadar.inventory && expiryRadar.grouping == kind",
+          "group": "navigation@9"
+        },
+        {
+          "command": "expiryRadar.probeHost",
+          "when": "view == expiryRadar.inventory",
+          "group": "1_scan@1"
+        },
+        {
+          "command": "expiryRadar.exportReport",
+          "when": "view == expiryRadar.inventory",
+          "group": "1_scan@2"
+        },
+        {
+          "command": "expiryRadar.openConfig",
+          "when": "view == expiryRadar.inventory",
+          "group": "2_env@1"
+        },
+        {
+          "command": "expiryRadar.checkEnvironment",
+          "when": "view == expiryRadar.inventory",
+          "group": "2_env@2"
+        },
+        {
+          "command": "expiryRadar.showLog",
+          "when": "view == expiryRadar.inventory",
+          "group": "3_misc@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "expiryRadar.copyItem",
+          "when": "view == expiryRadar.inventory && viewItem == expiryRadarItem"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "expiryRadar.groupByKind",
+          "when": "false"
+        },
+        {
+          "command": "expiryRadar.groupByRank",
+          "when": "false"
+        },
+        {
+          "command": "expiryRadar.expandAll",
+          "when": "false"
+        },
+        {
+          "command": "expiryRadar.copyItem",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "expiry-radar",
+      "properties": {
+        "expiryRadar.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Where the `expiry-radar` binary is. Empty auto-detects — `./bin/expiry-radar` in the open folder (what `make build` writes), then `expiry-radar` on `PATH`, then `$GOBIN`/`$GOPATH/bin`/`~/go/bin`."
+        },
+        "expiryRadar.configPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Config file passed as `-config`. Empty uses `expiry-radar.json` in the workspace folder, when there is one. Relative paths resolve against the folder."
+        },
+        "expiryRadar.endpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Hosts to probe over TLS (`-endpoints`), *in addition to* the config file. `host` or `host:port`."
+        },
+        "expiryRadar.domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Domains to check via RDAP (`-domains`), *in addition to* the config file."
+        },
+        "expiryRadar.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra command-line arguments appended to every expiry-radar invocation."
+        },
+        "expiryRadar.scan.trigger": {
+          "type": "string",
+          "enum": [
+            "onConfigSave",
+            "onConfigSaveAndInterval",
+            "interval",
+            "manual"
+          ],
+          "enumDescriptions": [
+            "Re-collect when the config file is saved (debounced).",
+            "On config save, plus a periodic refresh.",
+            "Only refresh periodically.",
+            "Only collect when an expiry-radar command is invoked."
+          ],
+          "default": "onConfigSaveAndInterval",
+          "markdownDescription": "When collections run. Never on keystroke and never on every save: a collection dials real hosts, queries RDAP and calls cloud APIs, and expiry dates move on the scale of days."
+        },
+        "expiryRadar.scan.onStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run one collection when the window opens, so the panel is populated."
+        },
+        "expiryRadar.scan.intervalMinutes": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "description": "Period of the background refresh, for the interval triggers."
+        },
+        "expiryRadar.scan.debounceMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 250,
+          "description": "Quiet period after the triggering event before a collection starts. Later events restart the timer."
+        },
+        "expiryRadar.scan.timeoutSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 10,
+          "markdownDescription": "Overall collection budget. Passed to the CLI as `-timeout`, and enforced here as a hard kill a few seconds later."
+        },
+        "expiryRadar.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Publish expiring items as diagnostics on the config file, so the endpoint or domain that declared them is squiggled where you edit it."
+        },
+        "expiryRadar.diagnostics.warnWithinDays": {
+          "type": "number",
+          "default": 14,
+          "minimum": 0,
+          "description": "Items expiring within this many days are published as warnings. Anything already expired is always an error."
+        },
+        "expiryRadar.diagnostics.infoWithinDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "description": "Items expiring within this many days are published as information. Beyond it, nothing is published."
+        },
+        "expiryRadar.view.withinDays": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "Only collect items expiring within this many days (`-within`). `0` is everything — which is the point of an inventory, so raise it only if a run is too slow to be useful."
+        },
+        "expiryRadar.view.minPriority": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "Only collect items at or above this priority (`-min-priority`), 0..1."
+        },
+        "expiryRadar.status.warnWithinDays": {
+          "type": "number",
+          "default": 14,
+          "minimum": 0,
+          "description": "The status bar turns amber when the soonest item is within this many days, and red once anything has expired."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node esbuild.mjs --tests && node --test \"out/**/*.test.js\"",
+    "copy-legal": "node scripts/copy-package-files.mjs",
+    "vscode:prepublish": "npm run typecheck && npm test && node esbuild.mjs --production && npm run copy-legal",
+    "package": "npx --yes @vscode/vsce@3.9.2 package --no-dependencies",
+    "publish": "npx --yes @vscode/vsce@3.9.2 publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  }
+}

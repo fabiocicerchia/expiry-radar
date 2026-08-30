@@ -1,0 +1,69 @@
+name: publish-extension
+
+# Packaging and publishing the VS Code extension. Manual, or on a tag: the
+# extension version lives in its own package.json, so a CLI release does not
+# imply an extension release and vice versa.
+on:
+  push:
+    tags: ["vscode-v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Package only, do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-extension
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/vscode
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build the CLI
+        working-directory: .
+        run: make build
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # `package` runs vscode:prepublish first — typecheck, then the tests —
+      # so a red build never reaches the Marketplace.
+      - name: Package
+        run: npm run package
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: vsix
+          path: extensions/vscode/*.vsix
+
+      - name: Publish to the Visual Studio Marketplace
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "${VSCE_PAT}" ]; then
+            echo "VSCE_PAT is not set — skipping publish." >&2
+            exit 1
+          fi
+          npm run publish

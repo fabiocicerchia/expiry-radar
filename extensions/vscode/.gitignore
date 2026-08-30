@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+*.vsix
+
+# Copied in from the repository root at package time. There is one changelog,
+# release-please's, and this is not it.
+LICENSE
+CHANGELOG.md

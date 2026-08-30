@@ -49,6 +49,20 @@ usage or config · `3` partial results, at least one source failed. A source tha
 fails still returns what it managed to read, and the failure is printed to
 stderr — a report that quietly lost a source reads exactly like a clean estate.
 
+## Editors
+
+The same binary, in the editor: a ranked panel, diagnostics on the lines of
+`expiry-radar.json` that declared what is about to break, and the full HTML
+report in a tab.
+
+```sh
+code --install-extension fabiocicerchia.expiry-radar
+```
+
+Neovim 0.11+ users get [`extensions/nvim`](extensions/nvim) — `:ExpiryRadarReport`,
+`:ExpiryRadarList`, `:ExpiryRadarProbe`. Both live in [`extensions/`](extensions/)
+and are documented in [`docs/editors.md`](docs/editors.md).
+
 ## Documentation
 
 Full docs live in [`docs/`](docs/). Runnable examples live in [`examples/`](examples/).

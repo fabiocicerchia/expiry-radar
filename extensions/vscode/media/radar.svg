@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"
+     stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+  <!-- Concentric horizons, and the sweep that is about to cross the outer one.
+       Monochrome on purpose: the editor recolours a panel icon per theme. -->
+  <circle cx="12" cy="12" r="9.25"/>
+  <circle cx="12" cy="12" r="5.5"/>
+  <circle cx="12" cy="12" r="1.75"/>
+  <path d="M12 12 L19 6.4"/>
+</svg>
