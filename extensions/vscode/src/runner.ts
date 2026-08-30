@@ -183,7 +183,18 @@ export function hasSources(folder: vscode.WorkspaceFolder, s: Settings): boolean
 
 export function buildArgs(req: RunRequest, s: Settings, configPath: string): string[] {
   const args = ['-format', req.format];
-  if (configPath) args.push('-config', configPath);
+  if (configPath) {
+    args.push('-config', configPath);
+  } else if (req.ignoreConfig) {
+    // Not merely omitting the flag: `-config` defaults to `expiry-radar.json`,
+    // resolved against the working directory, which is the workspace folder.
+    // Omitting it on a machine that actually uses this tool would quietly
+    // collect the whole estate alongside the one host being probed — slow, and
+    // every credentialed source hit for a question about a single hostname.
+    // An empty path stats as "does not exist", which the CLI already handles as
+    // "no config"; the contract test pins that against the real binary.
+    args.push('-config', '');
+  }
 
   const endpoints = [...(req.ignoreConfig ? [] : s.endpoints), ...(req.endpoints ?? [])];
   const domains = [...(req.ignoreConfig ? [] : s.domains), ...(req.domains ?? [])];

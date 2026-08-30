@@ -45,8 +45,18 @@ describe('argv', function()
       { format = 'json', ignore_config = true, endpoints = { 'probe.example.com' } }
     )
     assert.equals('probe.example.com', args[vim.fn.index(args, '-endpoints') + 2])
-    assert.equals(-1, vim.fn.index(args, '-config'))
     assert.equals(-1, vim.fn.index(args, '-fail-within'))
+  end)
+
+  it('says "no config" out loud for a probe, rather than omitting the flag', function()
+    -- -config defaults to expiry-radar.json relative to the working directory,
+    -- so an omitted flag still reads the estate in any project that has one.
+    local args = core.argv(cfg(), { format = 'json', ignore_config = true })
+    assert.equals('', args[vim.fn.index(args, '-config') + 2])
+  end)
+
+  it('omits the flag entirely for a normal collection with no config file', function()
+    assert.equals(-1, vim.fn.index(core.argv(cfg(), { format = 'json' }), '-config'))
   end)
 
   it('pushes the filters down to the CLI, and only when they are set', function()

@@ -42,13 +42,18 @@ if vim.fn.executable(binary) ~= 1 then
 end
 
 -- A project of its own, so nobody's real expiry-radar.json can influence this.
+-- Port 2 is refused as instantly as port 1, so a probe that wrongly reads this
+-- config shows up as an extra named failure rather than as a hang.
+local CONFIGURED_HOST = '127.0.0.1:2'
+local PROBED_HOST = '127.0.0.1:1'
+
 local project = vim.fn.tempname()
 vim.fn.mkdir(project, 'p')
 local config_path = vim.fs.joinpath(project, 'expiry-radar.json')
 vim.fn.writefile({
   '{',
   '  "endpoints": [',
-  '    { "host": "127.0.0.1:1" }',
+  ('    { "host": "%s" }'):format(CONFIGURED_HOST),
   '  ]',
   '}',
 }, config_path)
@@ -94,6 +99,30 @@ check('the report says the inventory is incomplete', report:find('incomplete', 1
 -- A run that lost every source must never read as a clean estate, in the one
 -- place that is always on screen.
 check('the statusline admits it', radar.statusline():find('incomplete', 1, true) ~= nil, radar.statusline())
+
+-- --- a probe must not read the config sitting next to it ---------------------
+
+-- -config defaults to expiry-radar.json relative to the working directory, so
+-- merely omitting the flag reads the estate anyway. A probe that collected
+-- every configured source to answer a question about one hostname would be
+-- slow, would hit every credential, and would bury the answer.
+local core = require('expiry-radar.core')
+local probe_argv = core.argv(radar.config(), {
+  format = 'json',
+  ignore_config = true,
+  endpoints = { PROBED_HOST },
+})
+local probe = vim.system(
+  vim.list_extend({ binary }, probe_argv),
+  { text = true, cwd = project }
+):wait(30000)
+local probe_failures = table.concat(core.parse_warnings(probe.stderr), '\n')
+check('the probe reached the host it was asked about', probe_failures:find(PROBED_HOST, 1, true) ~= nil, probe_failures)
+check(
+  'the probe ignored the config file next to it',
+  probe_failures:find(CONFIGURED_HOST, 1, true) == nil,
+  'the config leaked into the probe: ' .. probe_failures
+)
 
 -- --- a run with no sources at all --------------------------------------------
 

@@ -63,8 +63,20 @@ test('a one-off probe drops the config, the settings and the extra args', () => 
     '',
   );
   assert.equal(args[args.indexOf('-endpoints') + 1], 'probe.example.com');
-  assert.ok(!args.includes('-config'));
   assert.ok(!args.includes('-fail-within'));
+});
+
+test('a one-off probe says "no config" out loud, rather than omitting the flag', () => {
+  // `-config` defaults to expiry-radar.json relative to the working directory,
+  // so an omitted flag still reads the estate on any machine that has one.
+  const args = buildArgs(request({ ignoreConfig: true }), settings(), '');
+  assert.equal(args[args.indexOf('-config') + 1], '');
+});
+
+test('a normal collection with no config file omits the flag entirely', () => {
+  // Nothing to be explicit about: there is no file, and the CLI's default
+  // lookup finding one later is the correct behaviour for a real collection.
+  assert.ok(!buildArgs(request(), settings(), '').includes('-config'));
 });
 
 test('the view filters are pushed down to the CLI, and only when set', () => {

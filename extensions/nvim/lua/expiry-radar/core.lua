@@ -95,6 +95,15 @@ function M.argv(cfg, opts)
   local config_path = (not opts.ignore_config) and (opts.config_path or '') or ''
   if config_path ~= '' then
     vim.list_extend(args, { '-config', config_path })
+  elseif opts.ignore_config then
+    -- Not merely omitting the flag: -config defaults to expiry-radar.json,
+    -- resolved against the working directory, which is the project root.
+    -- Omitting it in a project that actually uses this tool would quietly
+    -- collect the whole estate alongside the one host being probed -- slow, and
+    -- every credentialed source hit for a question about a single hostname.
+    -- An empty path stats as "does not exist", which the CLI already handles as
+    -- "no config".
+    vim.list_extend(args, { '-config', '' })
   end
 
   local endpoints = {}
