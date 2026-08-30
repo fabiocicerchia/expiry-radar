@@ -70,6 +70,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "expiryRadar.addItem",
+        "title": "Add Item…",
+        "category": "expiry-radar",
+        "icon": "$(add)"
+      },
+      {
         "command": "expiryRadar.showReport",
         "title": "Open Report",
         "category": "expiry-radar",
@@ -142,6 +148,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "expiryRadar.addItem",
+          "when": "view == expiryRadar.inventory",
+          "group": "navigation@0"
+        },
         {
           "command": "expiryRadar.scan",
           "when": "view == expiryRadar.inventory",

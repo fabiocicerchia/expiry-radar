@@ -124,6 +124,53 @@ check(
   'the config leaked into the probe: ' .. probe_failures
 )
 
+-- --- an entry the plugin writes must be one the CLI can read -----------------
+
+-- The two halves agree on a schema neither owns alone: the plugin renders JSON
+-- and the CLI parses it. Unit tests on either side prove only that each is
+-- self-consistent.
+local recorded = vim.fn.tempname()
+vim.fn.mkdir(recorded, 'p')
+local recorded_config = vim.fs.joinpath(recorded, 'expiry-radar.json')
+local text = ''
+for _, entry in ipairs({
+  { kind = 'domain', value = 'acme-corp.co.uk' },
+  { kind = 'endpoint', value = PROBED_HOST },
+  { kind = 'manual', value = { name = 'code-signing', kind = 'tls_cert', expires = '2027-03-01' } },
+}) do
+  text = core.add_to_array(text, core.ARRAY_FOR[entry.kind], core.render_entry(entry.kind, entry.value))
+end
+vim.fn.writefile(vim.split(text, '\n'), recorded_config, 'b')
+
+local recorded_run = vim.system(
+  { binary, '-format', 'json', '-config', recorded_config, '-within', '0' },
+  { text = true, cwd = recorded }
+):wait(30000)
+-- Exit 2 is "bad usage or config": the one outcome that means the plugin wrote
+-- something the CLI cannot load.
+check('the CLI loads a config the plugin wrote', recorded_run.code ~= 2, recorded_run.stderr)
+local decoded_ok, recorded_report = pcall(vim.json.decode, recorded_run.stdout or '')
+check('the recorded config produced a report', decoded_ok and type(recorded_report) == 'table')
+if decoded_ok then
+  local names = {}
+  for _, item in ipairs(recorded_report.items or {}) do
+    names[item.name] = item.source
+  end
+  -- The manual item is the one nothing could have discovered, and the only one
+  -- of the three that needs no network, so it is the one that proves recording
+  -- works at all.
+  check('the manually recorded item came back', names['code-signing'] == 'manual', vim.inspect(names))
+
+  -- The other two arrays are proved by their sources having been *attempted*.
+  -- Asserting that a TLS dial or an RDAP query succeeds is not something an
+  -- offline test can do, and pretending otherwise would make this suite fail on
+  -- a train rather than when something is broken.
+  local attempted = (recorded_run.stderr or '') .. table.concat(vim.tbl_keys(names), ' ')
+  check('the recorded endpoint was attempted', attempted:find(PROBED_HOST, 1, true) ~= nil, attempted)
+  check('the recorded domain was attempted', attempted:find('acme%-corp%.co%.uk') ~= nil, attempted)
+end
+vim.fn.delete(recorded, 'rf')
+
 -- --- a run with no sources at all --------------------------------------------
 
 vim.fn.delete(config_path)

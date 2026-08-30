@@ -29,8 +29,10 @@ function positionOf(text: string, offset: number): { line: number; column: numbe
 /**
  * The `[...]` that follows `"key"`, as offsets into the text. String-aware, so
  * a bracket inside a value cannot close the array early.
+ *
+ * Exported for edit.ts, which appends to the same arrays this one reads.
  */
-function arraySpan(text: string, key: string): [number, number] | undefined {
+export function arraySpan(text: string, key: string): [number, number] | undefined {
   const at = text.search(new RegExp(`"${key}"\\s*:\\s*\\[`));
   if (at < 0) return undefined;
   const open = text.indexOf('[', at);

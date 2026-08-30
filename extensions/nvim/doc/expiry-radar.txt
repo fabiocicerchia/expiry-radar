@@ -12,6 +12,7 @@ CONTENTS                                                *expiry-radar-contents*
   7. Statusline ............................. |expiry-radar-statusline|
   8. API .................................... |expiry-radar-api|
   9. Health ................................. |expiry-radar-health|
+ 10. Recording items ........................ |expiry-radar-recording|
 
 ==============================================================================
 1. INTRODUCTION                                     *expiry-radar-introduction*
@@ -117,6 +118,26 @@ Sources are opt-in: nothing runs implicitly. Point the plugin at an
                         `json`, `prometheus`. Prompts when given nothing.
                         The iCal feed is renewals as calendar events, with the
                         alarm lead time set by blast radius.
+
+                                                             *:ExpiryRadarAdd*
+:ExpiryRadarAdd         Record something. Most of the inventory is discovered —
+                        you grant read access and the sources enumerate — but
+                        three things are recorded: an endpoint to probe, a
+                        domain to look up, and a `manual` item for what nothing
+                        can discover at all (a registrar with no RDAP, a
+                        credential rotated by hand, a code-signing certificate
+                        on somebody's laptop).
+
+                        Prompts for the kind first, seeds the value from the
+                        host under the cursor, and validates the date against
+                        the same rule the CLI applies — so it cannot write a
+                        config the CLI then refuses to load. Appends as text, so
+                        your indentation and key order survive, opens the file
+                        at the new line, and collects straight away.
+
+                        For a manual item the kind is not cosmetic: it picks the
+                        base blast radius, which decides where the item lands in
+                        the ranking.
 
                                                           *:ExpiryRadarConfig*
 :ExpiryRadarConfig      Open the config file, creating it from
@@ -235,5 +256,41 @@ every source the config enables — whether the credentials that source needs
 are actually in the environment Neovim was launched from. Credentials never
 come from the config file, so an enabled source with an empty environment is
 the most common way to get a clean-looking report missing an entire account.
+
+==============================================================================
+10. RECORDING ITEMS                                    *expiry-radar-recording*
+
+The sources split in two.
+
+*Discovered* — you grant read access and the source enumerates: `k8s`, `vault`,
+`aws`, and the chain intermediates behind every endpoint. You never list these,
+which is the point: the ones that bite are the ones nobody remembered to list.
+
+*Recorded* — you name it and a source reads its deadline: `endpoints` (dialled
+over TLS) and `domains` (looked up over RDAP).
+
+Between them sits everything that expires that no system will tell you about.
+That is what `manual` is for: >json
+
+    {
+      "manual": [
+        { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01",
+          "labels": { "public": "true" } },
+        { "name": "code-signing", "kind": "tls_cert", "expires": "2026-11-15",
+          "namespace": "release" }
+      ]
+    }
+<
+`expires` takes YYYY-MM-DD or a full RFC 3339 timestamp; a bare day means its
+start in UTC, which errs towards warning early. `kind` is one of `tls_cert`,
+`intermediate_ca`, `secret`, `iam_access_key`, `vault_lease`, `domain`, and it
+picks the base blast radius rather than being a label — a misspelt one is
+rejected at load rather than ranked on a middling default.
+
+Otherwise a manual item is treated exactly like a discovered one: `namespace`
+and `labels` feed the same evidence, and `overrides` match it by name. Nothing
+sits at the bottom of the report for having been typed in.
+
+|:ExpiryRadarAdd| writes these for you.
 
 vim:tw=78:ts=8:ft=help:norl:

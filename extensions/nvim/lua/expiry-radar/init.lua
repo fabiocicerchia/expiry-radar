@@ -540,6 +540,106 @@ function M.export(format, path)
   )
 end
 
+--- Record something.
+---
+--- Two of the six kinds of item are recorded rather than discovered -- a host
+--- to probe and a domain to look up -- and the third option is for what nothing
+--- can find at all: a registrar with no RDAP, a credential rotated by hand, a
+--- code-signing certificate on somebody's laptop.
+function M.add_item()
+  local choices = {
+    { entry = 'endpoint', label = 'Endpoint', hint = 'a host to probe over TLS, chain included' },
+    { entry = 'domain', label = 'Domain', hint = 'a registration to check via RDAP' },
+    { entry = 'manual', label = 'Something nothing can discover', hint = 'a date you know' },
+  }
+  vim.ui.select(choices, {
+    prompt = 'Record what?',
+    format_item = function(choice)
+      return string.format('%-32s %s', choice.label, choice.hint)
+    end,
+  }, function(choice)
+    if not choice then
+      return
+    end
+    if choice.entry == 'manual' then
+      return M.prompt_manual(function(entry)
+        M.write_entry(choice.entry, entry)
+      end)
+    end
+    local seeded = core.host_at_cursor(vim.api.nvim_get_current_line())
+    vim.ui.input({
+      prompt = choice.entry == 'endpoint' and 'Host to probe: ' or 'Domain: ',
+      default = seeded ~= '' and seeded or nil,
+    }, function(value)
+      if value and vim.trim(value) ~= '' then
+        M.write_entry(choice.entry, value)
+      end
+    end)
+  end)
+end
+
+--- Name, then kind, then date. The kind is not cosmetic: it picks the base
+--- blast radius, which is what decides where this lands in the ranking.
+function M.prompt_manual(done)
+  local seeded = core.host_at_cursor(vim.api.nvim_get_current_line())
+  vim.ui.input({ prompt = 'What is it? ', default = seeded ~= '' and seeded or nil }, function(name)
+    if not name or vim.trim(name) == '' then
+      return
+    end
+    vim.ui.select(core.MANUAL_KINDS, {
+      prompt = 'What kind? (this sets its base blast radius)',
+      format_item = function(k)
+        return string.format('%-18s %s', k.label, k.hint)
+      end,
+    }, function(kind)
+      if not kind then
+        return
+      end
+      vim.ui.input({ prompt = 'Expires (YYYY-MM-DD): ' }, function(expires)
+        if not expires then
+          return
+        end
+        local bad = core.invalid_expires(expires)
+        if bad then
+          return notify(bad, vim.log.levels.ERROR)
+        end
+        done({ name = name, kind = kind.kind, expires = expires })
+      end)
+    end)
+  end)
+end
+
+--- Write one entry into the config, show it, and collect so the row appears.
+function M.write_entry(entry_kind, value)
+  local root = M.root()
+  local target = core.resolve_config(root, cfg)
+  if target == '' then
+    target = vim.fs.joinpath(root, cfg.config_path ~= '' and cfg.config_path or 'expiry-radar.json')
+  end
+  local existing = ''
+  if vim.uv.fs_stat(target) then
+    existing = table.concat(vim.fn.readfile(target), '\n')
+  end
+
+  local text, line = core.add_to_array(
+    existing,
+    core.ARRAY_FOR[entry_kind],
+    core.render_entry(entry_kind, value)
+  )
+  local ok, err = pcall(vim.fn.writefile, vim.split(text, '\n'), target, 'b')
+  if not ok then
+    return notify('could not write ' .. target .. ': ' .. tostring(err), vim.log.levels.ERROR)
+  end
+
+  -- Shown, not just written: the entry is now the operator's to check, and a
+  -- config edited invisibly is one nobody trusts.
+  vim.cmd.edit(vim.fn.fnameescape(target))
+  pcall(vim.api.nvim_win_set_cursor, 0, { line, 0 })
+  -- Straight into a collection, so the row appears in the list rather than
+  -- waiting for the next refresh to prove the edit worked.
+  M.collect({ manual = true, reason = 'item added' })
+end
+
 function M.open_config()
   local root = M.root()
   local existing = core.resolve_config(root, cfg)

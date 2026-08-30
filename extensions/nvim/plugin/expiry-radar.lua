@@ -55,6 +55,10 @@ end, {
   desc = 'expiry-radar: render a report to a file',
 })
 
+command('ExpiryRadarAdd', function()
+  ready().add_item()
+end, { desc = 'expiry-radar: record an endpoint, a domain, or something nothing can discover' })
+
 command('ExpiryRadarConfig', function()
   ready().open_config()
 end, { desc = 'expiry-radar: open (or create) the config file' })

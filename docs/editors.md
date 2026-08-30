@@ -14,6 +14,7 @@ the editor and the report on the build server are the same document.
 | Full HTML report | webview tab | export, then open |
 | Export (HTML / iCal / JSON / Prometheus) | yes | yes |
 | Probe one host | yes | yes |
+| Record an item | **Add Item…** | `:ExpiryRadarAdd` |
 | Environment check | Doctor command | `:checkhealth expiry-radar` |
 
 ## From a checkout
@@ -64,6 +65,27 @@ Neovim 0.11 or newer. With lazy.nvim:
 list, `:ExpiryRadarProbe` for one host. `:help expiry-radar` is the full
 reference; the source is in
 [`extensions/nvim/`](https://github.com/fabiocicerchia/expiry-radar/tree/main/extensions/nvim).
+
+## Recording items
+
+Most of the inventory is discovered — you grant read access and the sources
+enumerate. Three things are recorded instead, and both editors write them into
+`expiry-radar.json` for you rather than leaving you in a JSON editor: an
+endpoint to probe, a domain to look up, and a `manual` item for what nothing
+can discover at all (see [Sources](sources.md#recorded-or-discovered)).
+
+VS Code: **expiry-radar: Add Item…**, or the `+` in the panel title bar.
+Neovim: `:ExpiryRadarAdd`.
+
+Both prompt for the kind first, seed the value from your selection or the host
+under the cursor, and validate the date against the same rule the CLI applies —
+so the editor cannot write a config the CLI then refuses to load. The file is
+opened at the new line afterwards, because a config edited invisibly is one
+nobody trusts, and a collection runs immediately so the row appears rather than
+waiting for the next refresh to prove the edit worked.
+
+The entry is appended as text, not re-serialised: adding one host gives you a
+one-line diff, and your indentation, key order and one-line arrays survive.
 
 ## What both of them refuse to do
 

@@ -52,12 +52,18 @@ File** creates an `expiry-radar.json` from the repository's own example, or set
   radius), JSON for CI, or a Prometheus scrape body.
 - **Probe a host.** One hostname, right now, ignoring the config: its
   certificate, its chain and its registration.
+- **Record what nothing can discover.** Most of the inventory is discovered, but
+  a registrar with no RDAP, a credential rotated by hand or a code-signing
+  certificate on somebody's laptop has to be written down. **Add Item…** writes
+  it into the config for you, validates the date against the CLI's own rule, and
+  collects straight away.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | expiry-radar: Refresh Inventory | Collect now |
+| expiry-radar: Add Item… | Record an endpoint, a domain, or something nothing can discover |
 | expiry-radar: Open Report | The HTML report in a tab |
 | expiry-radar: Export Report… | Render HTML / iCal / JSON / Prometheus to a file |
 | expiry-radar: Probe a Host… | One host, ignoring the config |

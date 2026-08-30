@@ -44,6 +44,12 @@ Copy `expiry-radar.example.json` to `expiry-radar.json` to enable the
 credentialed sources. Flags add to the config rather than replacing it, so a
 one-off probe needs no config file at all.
 
+Most of the inventory is **discovered** — grant read access and the sources
+enumerate. `endpoints` and `domains` you **record**, and `manual` holds what
+nothing can discover: a registrar with no RDAP, a credential rotated by hand, a
+code-signing certificate on somebody's laptop. Manual items are ranked by the
+same rules as everything else — see [`docs/sources.md`](docs/sources.md).
+
 Exit codes: `0` clean · `1` a `-fail-within` threshold was breached · `2` bad
 usage or config · `3` partial results, at least one source failed. A source that
 fails still returns what it managed to read, and the failure is printed to

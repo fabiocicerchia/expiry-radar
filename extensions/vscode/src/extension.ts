@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { readSettings, Settings } from './config';
 import { DiagnosticGroup, DiagnosticPublisher } from './diagnostics';
 import { runDoctor } from './doctor';
+import { addToArray, ARRAY_FOR, EntryKind, invalidExpires, MANUAL_KINDS, renderEntry } from './edit';
 import { InventoryView, Node } from './inventoryView';
 import { declaredIn } from './locate';
 import { disposeLog, log } from './log';
@@ -385,6 +386,123 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   };
 
+  /**
+   * Record something. Two of the six kinds of item are recorded rather than
+   * discovered — a host to probe and a domain to look up — and the third option
+   * is for what nothing can find at all: a registrar with no RDAP, a credential
+   * rotated by hand, a code-signing certificate on somebody's laptop.
+   *
+   * The panel is where you are standing when you notice something is missing,
+   * so this writes the config for you rather than leaving you in a JSON editor.
+   */
+  const addItem = async (): Promise<void> => {
+    const folder = primaryFolder();
+    if (!folder) {
+      void vscode.window.showWarningMessage('expiry-radar: open a folder first.');
+      return;
+    }
+    const what = await vscode.window.showQuickPick(
+      [
+        {
+          label: 'Endpoint',
+          detail: 'A host to probe over TLS — its certificate and every intermediate in its chain.',
+          entry: 'endpoint' as EntryKind,
+        },
+        {
+          label: 'Domain',
+          detail: 'A registration to check via RDAP.',
+          entry: 'domain' as EntryKind,
+        },
+        {
+          label: 'Something nothing can discover',
+          detail:
+            'A date you know: a registrar with no RDAP, a credential rotated by hand, a contract.',
+          entry: 'manual' as EntryKind,
+        },
+      ],
+      { title: 'expiry-radar: record what?', placeHolder: 'Everything else is discovered, not recorded' },
+    );
+    if (!what) return;
+
+    const rendered = await promptEntry(what.entry);
+    if (!rendered) return;
+
+    const s = settingsFor(folder);
+    const target = resolveConfig(folder, s) || path.join(folder.uri.fsPath, s.configPath || 'expiry-radar.json');
+    let existing = '';
+    try {
+      existing = await fs.promises.readFile(target, 'utf8');
+    } catch {
+      // No config yet: addToArray writes one around the entry.
+    }
+    const { text, line } = addToArray(existing, ARRAY_FOR[what.entry], rendered);
+    await fs.promises.writeFile(target, text, 'utf8');
+
+    // Shown, not just written: the entry is now the operator's to check, and a
+    // config edited invisibly is one nobody trusts.
+    const doc = await vscode.workspace.openTextDocument(target);
+    const editor = await vscode.window.showTextDocument(doc);
+    const at = new vscode.Range(line - 1, 0, line - 1, 0);
+    editor.selection = new vscode.Selection(at.start, at.start);
+    editor.revealRange(at);
+
+    // Straight into a collection, so the row appears in the panel rather than
+    // waiting for the next refresh to prove the edit worked.
+    await run('item added');
+  };
+
+  /** The prompts for one kind of entry, or undefined if the user backed out. */
+  const promptEntry = async (kind: EntryKind): Promise<string | undefined> => {
+    if (kind !== 'manual') {
+      const isHost = kind === 'endpoint';
+      const value = await vscode.window.showInputBox({
+        title: isHost ? 'expiry-radar: record an endpoint' : 'expiry-radar: record a domain',
+        prompt: isHost ? 'Host to probe over TLS. Port optional.' : 'Domain to check via RDAP.',
+        placeHolder: isHost ? 'shop.example.com' : 'example.com',
+        value: selectedText(),
+        validateInput: (v) => (v.trim() ? undefined : 'A value is required.'),
+      });
+      return value?.trim() ? renderEntry(kind, value) : undefined;
+    }
+
+    const name = await vscode.window.showInputBox({
+      title: 'expiry-radar: record an item — 1 of 3',
+      prompt: 'What is it? This is the name the report will show.',
+      placeHolder: 'acme-corp.co.uk',
+      value: selectedText(),
+      validateInput: (v) => (v.trim() ? undefined : 'A name is required.'),
+    });
+    if (!name?.trim()) return undefined;
+
+    // The kind is not cosmetic: it picks the base blast radius, which is what
+    // decides where this lands in the ranking.
+    const kindPick = await vscode.window.showQuickPick(
+      MANUAL_KINDS.map((k) => ({ label: k.label, detail: k.hint, itemKind: k.kind })),
+      {
+        title: 'expiry-radar: record an item — 2 of 3',
+        placeHolder: 'What kind? This sets its base blast radius.',
+      },
+    );
+    if (!kindPick) return undefined;
+
+    const expires = await vscode.window.showInputBox({
+      title: 'expiry-radar: record an item — 3 of 3',
+      prompt: 'When does it expire? YYYY-MM-DD, or a full RFC 3339 timestamp.',
+      placeHolder: '2027-03-01',
+      validateInput: invalidExpires,
+    });
+    if (!expires?.trim()) return undefined;
+
+    return renderEntry('manual', { name, kind: kindPick.itemKind, expires });
+  };
+
+  /** A selection is usually the thing being recorded — offer it as the default. */
+  const selectedText = (): string => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.selection.isEmpty) return '';
+    return editor.document.getText(editor.selection).trim();
+  };
+
   const openConfig = async (): Promise<void> => {
     const folder = primaryFolder();
     if (!folder) return;
@@ -451,6 +569,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('expiryRadar.showReport', () => openReport(false)),
     vscode.commands.registerCommand('expiryRadar.exportReport', () => exportReport()),
     vscode.commands.registerCommand('expiryRadar.probeHost', () => probeHost()),
+    vscode.commands.registerCommand('expiryRadar.addItem', () => addItem()),
     vscode.commands.registerCommand('expiryRadar.openConfig', () => openConfig()),
     vscode.commands.registerCommand('expiryRadar.cancel', () => scheduler.cancel()),
     vscode.commands.registerCommand('expiryRadar.showLog', () => log().show(true)),

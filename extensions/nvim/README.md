@@ -55,11 +55,18 @@ Sources are opt-in — nothing runs implicitly. `:ExpiryRadarConfig` creates an
 `expiry-radar.json` from the repository's own example, or set `endpoints` and
 `domains` in `setup()` for a project with no config file.
 
+Most of the inventory is *discovered*; `:ExpiryRadarAdd` *records* the rest — an
+endpoint to probe, a domain to look up, or a `manual` item for what nothing can
+discover at all (a registrar with no RDAP, a credential rotated by hand). It
+writes the config for you, validates the date against the CLI's own rule, and
+collects straight away.
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `:ExpiryRadar` | Collect now |
+| `:ExpiryRadarAdd` | Record an endpoint, a domain, or something nothing can discover |
 | `:ExpiryRadarReport` | The inventory in a float, grouped by deadline |
 | `:ExpiryRadarList` | Every item in the quickfix list |
 | `:ExpiryRadarFilter` | One deadline window or kind → quickfix |
