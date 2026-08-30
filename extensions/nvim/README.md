@@ -67,6 +67,7 @@ collects straight away.
 | --- | --- |
 | `:ExpiryRadar` | Collect now |
 | `:ExpiryRadarAdd` | Record an endpoint, a domain, or something nothing can discover |
+| `:ExpiryRadarRemove` | Stop tracking a recorded item |
 | `:ExpiryRadarReport` | The inventory in a float, grouped by deadline |
 | `:ExpiryRadarList` | Every item in the quickfix list |
 | `:ExpiryRadarFilter` | One deadline window or kind → quickfix |

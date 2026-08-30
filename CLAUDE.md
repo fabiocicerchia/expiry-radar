@@ -15,6 +15,7 @@ cert on the payment path outranks the one on a staging dashboard. Go, `cmd/` +
 ```sh
 make help         # every verb this repo exposes
 make build        # compile the binary into ./bin
+make install      # install the binary for the current user (PREFIX= for a system path)
 make test         # run tests
 make tidy         # tidy modules
 make clean        # remove build artifacts

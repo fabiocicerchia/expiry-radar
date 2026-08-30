@@ -141,6 +141,12 @@
         "icon": "$(expand-all)"
       },
       {
+        "command": "expiryRadar.removeItem",
+        "title": "Stop Tracking This Item",
+        "category": "expiry-radar",
+        "icon": "$(trash)"
+      },
+      {
         "command": "expiryRadar.copyItem",
         "title": "Copy Details",
         "category": "expiry-radar"
@@ -212,7 +218,18 @@
       "view/item/context": [
         {
           "command": "expiryRadar.copyItem",
-          "when": "view == expiryRadar.inventory && viewItem == expiryRadarItem"
+          "when": "view == expiryRadar.inventory && viewItem =~ /expiryRadar(Item|Recorded)/",
+          "group": "1_copy"
+        },
+        {
+          "command": "expiryRadar.removeItem",
+          "when": "view == expiryRadar.inventory && viewItem == expiryRadarRecorded",
+          "group": "2_edit"
+        },
+        {
+          "command": "expiryRadar.removeItem",
+          "when": "view == expiryRadar.inventory && viewItem == expiryRadarRecorded",
+          "group": "inline"
         }
       ],
       "commandPalette": [
@@ -230,6 +247,10 @@
         },
         {
           "command": "expiryRadar.copyItem",
+          "when": "false"
+        },
+        {
+          "command": "expiryRadar.removeItem",
           "when": "false"
         }
       ]
@@ -349,7 +370,13 @@
           "description": "The status bar turns amber when the soonest item is within this many days, and red once anything has expired."
         }
       }
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "expiryRadar.inventory",
+        "contents": "No inventory yet.\n\nMost of what expires is *discovered* — point expiry-radar at Kubernetes, Vault or AWS and it enumerates. Endpoints, domains, and anything nothing can discover are *recorded* by you.\n\n[Add an item](command:expiryRadar.addItem)\n[Refresh inventory](command:expiryRadar.scan)\n[Open the config file](command:expiryRadar.openConfig)\n\nNothing runs implicitly: every source is opt-in."
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",

@@ -59,6 +59,10 @@ command('ExpiryRadarAdd', function()
   ready().add_item()
 end, { desc = 'expiry-radar: record an endpoint, a domain, or something nothing can discover' })
 
+command('ExpiryRadarRemove', function()
+  ready().remove_item()
+end, { desc = 'expiry-radar: stop tracking a recorded item' })
+
 command('ExpiryRadarConfig', function()
   ready().open_config()
 end, { desc = 'expiry-radar: open (or create) the config file' })

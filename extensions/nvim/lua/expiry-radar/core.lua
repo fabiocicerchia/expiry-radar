@@ -205,7 +205,26 @@ end
 --- line to point at. Everything else was discovered: a certificate on an
 --- Ingress was never written down here, and squiggling a config line for it
 --- would be a lie.
-M.DECLARED_BY = { ['tls:endpoint'] = true, ['domain:rdap'] = true, ['domain:whois'] = true }
+M.DECLARED_BY = {
+  ['tls:endpoint'] = true,
+  ['domain:rdap'] = true,
+  ['domain:whois'] = true,
+  ['manual'] = true,
+}
+
+--- Which config array an item's source records into, or nil if it was
+--- discovered. A discovered item has no entry to delete -- removing a line
+--- would not remove a certificate from an Ingress.
+function M.array_for_source(source)
+  if source == 'tls:endpoint' then
+    return 'endpoints'
+  elseif source == 'domain:rdap' or source == 'domain:whois' then
+    return 'domains'
+  elseif source == 'manual' then
+    return 'manual'
+  end
+  return nil
+end
 
 --- Rows the editor can place, from one decoded report.
 ---@param report table decoded `-format json` output
@@ -358,6 +377,23 @@ function M.declared_in(text)
       local quote = section:sub(s, e):find('"[^"]*"$')
       record(M.unescape(value), from + s - 1 + quote - 1)
       at = e + 1
+    end
+  end
+
+  -- Manual entries are keyed by `name`, which is exactly what the CLI reports
+  -- as the item's name -- the same equality the other two rely on.
+  from, to = array_span(text, 'manual')
+  if from then
+    local section = text:sub(from, to)
+    local at = 1
+    while true do
+      local start, stop, value = section:find('"name"%s*:%s*"(.-)"', at)
+      if not start then
+        break
+      end
+      local quote = section:sub(start, stop):find('"[^"]*"$')
+      record(M.unescape(value), from + start - 1 + quote - 1)
+      at = stop + 1
     end
   end
 
@@ -596,6 +632,111 @@ function M.add_to_array(text, key, entry)
     .. ']\n'
     .. text:sub(brace)
   return next_text, line_of(next_text, newline_at + 1)
+end
+
+--- The offset of a 1-based line and column.
+local function offset_of(text, line, column)
+  local lines = vim.split(text, '\n')
+  if line < 1 or line > #lines then
+    return -1
+  end
+  local offset = 0
+  for i = 1, line - 1 do
+    offset = offset + #lines[i] + 1
+  end
+  return offset + column
+end
+
+--- The start and end offset of each element of an array, at its own depth only.
+local function element_spans(text, open, close)
+  local spans = {}
+  local depth, in_string, start = 0, false, nil
+  for i = open + 1, close - 1 do
+    local ch = text:sub(i, i)
+    if in_string then
+      if ch == '\\' then
+        i = i + 1
+      elseif ch == '"' then
+        in_string = false
+      end
+    else
+      if depth == 0 and not start and not ch:match('%s') and ch ~= ',' then
+        start = i
+      end
+      if ch == '"' then
+        in_string = true
+      elseif ch == '[' or ch == '{' then
+        depth = depth + 1
+      elseif ch == ']' or ch == '}' then
+        depth = depth - 1
+      elseif ch == ',' and depth == 0 and start then
+        spans[#spans + 1] = { start, i - 1 }
+        start = nil
+      end
+    end
+  end
+  if start then
+    spans[#spans + 1] = { start, close - 1 }
+  end
+  for _, span in ipairs(spans) do
+    -- Trailing whitespace belongs to the layout, not the element.
+    span[2] = span[1] + #(text:sub(span[1], span[2]):gsub('%s+$', '')) - 1
+  end
+  return spans
+end
+
+--- Remove the entry recorded at `line`/`column` from the array under `key`.
+---
+--- Bounded to that array by construction: the element is picked from the
+--- array's own elements rather than by balancing brackets out from a line.
+--- Addressing by line alone looked simpler and would have deleted the entire
+--- config on a one-line file, where line 1 begins with the document's own
+--- opening brace.
+---
+--- Returns nil when the position names no element, which is the right answer
+--- when the file has been edited since the collection that reported it.
+function M.remove_entry(text, key, line, column)
+  local open, close = array_span(text, key)
+  if not open then
+    return nil
+  end
+  local offset = offset_of(text, line, column)
+  if offset < 0 or offset < open or offset > close then
+    return nil
+  end
+
+  local from, to
+  for _, span in ipairs(element_spans(text, open, close)) do
+    if offset >= span[1] and offset <= span[2] then
+      from, to = span[1], span[2]
+      break
+    end
+  end
+  if not from then
+    return nil
+  end
+
+  -- Swallow the separator: the comma after it, or the one before it when this
+  -- was the last element. Leaving either behind produces invalid JSON.
+  local after_start, after_stop = text:find('^%s*,', to + 1)
+  if after_start then
+    to = after_stop
+    local _, line_stop = text:find('^[ \t]*\n?', to + 1)
+    if line_stop then
+      to = line_stop
+    end
+  else
+    local before_start = text:sub(1, from - 1):find(',%s*$')
+    if before_start then
+      from = before_start
+    end
+  end
+  local indent_start = text:sub(1, from - 1):find('[ \t]*$')
+  if indent_start then
+    from = indent_start
+  end
+
+  return text:sub(1, from - 1) .. text:sub(to + 1)
 end
 
 return M

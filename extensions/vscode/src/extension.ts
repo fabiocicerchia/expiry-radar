@@ -6,7 +6,16 @@ import * as vscode from 'vscode';
 import { readSettings, Settings } from './config';
 import { DiagnosticGroup, DiagnosticPublisher } from './diagnostics';
 import { runDoctor } from './doctor';
-import { addToArray, ARRAY_FOR, EntryKind, invalidExpires, MANUAL_KINDS, renderEntry } from './edit';
+import {
+  addToArray,
+  ARRAY_FOR,
+  EntryKind,
+  invalidExpires,
+  MANUAL_KINDS,
+  arrayForSource,
+  removeEntry,
+  renderEntry,
+} from './edit';
 import { InventoryView, Node } from './inventoryView';
 import { declaredIn } from './locate';
 import { disposeLog, log } from './log';
@@ -30,11 +39,12 @@ import { Item, Snapshot } from './types';
 const ERROR_COOLDOWN_MS = 60_000;
 
 /**
- * The sources whose items were declared in the config file, and so have a line
- * to point at. Everything else was discovered — a certificate on an Ingress was
- * never written down here, and squiggling a config line for it would be a lie.
+ * The sources whose items were *recorded* in the config file, and so have a line
+ * to point at and an entry to remove. Everything else was discovered — a
+ * certificate on an Ingress was never written down here, so squiggling a config
+ * line for it would be a lie, and offering to delete it would be worse.
  */
-const DECLARED_BY = new Set(['tls:endpoint', 'domain:rdap', 'domain:whois']);
+const DECLARED_BY = new Set(['tls:endpoint', 'domain:rdap', 'domain:whois', 'manual']);
 
 export function activate(context: vscode.ExtensionContext): void {
   const store = new ResultStore();
@@ -533,6 +543,55 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(target));
   };
 
+  /**
+   * Stop tracking a recorded item.
+   *
+   * Only offered on rows the config recorded. A discovered item has no entry to
+   * delete — removing a line would not remove a certificate from an Ingress —
+   * and offering it would imply this tool writes to your estate, which it never
+   * does.
+   */
+  const removeItem = async (node?: Node): Promise<void> => {
+    if (!node || node.kind !== 'item' || !node.item.origin) return;
+    const item = node.item;
+    const origin = item.origin!;
+
+    const confirmed = await vscode.window.showWarningMessage(
+      `Stop tracking ${item.display}?`,
+      { modal: true, detail: `Removes its entry from ${path.basename(origin.file)}. Nothing in your estate is touched.` },
+      'Remove',
+    );
+    if (confirmed !== 'Remove') return;
+
+    let text: string;
+    try {
+      text = await fs.promises.readFile(origin.file, 'utf8');
+    } catch (err) {
+      void vscode.window.showErrorMessage(`expiry-radar: could not read the config: ${String(err)}`);
+      return;
+    }
+    // The line came from the last collection; the file may have been edited
+    // since. Removing whatever now sits on that line would delete the wrong
+    // entry, so check it still names this item before touching anything.
+    const onLine = text.split('\n')[origin.line - 1] ?? '';
+    if (!onLine.includes(item.name)) {
+      void vscode.window.showWarningMessage(
+        `expiry-radar: ${path.basename(origin.file)} has changed since the last collection — refresh and try again.`,
+      );
+      return;
+    }
+    const key = arrayForSource(item.source);
+    const next = key ? removeEntry(text, key, origin.line, origin.column) : undefined;
+    if (next === undefined) {
+      void vscode.window.showWarningMessage(
+        `expiry-radar: could not find the entry for ${item.display} to remove.`,
+      );
+      return;
+    }
+    await fs.promises.writeFile(origin.file, next, 'utf8');
+    await run('item removed');
+  };
+
   const copyItem = async (node?: Node): Promise<void> => {
     if (!node || node.kind !== 'item') return;
     const item = node.item;
@@ -577,6 +636,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('expiryRadar.groupByKind', () => inventoryView.setGrouping('kind')),
     vscode.commands.registerCommand('expiryRadar.groupByRank', () => inventoryView.setGrouping('rank')),
     vscode.commands.registerCommand('expiryRadar.expandAll', () => inventoryView.expandAll()),
+    vscode.commands.registerCommand('expiryRadar.removeItem', (node?: Node) => removeItem(node)),
     vscode.commands.registerCommand('expiryRadar.copyItem', (node?: Node) => copyItem(node)),
     vscode.commands.registerCommand('expiryRadar.checkEnvironment', async () => {
       const folder = primaryFolder();

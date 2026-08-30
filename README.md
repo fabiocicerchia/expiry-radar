@@ -26,7 +26,9 @@ go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest
 Or from a checkout:
 
 ```sh
-make build      # -> ./bin/
+make build                    # -> ./bin/
+make install                  # -> $GOBIN, or $GOPATH/bin
+make install PREFIX=/usr/local  # -> /usr/local/bin
 ```
 
 ## Usage

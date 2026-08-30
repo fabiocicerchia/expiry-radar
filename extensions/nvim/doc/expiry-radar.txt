@@ -139,6 +139,21 @@ Sources are opt-in: nothing runs implicitly. Point the plugin at an
                         base blast radius, which decides where the item lands in
                         the ranking.
 
+                                                          *:ExpiryRadarRemove*
+:ExpiryRadarRemove      Stop tracking a recorded item. Lists what the config
+                        recorded and removes the one you pick.
+
+                        Only recorded items are offered. A discovered one has
+                        no entry to delete — removing a line would not remove a
+                        certificate from an Ingress — and offering it would
+                        imply this tool writes to your estate, which it never
+                        does. To change an entry rather than remove it, use
+                        |:ExpiryRadarList| and jump to its line.
+
+                        Refuses outright if the config has changed since the
+                        collection that reported the position: better to ask for
+                        a refresh than to delete the wrong entry.
+
                                                           *:ExpiryRadarConfig*
 :ExpiryRadarConfig      Open the config file, creating it from
                         `expiry-radar.example.json` if there isn't one.

@@ -12,7 +12,7 @@ NVIM       ?= nvim
 NVIM_SITE  := $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/nvim/site
 NVIM_LINK  := $(NVIM_SITE)/pack/expiry-radar/start/expiry-radar
 
-.PHONY: all build test tidy clean help lint setup \
+.PHONY: all build install uninstall test tidy clean help lint setup \
         ext-build ext-test ext-install ext-uninstall ext-clean
 
 .DEFAULT_GOAL := help
@@ -29,6 +29,38 @@ all: build
 ## build: compile the binary into ./bin
 build:
 	go build -o $(BIN_DIR)/$(BINARY) $(PKG)
+
+## install: install the binary for the current user (PREFIX=/usr/local for a system path)
+# `go install` by default, so it lands wherever this machine's Go is configured
+# to put binaries and stays consistent with the `go install ...@latest` in the
+# README — the difference being that this installs the working tree, which is
+# the whole reason to run it from a checkout.
+install:
+ifeq ($(strip $(PREFIX)),)
+	go install $(PKG)
+	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
+	  echo "installed $$dir/$(BINARY)"; \
+	  case ":$$PATH:" in \
+	    *":$$dir:"*) ;; \
+	    *) echo "  note: $$dir is not on your PATH, so \`$(BINARY)\` will not resolve."; \
+	       echo "        The editor integrations look there anyway.";; \
+	  esac
+else
+	@$(MAKE) build
+	install -d "$(DESTDIR)$(PREFIX)/bin"
+	install -m 0755 $(BIN_DIR)/$(BINARY) "$(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+	@echo "installed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+endif
+
+## uninstall: remove the binary installed by `make install`
+uninstall:
+ifeq ($(strip $(PREFIX)),)
+	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
+	  rm -f "$$dir/$(BINARY)" && echo "removed $$dir/$(BINARY)"
+else
+	rm -f "$(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+	@echo "removed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+endif
 
 ## test: run tests
 test:

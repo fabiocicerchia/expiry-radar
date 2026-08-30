@@ -58,12 +58,18 @@ File** creates an `expiry-radar.json` from the repository's own example, or set
   it into the config for you, validates the date against the CLI's own rule, and
   collects straight away.
 
+**The panel is in the bottom Panel**, next to Terminal and Problems — not the
+sidebar. `+` in its title bar adds an item; right-clicking a recorded row
+removes it; clicking one opens the config at the line that recorded it. Every
+command is also under **expiry-radar:** in the Command Palette.
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | expiry-radar: Refresh Inventory | Collect now |
 | expiry-radar: Add Item… | Record an endpoint, a domain, or something nothing can discover |
+| expiry-radar: Stop Tracking This Item | Remove a recorded entry (right-click a row) |
 | expiry-radar: Open Report | The HTML report in a tab |
 | expiry-radar: Export Report… | Render HTML / iCal / JSON / Prometheus to a file |
 | expiry-radar: Probe a Host… | One host, ignoring the config |

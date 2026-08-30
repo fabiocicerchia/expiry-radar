@@ -169,6 +169,32 @@ if decoded_ok then
   check('the recorded endpoint was attempted', attempted:find(PROBED_HOST, 1, true) ~= nil, attempted)
   check('the recorded domain was attempted', attempted:find('acme%-corp%.co%.uk') ~= nil, attempted)
 end
+-- Recording is only half of managing: an entry has to come out again, and the
+-- config has to still load afterwards.
+local declared = core.declared_in(text)
+local origin = declared['code-signing']
+check('the recorded manual entry can be found again', origin ~= nil, vim.inspect(vim.tbl_keys(declared)))
+if origin then
+  local pruned = core.remove_entry(text, 'manual', origin.line, origin.column)
+  check('the recorded entry could be removed', pruned ~= nil)
+  if pruned then
+    vim.fn.writefile(vim.split(pruned, '\n'), recorded_config, 'b')
+    local after = vim.system(
+      { binary, '-format', 'json', '-config', recorded_config },
+      { text = true, cwd = recorded }
+    ):wait(30000)
+    check('the CLI still loads the config after a removal', after.code ~= 2, after.stderr)
+    local ok_after, report_after = pcall(vim.json.decode, after.stdout or '')
+    if ok_after then
+      local still_there = false
+      for _, item in ipairs(report_after.items or {}) do
+        still_there = still_there or item.name == 'code-signing'
+      end
+      check('the removed item is gone from the report', not still_there)
+    end
+  end
+end
+
 vim.fn.delete(recorded, 'rf')
 
 -- --- a run with no sources at all --------------------------------------------

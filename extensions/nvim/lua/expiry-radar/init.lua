@@ -640,6 +640,64 @@ function M.write_entry(entry_kind, value)
   M.collect({ manual = true, reason = 'item added' })
 end
 
+--- Stop tracking a recorded item.
+---
+--- Only recorded items are offered. A discovered one has no entry to delete --
+--- removing a line would not remove a certificate from an Ingress -- and
+--- offering it would imply this tool writes to your estate, which it never does.
+function M.remove_item()
+  ensure_collected(function()
+    local recorded = {}
+    for _, item in ipairs(snapshot.items) do
+      if item.origin and core.array_for_source(item.source) then
+        recorded[#recorded + 1] = item
+      end
+    end
+    if #recorded == 0 then
+      return notify('nothing recorded to remove — every item here was discovered.')
+    end
+
+    vim.ui.select(recorded, {
+      prompt = 'Stop tracking which item?',
+      format_item = function(item)
+        return string.format('%-42s %-10s %s', item.display, core.human_days(item.daysLeft), item.source)
+      end,
+    }, function(item)
+      if not item then
+        return
+      end
+      local path = snapshot.config_path
+      local ok, text = pcall(function()
+        return table.concat(vim.fn.readfile(path), '\n')
+      end)
+      if not ok then
+        return notify('could not read ' .. path, vim.log.levels.ERROR)
+      end
+      -- The position came from the last collection; the file may have been
+      -- edited since. Removing whatever now sits there would delete the wrong
+      -- entry, so check it still names this item before touching anything.
+      local on_line = vim.split(text, '\n')[item.origin.line] or ''
+      if not on_line:find(item.name, 1, true) then
+        return notify(
+          vim.fs.basename(path) .. ' has changed since the last collection — refresh and try again.',
+          vim.log.levels.WARN
+        )
+      end
+      local next_text =
+        core.remove_entry(text, core.array_for_source(item.source), item.origin.line, item.origin.column)
+      if not next_text then
+        return notify('could not find the entry for ' .. item.display, vim.log.levels.WARN)
+      end
+      local wrote = pcall(vim.fn.writefile, vim.split(next_text, '\n'), path, 'b')
+      if not wrote then
+        return notify('could not write ' .. path, vim.log.levels.ERROR)
+      end
+      notify('stopped tracking ' .. item.display)
+      M.collect({ manual = true, reason = 'item removed' })
+    end)
+  end)
+end
+
 function M.open_config()
   local root = M.root()
   local existing = core.resolve_config(root, cfg)

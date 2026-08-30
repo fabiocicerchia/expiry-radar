@@ -151,3 +151,111 @@ describe('invalid_expires', function()
     assert.is_truthy(core.invalid_expires('2027-02-31'))
   end)
 end)
+
+describe('remove_entry', function()
+  local function reparse(text)
+    local ok, decoded = pcall(vim.json.decode, text)
+    assert.is_true(ok, 'result is not valid JSON: ' .. text)
+    return decoded
+  end
+
+  it('removes the middle of a multi-line array and leaves valid JSON', function()
+    local before = table.concat({
+      '{',
+      '  "endpoints": [',
+      '    { "host": "a.example" },',
+      '    { "host": "b.example" },',
+      '    { "host": "c.example" }',
+      '  ]',
+      '}',
+      '',
+    }, '\n')
+    local text = core.remove_entry(before, 'endpoints', 4, 15)
+    assert.same({ { host = 'a.example' }, { host = 'c.example' } }, reparse(text).endpoints)
+    assert.is_nil(text:find('\n%s*\n'))
+  end)
+
+  it('takes the comma before the last element, not after', function()
+    local before = '{\n  "endpoints": [\n    { "host": "a.example" },\n    { "host": "b.example" }\n  ]\n}\n'
+    assert.same({ { host = 'a.example' } }, reparse(core.remove_entry(before, 'endpoints', 4, 15)).endpoints)
+  end)
+
+  it('leaves an empty array rather than a broken one', function()
+    local text = core.remove_entry('{\n  "domains": [\n    "a.example"\n  ]\n}\n', 'domains', 3, 5)
+    assert.same({}, reparse(text).domains)
+  end)
+
+  it('removes a multi-line entry whole', function()
+    local before = table.concat({
+      '{',
+      '  "manual": [',
+      '    {',
+      '      "name": "code-signing",',
+      '      "kind": "tls_cert",',
+      '      "expires": "2026-11-15"',
+      '    },',
+      '    { "name": "other", "kind": "secret", "expires": "2027-01-01" }',
+      '  ]',
+      '}',
+      '',
+    }, '\n')
+    local parsed = reparse(core.remove_entry(before, 'manual', 4, 15))
+    assert.equals(1, #parsed.manual)
+    assert.equals('other', parsed.manual[1].name)
+  end)
+
+  it('takes one entry from a one-line config, not the whole document', function()
+    -- Addressing by line alone would take the document's own opening brace here
+    -- and delete everything. The column is what separates the two entries.
+    local before = '{ "domains": ["a.example", "b.example"] }'
+    assert.same({ 'b.example' }, reparse(core.remove_entry(before, 'domains', 1, 15)).domains)
+    assert.same({ 'a.example' }, reparse(core.remove_entry(before, 'domains', 1, 28)).domains)
+  end)
+
+  it('refuses a position that names no entry', function()
+    local before = '{\n  "domains": [\n    "a.example"\n  ]\n}\n'
+    assert.is_nil(core.remove_entry(before, 'domains', 999, 1))
+    assert.is_nil(core.remove_entry(before, 'domains', 1, 1))
+    assert.is_nil(core.remove_entry(before, 'endpoints', 3, 5))
+  end)
+
+  it('never reaches outside the array it was given', function()
+    local before = table.concat({
+      '{',
+      '  "endpoints": [{ "host": "a.example" }],',
+      '  "domains": ["keep.example"],',
+      '  "manual": [{ "name": "keep", "kind": "secret", "expires": "2027-01-01" }]',
+      '}',
+      '',
+    }, '\n')
+    local parsed = reparse(core.remove_entry(before, 'endpoints', 2, 27))
+    assert.same({}, parsed.endpoints)
+    assert.same({ 'keep.example' }, parsed.domains)
+    assert.equals(1, #parsed.manual)
+  end)
+end)
+
+describe('array_for_source', function()
+  it('maps a recorded source to its array, and discovery to none', function()
+    assert.equals('endpoints', core.array_for_source('tls:endpoint'))
+    assert.equals('domains', core.array_for_source('domain:rdap'))
+    assert.equals('manual', core.array_for_source('manual'))
+    for _, discovered in ipairs({ 'k8s:secret', 'aws:acm', 'vault:pki_int', 'tls:chain' }) do
+      assert.is_nil(core.array_for_source(discovered), discovered)
+    end
+  end)
+end)
+
+describe('declared_in', function()
+  it('places a manual entry on the line that records it', function()
+    local config = table.concat({
+      '{',
+      '  "manual": [',
+      '    { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01" }',
+      '  ]',
+      '}',
+    }, '\n')
+    local found = core.declared_in(config)
+    assert.equals(3, found['acme-corp.co.uk'].line)
+  end)
+end)

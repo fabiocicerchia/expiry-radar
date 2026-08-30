@@ -2,10 +2,10 @@
  * Where an item was declared.
  *
  * A finding in gandalf points at the line that caused it; the equivalent here is
- * the line in `expiry-radar.json` that asked for the host or the domain. Only
- * the two file-declared sources have one — a certificate found on an Ingress or
- * a key found in IAM was never written down anywhere in the repository, and
- * pointing those at a config line would be a lie. They live in the panel only.
+ * the line in `expiry-radar.json` that recorded the item. Only the recorded
+ * sources have one — a certificate found on an Ingress or a key found in IAM
+ * was never written down anywhere in the repository, and pointing those at a
+ * config line would be a lie. They live in the panel only.
  *
  * The config is read as text rather than through `JSON.parse`, because a
  * position is exactly what parsing throws away, and a hand-rolled scanner over
@@ -79,6 +79,18 @@ export function declaredIn(file: string, text: string): Map<string, Origin> {
     const host = /"host"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
     for (let m = host.exec(section); m; m = host.exec(section)) {
       // Point at the value, not at the key: that is what the squiggle is about.
+      record(unescape(m[1]), from + m.index + m[0].lastIndexOf('"', m[0].length - 2));
+    }
+  }
+
+  // Manual entries are keyed by `name`, which is exactly what the CLI reports
+  // as the item's name — the same equality the other two rely on.
+  const manual = arraySpan(text, 'manual');
+  if (manual) {
+    const [from, to] = manual;
+    const section = text.slice(from, to);
+    const named = /"name"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    for (let m = named.exec(section); m; m = named.exec(section)) {
       record(unescape(m[1]), from + m.index + m[0].lastIndexOf('"', m[0].length - 2));
     }
   }

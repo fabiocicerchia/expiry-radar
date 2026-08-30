@@ -254,7 +254,9 @@ export class InventoryView implements vscode.TreeDataProvider<Node> {
       .filter(Boolean)
       .join(' · ');
     item.tooltip = this.tooltip(entry);
-    item.contextValue = 'expiryRadarItem';
+    // Recorded rows can be edited and removed; discovered ones cannot, because
+    // deleting a config line would not delete a certificate from an Ingress.
+    item.contextValue = entry.origin ? 'expiryRadarRecorded' : 'expiryRadarItem';
     if (entry.origin) {
       const uri = vscode.Uri.file(entry.origin.file);
       const line = Math.max(0, entry.origin.line - 1);
@@ -291,9 +293,11 @@ export class InventoryView implements vscode.TreeDataProvider<Node> {
     if (labels.length) {
       md.appendMarkdown(`\n\n${labels.map(([k, v]) => `\`${k}=${v}\``).join(' ')}`);
     }
-    if (!item.origin) {
-      md.appendMarkdown('\n\n_Discovered by a source, not declared in the config file._');
-    }
+    md.appendMarkdown(
+      item.origin
+        ? '\n\n_Recorded in the config file — click to open the line, or right-click to remove._'
+        : '\n\n_Discovered by a source, not recorded in the config file._',
+    );
     return md;
   }
 

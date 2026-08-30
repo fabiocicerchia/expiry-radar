@@ -15,6 +15,7 @@ the editor and the report on the build server are the same document.
 | Export (HTML / iCal / JSON / Prometheus) | yes | yes |
 | Probe one host | yes | yes |
 | Record an item | **Add Item…** | `:ExpiryRadarAdd` |
+| Stop tracking one | right-click a row | `:ExpiryRadarRemove` |
 | Environment check | Doctor command | `:checkhealth expiry-radar` |
 
 ## From a checkout
@@ -86,6 +87,30 @@ waiting for the next refresh to prove the edit worked.
 
 The entry is appended as text, not re-serialised: adding one host gives you a
 one-line diff, and your indentation, key order and one-line arrays survive.
+
+### Where to find it
+
+The VS Code panel lives in the **bottom Panel**, next to Terminal and Problems —
+not the sidebar. Its title bar carries `+` (add), refresh, grouping, filter and
+report; every command is also under **expiry-radar:** in the Command Palette.
+Until the first collection lands, the panel itself offers the three things worth
+doing from empty.
+
+### Removing one
+
+A row that the config *recorded* can be removed: right-click it in VS Code, or
+run `:ExpiryRadarRemove` in Neovim and pick from the list. A row that was
+*discovered* offers nothing, because deleting a config line would not delete a
+certificate from an Ingress — and implying otherwise would suggest this tool
+writes to your estate, which it never does.
+
+Removal is bounded to the array the entry lives in, and refuses outright if the
+config has changed since the collection that reported the position — better to
+ask for a refresh than to delete the wrong entry.
+
+To *change* an entry, click the row: it opens the config at the line that
+recorded it. There is deliberately no edit dialog; you are already in a text
+editor, and a form would be a worse one.
 
 ## What both of them refuse to do
 
