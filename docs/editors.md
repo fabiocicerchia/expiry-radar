@@ -16,6 +16,19 @@ the editor and the report on the build server are the same document.
 | Probe one host | yes | yes |
 | Environment check | Doctor command | `:checkhealth expiry-radar` |
 
+## From a checkout
+
+One verb installs both, and is the path to use while developing them:
+
+```sh
+make ext-install     # package + install the VS Code extension, link the Neovim plugin
+make ext-uninstall   # remove both again
+```
+
+The Neovim plugin is symlinked onto your packpath rather than copied, so a
+`git pull` updates what is installed. The VS Code half is skipped with a note
+if the `code` command is not on your `PATH`.
+
 ## VS Code
 
 ```sh

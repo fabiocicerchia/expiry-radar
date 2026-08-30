@@ -25,7 +25,13 @@ The plugin finds it on its own: `./bin/expiry-radar` in the project, then
 
 ## Install
 
-`setup()` is optional — a command used before it runs gets the defaults.
+From a checkout, `make ext-install` at the repository root symlinks this plugin
+onto your packpath (`~/.local/share/nvim/site/pack/expiry-radar/start/`) and
+generates its helptags — no plugin manager involved, and `git pull` updates it.
+`make ext-uninstall` removes it.
+
+Otherwise, with a plugin manager — `setup()` is optional either way, since a
+command used before it runs gets the defaults.
 
 **lazy.nvim**
 
@@ -133,6 +139,9 @@ exactly the case it matters.
 make test     # the specs, headless, exactly as CI runs them
 make lint     # check every file parses
 ```
+
+`make ext-test` at the repository root runs these plus the smoke test below and
+the whole VS Code side.
 
 `tests/smoke.lua` drives the plugin against the real binary — the JSON shape,
 the warning framing, the exit codes — and needs no network:

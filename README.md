@@ -56,8 +56,13 @@ The same binary, in the editor: a ranked panel, diagnostics on the lines of
 report in a tab.
 
 ```sh
-code --install-extension fabiocicerchia.expiry-radar
+code --install-extension fabiocicerchia.expiry-radar   # from the Marketplace
+make ext-install                                       # or from this checkout
 ```
+
+`make ext-install` packages and installs the VS Code extension and symlinks the
+Neovim plugin onto your packpath, so `git pull` updates both. `make ext-uninstall`
+removes them.
 
 Neovim 0.11+ users get [`extensions/nvim`](extensions/nvim) — `:ExpiryRadarReport`,
 `:ExpiryRadarList`, `:ExpiryRadarProbe`. Both live in [`extensions/`](extensions/)

@@ -17,6 +17,9 @@ break.
 code --install-extension fabiocicerchia.expiry-radar
 ```
 
+From a checkout, `make ext-install` at the repository root packages this
+extension and installs the .vsix in one step.
+
 Then get the CLI:
 
 ```sh
@@ -104,6 +107,9 @@ applied to the panel afterwards, so an export contains exactly what the panel
 shows rather than a wider set.
 
 ## Development
+
+`make ext-test` at the repository root runs everything below, plus the Neovim
+side. Directly:
 
 ```sh
 npm install
