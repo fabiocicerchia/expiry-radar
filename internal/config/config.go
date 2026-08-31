@@ -20,10 +20,12 @@ import (
 type File struct {
 	Endpoints []source.Endpoint `json:"endpoints"`
 	Domains   []string          `json:"domains"`
-	K8s       *K8s              `json:"k8s"`
-	Vault     *Vault            `json:"vault"`
-	AWS       *AWS              `json:"aws"`
-	Overrides []rank.Override   `json:"overrides"`
+	// Things that expire that no source can discover. See source.ManualItem.
+	Manual    []source.ManualItem `json:"manual"`
+	K8s       *K8s                `json:"k8s"`
+	Vault     *Vault              `json:"vault"`
+	AWS       *AWS                `json:"aws"`
+	Overrides []rank.Override     `json:"overrides"`
 }
 
 type K8s struct {
@@ -69,6 +71,12 @@ func Load(path string) (*File, error) {
 	if err := rank.ValidateOverrides(f.Overrides); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	// Rejected at load for the same reason: a manual item exists because
+	// nothing else can find the thing. One that silently fails to parse leaves
+	// no trace anywhere, which is the one outcome it was written to prevent.
+	if err := source.ValidateManual(f.Manual); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &f, nil
 }
 
@@ -81,6 +89,9 @@ func (f *File) Sources() []source.Source {
 	}
 	if len(f.Domains) > 0 {
 		out = append(out, &source.DomainSource{Domains: f.Domains})
+	}
+	if len(f.Manual) > 0 {
+		out = append(out, &source.ManualSource{Items: f.Manual})
 	}
 	if f.K8s != nil && f.K8s.Enabled {
 		out = append(out, &source.K8sSource{

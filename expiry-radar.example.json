@@ -4,6 +4,11 @@
     { "host": "admin.internal.example.com:8443", "labels": { "ingress.class": "nginx-internal" } }
   ],
   "domains": ["example.com", "example.net"],
+  "manual": [
+    { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01",
+      "labels": { "public": "true", "renew-at": "https://registrar.example/domains" } },
+    { "name": "code-signing", "kind": "tls_cert", "expires": "2026-11-15", "namespace": "release" }
+  ],
   "k8s": {
     "enabled": true,
     "server": "",

@@ -10,6 +10,7 @@ Or from a checkout:
 
 ```sh
 make build      # -> ./bin/
+make install    # or put it on your PATH: $GOBIN, $GOPATH/bin, or PREFIX=/usr/local
 ```
 
 ## First run

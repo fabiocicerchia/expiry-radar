@@ -15,12 +15,21 @@ cert on the payment path outranks the one on a staging dashboard. Go, `cmd/` +
 ```sh
 make help         # every verb this repo exposes
 make build        # compile the binary into ./bin
+make install      # install the binary for the current user (PREFIX= for a system path)
 make test         # run tests
 make tidy         # tidy modules
 make clean        # remove build artifacts
 make setup        # Install git hooks and dev tooling
 make lint         # Run all pre-commit checks on the whole tree
+
+make ext-install  # install the editor integrations for the current user
+make ext-test     # run both integrations' tests (needs `make build` first)
+make ext-build    # package the VS Code extension into a .vsix
 ```
+
+The `ext-*` verbs are separate from the Go ones on purpose: `extensions/` holds
+two projects with their own toolchains (npm, plenary), so `make test` stays the
+Go tests and `make clean` does not cost an `npm ci` to undo.
 
 ## Tooling
 

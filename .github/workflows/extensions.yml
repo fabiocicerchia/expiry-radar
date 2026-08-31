@@ -1,0 +1,115 @@
+name: extensions
+
+# extensions/vscode is a TypeScript workspace and extensions/nvim is a Lua
+# plugin; neither is touched by `go test`, so without this the first time any of
+# it runs here would be a release tag.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "extensions/**"
+      - "internal/output/**"
+      - ".github/workflows/extensions.yml"
+  pull_request:
+    paths:
+      - "extensions/**"
+      - "internal/output/**"
+      - ".github/workflows/extensions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extensions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vscode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/vscode
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The contract tests drive the real binary — the JSON shape, the warning
+      # framing, the exit codes. They skip without one, which would make this
+      # job green while the extension had stopped agreeing with the CLI.
+      - name: Build the CLI
+        working-directory: .
+        run: make build
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # Proves the manifest still packages, which is what a release does.
+      - name: Package
+        run: npm run package
+
+  nvim:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # stable is what people run; nightly is where a deprecation shows up
+        # first, and this plugin is deliberately on the 0.11 API surface
+        # (vim.system, vim.fs.root, vim.validate's callable form).
+        neovim: [stable, nightly]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7  # v1.6.1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Version
+        run: nvim --version
+
+      - name: Test
+        working-directory: extensions/nvim
+        run: make test
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7  # v1.6.1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Build the CLI
+        run: make build
+
+      # The plugin reads the CLI's JSON, its `expiry-radar: warning:` framing
+      # and its exit codes. All three are contracts with the Go, and only
+      # running them together checks them. No network: the one endpoint is a
+      # closed port on loopback.
+      - name: Drive the plugin against the real binary
+        working-directory: extensions/nvim
+        run: nvim --headless --clean -u tests/smoke.lua

@@ -26,7 +26,9 @@ go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest
 Or from a checkout:
 
 ```sh
-make build      # -> ./bin/
+make build                    # -> ./bin/
+make install                  # -> $GOBIN, or $GOPATH/bin
+make install PREFIX=/usr/local  # -> /usr/local/bin
 ```
 
 ## Usage
@@ -44,10 +46,35 @@ Copy `expiry-radar.example.json` to `expiry-radar.json` to enable the
 credentialed sources. Flags add to the config rather than replacing it, so a
 one-off probe needs no config file at all.
 
+Most of the inventory is **discovered** — grant read access and the sources
+enumerate. `endpoints` and `domains` you **record**, and `manual` holds what
+nothing can discover: a registrar with no RDAP, a credential rotated by hand, a
+code-signing certificate on somebody's laptop. Manual items are ranked by the
+same rules as everything else — see [`docs/sources.md`](docs/sources.md).
+
 Exit codes: `0` clean · `1` a `-fail-within` threshold was breached · `2` bad
 usage or config · `3` partial results, at least one source failed. A source that
 fails still returns what it managed to read, and the failure is printed to
 stderr — a report that quietly lost a source reads exactly like a clean estate.
+
+## Editors
+
+The same binary, in the editor: a ranked panel, diagnostics on the lines of
+`expiry-radar.json` that declared what is about to break, and the full HTML
+report in a tab.
+
+```sh
+code --install-extension fabiocicerchia.expiry-radar   # from the Marketplace
+make ext-install                                       # or from this checkout
+```
+
+`make ext-install` packages and installs the VS Code extension and symlinks the
+Neovim plugin onto your packpath, so `git pull` updates both. `make ext-uninstall`
+removes them.
+
+Neovim 0.11+ users get [`extensions/nvim`](extensions/nvim) — `:ExpiryRadarReport`,
+`:ExpiryRadarList`, `:ExpiryRadarProbe`. Both live in [`extensions/`](extensions/)
+and are documented in [`docs/editors.md`](docs/editors.md).
 
 ## Documentation
 

@@ -1,0 +1,15 @@
+.vscode/**
+src/**
+out/**
+node_modules/**
+esbuild.mjs
+scripts/**
+tsconfig.json
+**/*.map
+**/*.ts
+.gitignore
+# Screenshots, when there are some: reference them by absolute
+# raw.githubusercontent URL (vsce mangles relative ones from a monorepo
+# subdirectory), so the Marketplace fetches them from GitHub rather than the
+# .vsix carrying a second copy nothing reads.
+media/screenshots/**
