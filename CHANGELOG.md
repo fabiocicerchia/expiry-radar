@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.1.1...v1.2.0) (2026-09-01)
+
+
+### Features
+
+* **ci:** let the release publish the extension ([#34](https://github.com/fabiocicerchia/expiry-radar/issues/34)) ([1dd70e6](https://github.com/fabiocicerchia/expiry-radar/commit/1dd70e663cfcdf6876629b79cc08b2937d207349))
+
 ## [1.1.1](https://github.com/fabiocicerchia/expiry-radar/compare/v1.1.0...v1.1.1) (2026-08-29)
 
 
