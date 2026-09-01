@@ -1,8 +1,24 @@
 name: release
 
 # release-please reads Conventional Commit messages on main and keeps an open
-# "release PR" with the next version bump + CHANGELOG. Merging that PR tags the
-# release (vX.Y.Z) and publishes a GitHub Release. Nothing else to run.
+# "release PR" with the next version bump + CHANGELOG. Merging that PR cuts a
+# draft GitHub Release for vX.Y.Z; the same run calls publish-extension.yml to
+# attach the .vsix, then publishes the draft — which is what creates the tag.
+# Draft first because releases here are immutable: once published, the assets
+# are frozen.
+#
+# Why this is two release-please jobs and not one — do not collapse them back:
+# a draft release has no git tag, publishing it is what creates the tag. A
+# single invocation cuts the release and then computes the next release PR in
+# the same run, while the release is still a draft — so there is no tag for the
+# version already in .release-please-manifest.json, release-please loses its
+# anchor, walks the entire history and opens a PR re-releasing everything.
+# Merging that cuts another release, which opens another PR, forever. So:
+#
+#   release-please   phase 1 — cut the draft release only
+#   extension        attach the .vsix
+#   publish-release  publish the draft -> tag exists
+#   release-pr       phase 2 — open/update the next release PR only
 
 on:
   push:
@@ -17,9 +33,76 @@ jobs:
     permissions:
       contents: write # create tags & releases
       pull-requests: write # open/update the release PR
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
+      - id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+        # The settings live in release-please-config.json rather than here,
+        # because `extra-files` — which is what keeps the VS Code extension's
+        # manifest on the same version as the tag — has no action input.
+        # `release-type: simple` is still the strategy; it tracks version.txt
+        # and CHANGELOG.md and is language-agnostic.
+        with:
+          skip-github-pull-request: true # phase 2 opens it, once the tag exists
+
+  # The release release-please publishes carries GITHUB_TOKEN, and GitHub does
+  # not start workflows from GITHUB_TOKEN events — so the extension publish is
+  # called from here rather than hung off `on: release`.
+  extension:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-extension.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    # Named rather than `secrets: inherit`: the reusable workflow gets the two
+    # publishing tokens and nothing else this repository happens to hold.
+    secrets:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+  # Immutable releases freeze a release's assets the moment it is published, so
+  # release-please cuts it as a draft (`draft: true` in
+  # release-please-config.json), the job above attaches what belongs to it, and
+  # this one publishes it. Publishing is also what creates the tag. If the
+  # attach job fails the release stays a draft — a missing asset is
+  # recoverable, a published release without it is not.
+  publish-release:
+    needs: [release-please, extension]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # publish the draft
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release edit "$TAG" --draft=false
+
+  # Phase 2 — open/update the next release PR, now that `publish-release` has
+  # published the draft and the tag exists. `always()` because on an ordinary
+  # push no release was cut and `publish-release` is skipped, yet the release PR
+  # still has to be kept up to date; when a release *was* cut, `publish-release`
+  # must have succeeded, or there is no tag to anchor on and this would
+  # re-release the whole history.
+  release-pr:
+    needs: [release-please, publish-release]
+    if: always()
+      && needs.release-please.result == 'success'
+      && (needs.release-please.outputs.release_created != 'true'
+      || needs.publish-release.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write # open/update the release PR
+    steps:
+      # Same configuration as phase 1 — the two invocations must agree, and
+      # both read release-please-config.json by default.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
         with:
-          # "simple" is language-agnostic (tracks version.txt + CHANGELOG).
-          # Swap for node/python/rust/etc. to also bump manifests.
-          release-type: simple
+          skip-github-release: true
