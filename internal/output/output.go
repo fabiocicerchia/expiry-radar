@@ -120,13 +120,18 @@ type jsonItem struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 }
 
+// jsonReport is the -format json contract, not an implementation detail: both
+// editor integrations parse these field names (extensions/vscode/src/parse.ts
+// and runner.ts, extensions/nvim/lua/expiry-radar/init.lua).
+type jsonReport struct {
+	GeneratedAt time.Time  `json:"generatedAt"`
+	Count       int        `json:"count"`
+	Expired     int        `json:"expired"`
+	Items       []jsonItem `json:"items"`
+}
+
 func renderJSON(w io.Writer, items []rank.Scored, opts Options) error {
-	out := struct {
-		GeneratedAt time.Time  `json:"generatedAt"`
-		Count       int        `json:"count"`
-		Expired     int        `json:"expired"`
-		Items       []jsonItem `json:"items"`
-	}{GeneratedAt: opts.Now.UTC(), Count: len(items), Items: make([]jsonItem, 0, len(items))}
+	out := jsonReport{GeneratedAt: opts.Now.UTC(), Count: len(items), Items: make([]jsonItem, 0, len(items))}
 
 	for _, s := range items {
 		if s.DaysLeft < 0 {
