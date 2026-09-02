@@ -106,32 +106,28 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 	if !ok {
 		score = 0.4
 	}
-	var reasons []string
-	adjust := func(delta float64, reason string) {
-		score += delta
-		reasons = append(reasons, reason)
-	}
+	b := blastScore{score: score}
 
 	if isPublic(it) {
-		adjust(0.20, "internet-facing")
+		b.adjust(0.20, "internet-facing")
 	} else if class := it.Labels[source.LabelIngressClass]; class != "" && isInternalClass(class) {
-		adjust(-0.15, "internal ingress class")
+		b.adjust(-0.15, "internal ingress class")
 	}
 
 	switch environment(it) {
 	case envProd:
-		adjust(0.20, "production")
+		b.adjust(0.20, "production")
 	case envNonProd:
-		adjust(-0.30, "non-production")
+		b.adjust(-0.30, "non-production")
 	}
 
 	// A wildcard or multi-SAN certificate takes down everything it covers.
 	if hosts := hostList(it); len(hosts) > 0 {
 		if hasWildcard(hosts) {
-			adjust(0.10, "wildcard certificate")
+			b.adjust(0.10, "wildcard certificate")
 		}
 		if len(hosts) >= 5 {
-			adjust(0.05, strconv.Itoa(len(hosts))+" hosts covered")
+			b.adjust(0.05, strconv.Itoa(len(hosts))+" hosts covered")
 		}
 	}
 
@@ -139,18 +135,35 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 	if rps, err := strconv.ParseFloat(it.Labels[source.LabelTraffic], 64); err == nil && rps > 1 {
 		// log10-scaled and capped: 10 rps adds 0.1, 1k rps adds 0.3, and past
 		// that "very busy" is the same answer.
-		adjust(math.Min(0.30, math.Log10(rps)*0.10), "traffic "+trimFloat(rps)+" rps")
+		b.adjust(math.Min(0.30, math.Log10(rps)*0.10), "traffic "+trimFloat(rps)+" rps")
 	}
 
 	if it.Labels["in-use"] == "false" {
-		adjust(-0.35, "not in use")
+		b.adjust(-0.35, "not in use")
 	}
 
-	why := "base " + string(it.Kind)
-	if len(reasons) > 0 {
-		why += ", " + strings.Join(reasons, ", ")
+	return clamp01(b.score), b.why(it.Kind)
+}
+
+// blastScore accumulates a blast radius and the evidence that moved it. The
+// evidence is not decoration: a ranking nobody can explain gets ignored, so
+// every adjustment records why it happened at the moment it happens.
+type blastScore struct {
+	score   float64
+	reasons []string
+}
+
+func (b *blastScore) adjust(delta float64, reason string) {
+	b.score += delta
+	b.reasons = append(b.reasons, reason)
+}
+
+func (b *blastScore) why(kind source.Kind) string {
+	why := "base " + string(kind)
+	if len(b.reasons) > 0 {
+		why += ", " + strings.Join(b.reasons, ", ")
 	}
-	return clamp01(score), why
+	return why
 }
 
 func matchOverride(it source.Item, overrides []Override) (Override, bool) {

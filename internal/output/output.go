@@ -233,19 +233,13 @@ func fold(line string) string {
 
 func renderPrometheus(w io.Writer, items []rank.Scored, opts Options) error {
 	var b strings.Builder
-	gauge := func(name, help string, value func(rank.Scored) string) {
-		b.WriteString("# HELP " + name + " " + help + "\n# TYPE " + name + " gauge\n")
-		for _, s := range items {
-			b.WriteString(name + promLabels(s) + " " + value(s) + "\n")
-		}
-	}
-	gauge("expiry_radar_seconds_left", "Seconds until this item expires (negative once expired).", func(s rank.Scored) string {
+	writeGauge(&b, items, "expiry_radar_seconds_left", "Seconds until this item expires (negative once expired).", func(s rank.Scored) string {
 		return strconv.FormatInt(int64(s.Item.Expires.Sub(opts.Now).Seconds()), 10)
 	})
-	gauge("expiry_radar_blast_radius", "Inferred consequence of this item expiring, 0..1.", func(s rank.Scored) string {
+	writeGauge(&b, items, "expiry_radar_blast_radius", "Inferred consequence of this item expiring, 0..1.", func(s rank.Scored) string {
 		return strconv.FormatFloat(s.BlastRadius, 'f', 2, 64)
 	})
-	gauge("expiry_radar_priority", "Combined urgency and blast radius used for ordering, 0..1.", func(s rank.Scored) string {
+	writeGauge(&b, items, "expiry_radar_priority", "Combined urgency and blast radius used for ordering, 0..1.", func(s rank.Scored) string {
 		return strconv.FormatFloat(s.Priority, 'f', 2, 64)
 	})
 
@@ -262,6 +256,15 @@ func renderPrometheus(w io.Writer, items []rank.Scored, opts Options) error {
 
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// One HELP/TYPE header followed by one sample per item — the exposition format
+// every gauge here shares.
+func writeGauge(b *strings.Builder, items []rank.Scored, name, help string, value func(rank.Scored) string) {
+	b.WriteString("# HELP " + name + " " + help + "\n# TYPE " + name + " gauge\n")
+	for _, s := range items {
+		b.WriteString(name + promLabels(s) + " " + value(s) + "\n")
+	}
 }
 
 func countByKind(items []rank.Scored) map[string]int {
