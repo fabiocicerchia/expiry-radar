@@ -14,6 +14,7 @@ local record = require('expiry-radar.record')
 local run = require('expiry-radar.run')
 local state = require('expiry-radar.state')
 local ui = require('expiry-radar.ui')
+local view = require('expiry-radar.view')
 
 local M = {}
 
@@ -48,6 +49,29 @@ function M.is_collecting()
   return state.handle ~= nil
 end
 
+--- The item that decides what the corner says, and how many are already past.
+local function soonest_and_expired(items)
+  local soonest, expired = nil, 0
+  for _, item in ipairs(items) do
+    if item.daysLeft < 0 then
+      expired = expired + 1
+    end
+    if not soonest or item.daysLeft < soonest.daysLeft then
+      soonest = item
+    end
+  end
+  return soonest, expired
+end
+
+--- One glyph for one condition: red once anything has expired, amber inside
+--- the warning window, neutral beyond it.
+local function mark_for(soonest, expired, warn_within_days)
+  if expired > 0 then
+    return '✗'
+  end
+  return soonest.daysLeft <= warn_within_days and '!' or '·'
+end
+
 --- A lualine component, or anything else that wants one string.
 ---
 --- The soonest deadline, not the highest priority. Priority is the right order
@@ -64,15 +88,7 @@ function M.statusline()
   if not state.snapshot then
     return ''
   end
-  local soonest, expired = nil, 0
-  for _, item in ipairs(state.snapshot.items) do
-    if item.daysLeft < 0 then
-      expired = expired + 1
-    end
-    if not soonest or item.daysLeft < soonest.daysLeft then
-      soonest = item
-    end
-  end
+  local soonest, expired = soonest_and_expired(state.snapshot.items)
   -- One word for one condition: a run that lost a source is "incomplete"
   -- whether or not anything came back, because an empty inventory from a run
   -- that could not look is the failure this tool exists to prevent.
@@ -80,7 +96,7 @@ function M.statusline()
   if not soonest then
     return string.format('%s radar %s%s', incomplete ~= '' and '!' or '·', '0', incomplete)
   end
-  local mark = expired > 0 and '✗' or (soonest.daysLeft <= state.cfg.status.warn_within_days and '!' or '·')
+  local mark = mark_for(soonest, expired, state.cfg.status.warn_within_days)
   return string.format('%s radar %s%s', mark, core.human_days(soonest.daysLeft), incomplete)
 end
 
@@ -154,93 +170,6 @@ local function attach_autocmds()
   })
 end
 
--- --- commands ------------------------------------------------------------------
-
---- The inventory, in a float.
-function M.report()
-  run.ensure_collected(function()
-    ui.float(ui.report_lines(state.snapshot), { title = ' expiry-radar ', filetype = 'expiry-radar' })
-  end)
-end
-
---- Everything, in the quickfix list.
-function M.list()
-  run.ensure_collected(function()
-    if #state.snapshot.items == 0 then
-      return state.notify('nothing expiring — or no sources were enabled.')
-    end
-    ui.to_quickfix(state.snapshot.items, state.snapshot.config_path, 'expiry-radar')
-    vim.cmd('copen')
-  end)
-end
-
---- Pick a deadline window or a kind; the matching items go to the quickfix list.
-function M.filter()
-  run.ensure_collected(function()
-    local counts, kinds = {}, {}
-    for _, item in ipairs(state.snapshot.items) do
-      counts[item.severity] = (counts[item.severity] or 0) + 1
-      kinds[item.kind] = (kinds[item.kind] or 0) + 1
-    end
-
-    local choices = {}
-    for _, severity in ipairs(core.SEVERITIES) do
-      if (counts[severity] or 0) > 0 then
-        choices[#choices + 1] = { kind = 'severity', key = severity, count = counts[severity] }
-      end
-    end
-    for kind, count in pairs(kinds) do
-      choices[#choices + 1] = { kind = 'kind', key = kind, count = count }
-    end
-    if #choices == 0 then
-      return state.notify('nothing to filter.')
-    end
-
-    vim.ui.select(choices, {
-      prompt = 'Show which items',
-      format_item = function(choice)
-        local label = choice.kind == 'severity' and core.SEVERITY_LABEL[choice.key]
-          or core.kind_label(choice.key)
-        return string.format('%-9s %-20s %d', choice.kind, label, choice.count)
-      end,
-    }, function(choice)
-      if not choice then
-        return
-      end
-      local rows = {}
-      for _, item in ipairs(state.snapshot.items) do
-        if item[choice.kind == 'severity' and 'severity' or 'kind'] == choice.key then
-          rows[#rows + 1] = item
-        end
-      end
-      ui.to_quickfix(rows, state.snapshot.config_path, 'expiry-radar: ' .. choice.key)
-      vim.cmd('copen')
-    end)
-  end)
-end
-
---- What the inventory already knows about the host under the cursor.
-function M.hover()
-  local needle = core.host_at_cursor(vim.api.nvim_get_current_line())
-  if needle == '' then
-    return state.notify('no host or domain on this line.')
-  end
-  run.ensure_collected(function()
-    ui.float(ui.hover_lines(needle, core.items_matching(state.snapshot.items, needle), state.snapshot), {
-      title = ' ' .. needle .. ' ',
-      filetype = 'expiry-radar',
-    })
-  end)
-end
-
-function M.show_log()
-  local lines = state.log_text()
-  ui.float(#lines > 0 and lines or { 'nothing logged yet' }, {
-    title = ' expiry-radar log ',
-    filetype = 'log',
-  })
-end
-
 -- --- setup ---------------------------------------------------------------------
 
 function M.setup(opts)
@@ -263,6 +192,12 @@ end
 --
 -- Kept here, and only here: :ExpiryRadar* and :checkhealth call these names,
 -- and where the body lives is not their business.
+
+M.report = view.report
+M.list = view.list
+M.filter = view.filter
+M.hover = view.hover
+M.show_log = view.show_log
 
 M.collect = run.collect
 M.cancel = run.cancel
