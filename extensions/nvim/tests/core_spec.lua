@@ -1,4 +1,5 @@
 local core = require('expiry-radar.core')
+local edit = require('expiry-radar.edit')
 local config = require('expiry-radar.config')
 
 local function cfg(opts)
@@ -215,33 +216,33 @@ describe('declared_in', function()
   }, '\n')
 
   it('places an endpoint host on the line that declares it', function()
-    local found = core.declared_in(CONFIG)
+    local found = edit.declared_in(CONFIG)
     assert.equals(3, found['shop.example.com'].line)
     local line = vim.split(CONFIG, '\n')[3]
     assert.equals('"shop.example.com"', line:sub(found['shop.example.com'].column, found['shop.example.com'].column + 17))
   end)
 
   it('keeps the port, because the item name does', function()
-    local found = core.declared_in(CONFIG)
+    local found = edit.declared_in(CONFIG)
     assert.is_table(found['admin.internal.example.com:8443'])
     assert.is_nil(found['admin.internal.example.com'])
   end)
 
   it('places domains individually', function()
-    local found = core.declared_in(CONFIG)
+    local found = edit.declared_in(CONFIG)
     assert.equals(6, found['example.com'].line)
     assert.equals(6, found['example.net'].line)
     assert.is_true(found['example.net'].column > found['example.com'].column)
   end)
 
   it('scans only the two declared arrays', function()
-    local found = core.declared_in(CONFIG)
+    local found = edit.declared_in(CONFIG)
     assert.is_nil(found['prod'])
     assert.is_nil(found['payments/*'])
   end)
 
   it('does not let a bracket inside a value close the array early', function()
-    local found = core.declared_in(table.concat({
+    local found = edit.declared_in(table.concat({
       '{',
       '  "endpoints": [',
       '    { "host": "a.example.com", "labels": { "note": "]}" } },',
@@ -254,12 +255,12 @@ describe('declared_in', function()
   end)
 
   it('claims nothing about a config being typed', function()
-    assert.same({}, core.declared_in('{ "endpoints": [ { "host": "a.example.com" }'))
-    assert.same({}, core.declared_in('not json at all'))
+    assert.same({}, edit.declared_in('{ "endpoints": [ { "host": "a.example.com" }'))
+    assert.same({}, edit.declared_in('not json at all'))
   end)
 
   it('lets the first declaration of a duplicate win', function()
-    local found = core.declared_in('{\n"endpoints": [\n{"host": "a.example.com"},\n{"host": "a.example.com"}\n]}')
+    local found = edit.declared_in('{\n"endpoints": [\n{"host": "a.example.com"},\n{"host": "a.example.com"}\n]}')
     assert.equals(3, found['a.example.com'].line)
   end)
 end)

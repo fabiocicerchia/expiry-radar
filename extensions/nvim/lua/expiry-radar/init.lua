@@ -9,6 +9,7 @@
 
 local config = require('expiry-radar.config')
 local core = require('expiry-radar.core')
+local edit = require('expiry-radar.edit')
 local ui = require('expiry-radar.ui')
 
 local M = {}
@@ -119,7 +120,7 @@ local function declared_in(config_path)
   if not ok then
     return nil
   end
-  return core.declared_in(text)
+  return edit.declared_in(text)
 end
 
 local warned_at = 0
@@ -586,7 +587,7 @@ function M.prompt_manual(done)
     if not name or vim.trim(name) == '' then
       return
     end
-    vim.ui.select(core.MANUAL_KINDS, {
+    vim.ui.select(edit.MANUAL_KINDS, {
       prompt = 'What kind? (this sets its base blast radius)',
       format_item = function(k)
         return string.format('%-18s %s', k.label, k.hint)
@@ -599,7 +600,7 @@ function M.prompt_manual(done)
         if not expires then
           return
         end
-        local bad = core.invalid_expires(expires)
+        local bad = edit.invalid_expires(expires)
         if bad then
           return notify(bad, vim.log.levels.ERROR)
         end
@@ -621,10 +622,10 @@ function M.write_entry(entry_kind, value)
     existing = table.concat(vim.fn.readfile(target), '\n')
   end
 
-  local text, line = core.add_to_array(
+  local text, line = edit.add_to_array(
     existing,
-    core.ARRAY_FOR[entry_kind],
-    core.render_entry(entry_kind, value)
+    edit.ARRAY_FOR[entry_kind],
+    edit.render_entry(entry_kind, value)
   )
   local ok, err = pcall(vim.fn.writefile, vim.split(text, '\n'), target, 'b')
   if not ok then
@@ -684,7 +685,7 @@ function M.remove_item()
         )
       end
       local next_text =
-        core.remove_entry(text, core.array_for_source(item.source), item.origin.line, item.origin.column)
+        edit.remove_entry(text, core.array_for_source(item.source), item.origin.line, item.origin.column)
       if not next_text then
         return notify('could not find the entry for ' .. item.display, vim.log.levels.WARN)
       end
