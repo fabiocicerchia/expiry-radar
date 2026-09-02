@@ -87,25 +87,28 @@ end
 
 -- --- argv --------------------------------------------------------------------
 
---- Argv for one run.
----@param cfg table resolved configuration
----@param opts table { format, config_path?, endpoints?, domains?, ignore_config? }
-function M.argv(cfg, opts)
-  local args = { '-format', opts.format or 'json' }
+--- Which config file the run reads, if any.
+local function config_args(opts)
   local config_path = (not opts.ignore_config) and (opts.config_path or '') or ''
   if config_path ~= '' then
-    vim.list_extend(args, { '-config', config_path })
-  elseif opts.ignore_config then
-    -- Not merely omitting the flag: -config defaults to expiry-radar.json,
-    -- resolved against the working directory, which is the project root.
-    -- Omitting it in a project that actually uses this tool would quietly
-    -- collect the whole estate alongside the one host being probed -- slow, and
-    -- every credentialed source hit for a question about a single hostname.
-    -- An empty path stats as "does not exist", which the CLI already handles as
-    -- "no config".
-    vim.list_extend(args, { '-config', '' })
+    return { '-config', config_path }
   end
+  if not opts.ignore_config then
+    return {}
+  end
+  -- Not merely omitting the flag: -config defaults to expiry-radar.json,
+  -- resolved against the working directory, which is the project root.
+  -- Omitting it in a project that actually uses this tool would quietly
+  -- collect the whole estate alongside the one host being probed -- slow, and
+  -- every credentialed source hit for a question about a single hostname.
+  -- An empty path stats as "does not exist", which the CLI already handles as
+  -- "no config".
+  return { '-config', '' }
+end
 
+--- The hosts and domains this run is about: the configured ones plus whatever
+--- the caller added, or only the caller's for a one-off probe.
+local function target_args(cfg, opts)
   local endpoints = {}
   local domains = {}
   if not opts.ignore_config then
@@ -114,16 +117,21 @@ function M.argv(cfg, opts)
   end
   vim.list_extend(endpoints, opts.endpoints or {})
   vim.list_extend(domains, opts.domains or {})
+  local args = {}
   if #endpoints > 0 then
     vim.list_extend(args, { '-endpoints', table.concat(endpoints, ',') })
   end
   if #domains > 0 then
     vim.list_extend(args, { '-domains', table.concat(domains, ',') })
   end
+  return args
+end
 
-  -- Filtering happens in the CLI rather than in the list: -within also caps
-  -- what an export contains, and a list that hid rows the export still carried
-  -- would be two different answers to one question.
+--- Filtering happens in the CLI rather than in the list: -within also caps
+--- what an export contains, and a list that hid rows the export still carried
+--- would be two different answers to one question.
+local function limit_args(cfg, opts)
+  local args = {}
   if not opts.ignore_config then
     if cfg.collect.within_days > 0 then
       vim.list_extend(args, { '-within', tostring(cfg.collect.within_days) })
@@ -136,6 +144,17 @@ function M.argv(cfg, opts)
   if not opts.ignore_config then
     vim.list_extend(args, cfg.extra_args)
   end
+  return args
+end
+
+--- Argv for one run.
+---@param cfg table resolved configuration
+---@param opts table { format, config_path?, endpoints?, domains?, ignore_config? }
+function M.argv(cfg, opts)
+  local args = { '-format', opts.format or 'json' }
+  vim.list_extend(args, config_args(opts))
+  vim.list_extend(args, target_args(cfg, opts))
+  vim.list_extend(args, limit_args(cfg, opts))
   return args
 end
 

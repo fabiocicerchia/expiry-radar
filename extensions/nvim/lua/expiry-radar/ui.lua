@@ -219,14 +219,24 @@ end
 --- Items into the quickfix list, which is where a list of places to go belongs
 --- in this editor. An item nothing declared has no place to go, so it carries
 --- its facts in the text instead of a bogus file and line.
+--- Where a row sends you, or nowhere for an item nothing declared.
+local function place(item, config_path)
+  local origin = item.origin
+  if not origin then
+    return { lnum = 0, col = 0, valid = 0 }
+  end
+  return {
+    filename = config_path ~= '' and config_path or nil,
+    lnum = origin.line,
+    col = origin.column,
+    valid = 1,
+  }
+end
+
 function M.to_quickfix(items, config_path, title)
   local entries = {}
   for _, item in ipairs(items) do
-    entries[#entries + 1] = {
-      filename = item.origin and config_path ~= '' and config_path or nil,
-      lnum = item.origin and item.origin.line or 0,
-      col = item.origin and item.origin.column or 0,
-      valid = item.origin ~= nil and 1 or 0,
+    entries[#entries + 1] = vim.tbl_extend('error', place(item, config_path), {
       text = string.format(
         '%s  %s  [%s] %s',
         core.human_days(item.daysLeft),
@@ -235,7 +245,7 @@ function M.to_quickfix(items, config_path, title)
         item.why
       ),
       type = (item.severity == 'expired' or item.severity == 'urgent') and 'E' or 'W',
-    }
+    })
   end
   vim.fn.setqflist({}, ' ', { title = title, items = entries })
 end

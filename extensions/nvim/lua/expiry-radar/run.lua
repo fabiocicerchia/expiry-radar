@@ -37,6 +37,33 @@ local function declared_in(config_path)
   return edit.declared_in(text)
 end
 
+--- Tell the caller how it went, when it asked.
+local function done(opts, ok)
+  if opts.on_done then
+    opts.on_done(ok)
+  end
+end
+
+--- The decoded report, or nil and the reason there is not one.
+local function report_from(out)
+  -- Exit 0 clean, 1 a -fail-within threshold, 3 partial results: all three
+  -- carry a report. Only 2 (bad usage or config) does not.
+  local has_report = out.code == 0 or out.code == 1 or out.code == 3
+  local stdout = out.stdout or ''
+  if not has_report or vim.trim(stdout) == '' then
+    local detail = vim.split(vim.trim(out.stderr or ''), '\n')
+    return nil, ('expiry-radar failed (exit %s): %s'):format(
+      tostring(out.code),
+      detail[#detail] or 'no output'
+    )
+  end
+  local decoded_ok, report = pcall(vim.json.decode, stdout)
+  if not decoded_ok or type(report) ~= 'table' or type(report.items) ~= 'table' then
+    return nil, 'expiry-radar wrote a report that could not be read'
+  end
+  return report
+end
+
 local warned_at = 0
 
 --- A source that failed is not a log line. The whole product is a complete
@@ -61,6 +88,28 @@ local function announce_warnings(warnings, manual)
     ),
     vim.log.levels.WARN
   )
+end
+
+--- What one finished run leaves behind: a snapshot, or a reason there is none.
+local function collected(out, opts, config_path)
+  local warnings = core.parse_warnings(out.stderr)
+  local report, why = report_from(out)
+  if not report then
+    finish(false, why)
+    return done(opts, false)
+  end
+  state.snapshot = {
+    items = core.normalize(report, state.cfg, declared_in(config_path)),
+    warnings = warnings,
+    generated_at = report.generatedAt,
+    config_path = config_path,
+    at = os.time(),
+  }
+  state.log('done: %d item(s), %d source(s) failed', #state.snapshot.items, #warnings)
+  finish(true)
+  announce_warnings(warnings, opts.manual)
+  ui.publish(state.snapshot.items, state.cfg, config_path)
+  done(opts, true)
 end
 
 --- Run one collection. Never blocks: vim.system with a callback, and everything
@@ -90,19 +139,13 @@ function M.collect(opts)
         vim.log.levels.WARN
       )
     end
-    if opts.on_done then
-      opts.on_done(false)
-    end
-    return
+    return done(opts, false)
   end
 
   local cmd, why = core.resolve_cmd(root, state.cfg)
   if not cmd then
     finish(false, ('%s — install it with `%s`, or set cmd'):format(why, core.INSTALL_COMMAND))
-    if opts.on_done then
-      opts.on_done(false)
-    end
-    return
+    return done(opts, false)
   end
 
   local config_path = core.resolve_config(root, state.cfg)
@@ -118,56 +161,14 @@ function M.collect(opts)
     timeout = state.cfg.collect.timeout_ms + 10000,
   }, function(out)
     vim.schedule(function()
-      local warnings = core.parse_warnings(out.stderr)
-      -- Exit 0 clean, 1 a -fail-within threshold, 3 partial results: all three
-      -- carry a report. Only 2 (bad usage or config) does not.
-      local has_report = out.code == 0 or out.code == 1 or out.code == 3
-      local stdout = out.stdout or ''
-      if not has_report or vim.trim(stdout) == '' then
-        local detail = vim.split(vim.trim(out.stderr or ''), '\n')
-        finish(false, ('expiry-radar failed (exit %s): %s'):format(
-          tostring(out.code),
-          detail[#detail] or 'no output'
-        ))
-        if opts.on_done then
-          opts.on_done(false)
-        end
-        return
-      end
-
-      local decoded_ok, report = pcall(vim.json.decode, stdout)
-      if not decoded_ok or type(report) ~= 'table' or type(report.items) ~= 'table' then
-        finish(false, 'expiry-radar wrote a report that could not be read')
-        if opts.on_done then
-          opts.on_done(false)
-        end
-        return
-      end
-
-      state.snapshot = {
-        items = core.normalize(report, state.cfg, declared_in(config_path)),
-        warnings = warnings,
-        generated_at = report.generatedAt,
-        config_path = config_path,
-        at = os.time(),
-      }
-      state.log('done: %d item(s), %d source(s) failed', #state.snapshot.items, #warnings)
-      finish(true)
-      announce_warnings(warnings, opts.manual)
-      ui.publish(state.snapshot.items, state.cfg, config_path)
-      if opts.on_done then
-        opts.on_done(true)
-      end
+      collected(out, opts, config_path)
     end)
   end)
 
   if not ok then
     state.log('could not run %s: %s', full[1], tostring(started))
     finish(false, ('could not run `%s` — see :checkhealth expiry-radar'):format(full[1]))
-    if opts.on_done then
-      opts.on_done(false)
-    end
-    return
+    return done(opts, false)
   end
   state.handle = started
 end
@@ -255,6 +256,21 @@ function M.probe(host)
   )
 end
 
+--- One rendered format, on disk. Binary, so the bytes on disk are the bytes
+--- the CLI wrote: the iCal feed is CRLF per RFC 5545, and a line-mode write
+--- would append a newline the document does not have.
+local function exported(out, target)
+  announce_warnings(core.parse_warnings(out.stderr), true)
+  if out.code == 2 or vim.trim(out.stdout or '') == '' then
+    return state.notify(('export failed (exit %s)'):format(tostring(out.code)), vim.log.levels.ERROR)
+  end
+  local ok, err = pcall(vim.fn.writefile, vim.split(out.stdout, '\n'), target, 'b')
+  if not ok then
+    return state.notify('could not write ' .. target .. ': ' .. tostring(err), vim.log.levels.ERROR)
+  end
+  state.notify('exported to ' .. target)
+end
+
 --- Render one format and write it somewhere. The CLI produces one format per
 --- invocation, so this is its own collection, which is why it is on demand.
 
@@ -289,18 +305,7 @@ function M.export(format, path)
     { text = true, cwd = root, timeout = state.cfg.collect.timeout_ms + 10000 },
     function(out)
       vim.schedule(function()
-        announce_warnings(core.parse_warnings(out.stderr), true)
-        if out.code == 2 or vim.trim(out.stdout or '') == '' then
-          return state.notify(('export failed (exit %s)'):format(tostring(out.code)), vim.log.levels.ERROR)
-        end
-        -- Binary, so the bytes on disk are the bytes the CLI wrote: the iCal
-        -- feed is CRLF per RFC 5545, and a line-mode write would append a
-        -- newline the document does not have.
-        local ok, err = pcall(vim.fn.writefile, vim.split(out.stdout, '\n'), target, 'b')
-        if not ok then
-          return state.notify('could not write ' .. target .. ': ' .. tostring(err), vim.log.levels.ERROR)
-        end
-        state.notify('exported to ' .. target)
+        exported(out, target)
       end)
     end
   )
