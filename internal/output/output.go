@@ -32,6 +32,16 @@ const (
 // Formats lists every renderer, for CLI help and validation.
 var Formats = []Format{FormatTable, FormatJSON, FormatICal, FormatPrometheus, FormatHTML}
 
+// Time layouts, in Go's reference-time spelling. Named because "20060102" says
+// neither which format it is nor which renderer wants it, and it is the key
+// half of every iCal UID.
+const (
+	icalDate      = "20060102"             // RFC 5545 VALUE=DATE
+	icalTimestamp = "20060102T150405Z"     // RFC 5545 UTC DATE-TIME
+	isoDate       = "2006-01-02"           // the "On" column of the HTML report
+	generatedAt   = "2006-01-02 15:04 UTC" // the HTML report's own header
+)
+
 // Options exists so the renderers are testable without freezing the clock
 // globally — an iCal feed with a moving DTSTAMP cannot be diffed.
 type Options struct {
@@ -148,15 +158,15 @@ func renderJSON(w io.Writer, items []rank.Scored, opts Options) error {
 func renderICal(w io.Writer, items []rank.Scored, opts Options) error {
 	var b strings.Builder
 	b.WriteString("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//expiry-radar//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:Expiry radar\r\n")
-	stamp := opts.Now.UTC().Format("20060102T150405Z")
+	stamp := opts.Now.UTC().Format(icalTimestamp)
 
 	for _, s := range items {
 		day := s.Item.Expires.UTC()
 		b.WriteString("BEGIN:VEVENT\r\n")
 		b.WriteString(fold("UID:" + uid(s)))
 		b.WriteString(fold("DTSTAMP:" + stamp))
-		b.WriteString(fold("DTSTART;VALUE=DATE:" + day.Format("20060102")))
-		b.WriteString(fold("DTEND;VALUE=DATE:" + day.AddDate(0, 0, 1).Format("20060102")))
+		b.WriteString(fold("DTSTART;VALUE=DATE:" + day.Format(icalDate)))
+		b.WriteString(fold("DTEND;VALUE=DATE:" + day.AddDate(0, 0, 1).Format(icalDate)))
 		b.WriteString(fold(fmt.Sprintf("SUMMARY:%s expires: %s", s.Item.Kind, escapeText(displayName(s)))))
 		b.WriteString(fold(fmt.Sprintf("DESCRIPTION:blast radius %.2f (%s)\\nsource %s\\npriority %.2f",
 			s.BlastRadius, escapeText(s.Why), escapeText(s.Item.Source), s.Priority)))
@@ -183,7 +193,7 @@ func alarm(s rank.Scored) string {
 // Stable across runs so calendars update the same event instead of piling up
 // duplicates every time the feed is refreshed.
 func uid(s rank.Scored) string {
-	key := string(s.Item.Kind) + "-" + s.Item.Source + "-" + displayName(s) + "-" + s.Item.Expires.UTC().Format("20060102")
+	key := string(s.Item.Kind) + "-" + s.Item.Source + "-" + displayName(s) + "-" + s.Item.Expires.UTC().Format(icalDate)
 	return sanitiseUID(key) + "@expiry-radar"
 }
 
@@ -303,7 +313,7 @@ func renderHTML(w io.Writer, items []rank.Scored, opts Options) error {
 		Groups    []htmlGroup
 		Kinds     []string
 		Stats     htmlStats
-	}{opts.Now.UTC().Format("2006-01-02 15:04 UTC"), groups, sortedKeys(kinds), stats})
+	}{opts.Now.UTC().Format(generatedAt), groups, sortedKeys(kinds), stats})
 }
 
 type htmlRow struct {
@@ -379,7 +389,7 @@ func groupRows(items []rank.Scored) ([]htmlGroup, htmlStats) {
 			Scored:  s,
 			Name:    displayName(s),
 			Left:    humanDays(s.DaysLeft),
-			On:      s.Item.Expires.UTC().Format("2006-01-02"),
+			On:      s.Item.Expires.UTC().Format(isoDate),
 			Sev:     severity(s.DaysLeft),
 			Percent: fmt.Sprintf("%.0f", s.Priority*100),
 		})
