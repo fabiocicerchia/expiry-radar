@@ -101,7 +101,25 @@ func buildAWSVerdict(region string, items []Item, per []serviceResult, collectEr
 		v.Services = append(v.Services, rep)
 	}
 
-	// 1. Did each adapter run at all.
+	// The five checks, in the order the report reads. Each is its own function
+	// because each answers a different question and none depends on another's
+	// result — a reader chasing one of them should not have to scroll past the
+	// other four.
+	v.checkAdaptersRan()
+	v.checkDenialDegrades()
+	v.checkNothingUndated(items)
+	v.checkPagination()
+	v.checkRanking(items, now)
+
+	if collectErr != nil && len(items) == 0 {
+		v.Errors = append(v.Errors, "no items collected at all")
+	}
+	return v
+}
+
+// checkAdaptersRan - Did each adapter run at all. Four outcomes kept apart,
+// because "returned nothing" and "was denied" are not the same answer.
+func (v *AWSVerdict) checkAdaptersRan() {
 	for _, r := range v.Services {
 		switch {
 		case r.Skipped:
@@ -118,9 +136,13 @@ func buildAWSVerdict(region string, items []Item, per []serviceResult, collectEr
 				fmt.Sprintf("%d item(s)", r.Items))
 		}
 	}
+}
 
-	// 2. One denied service must not lose the others. Only decidable when
-	// something WAS denied.
+// checkDenialDegrades - One denied service must not lose the others. Only
+// decidable when something WAS denied, which is why the common case is
+// inconclusive rather than a pass.
+func (v *AWSVerdict) checkDenialDegrades() {
+	const name = "a denied service degrades rather than fails the run"
 	denied, worked := 0, 0
 	for _, r := range v.Services {
 		if r.Denied {
@@ -131,21 +153,24 @@ func buildAWSVerdict(region string, items []Item, per []serviceResult, collectEr
 	}
 	switch {
 	case denied == 0:
-		v.check("a denied service degrades rather than fails the run", false, true,
+		v.check(name, false, true,
 			"nothing was denied on this run; deny one service's permission and "+
 				"run again to exercise it")
 	case worked > 0:
-		v.check("a denied service degrades rather than fails the run", true, false,
+		v.check(name, true, false,
 			fmt.Sprintf("%d denied, %d still returned items", denied, worked))
 	default:
-		v.check("a denied service degrades rather than fails the run", false, false,
+		v.check(name, false, false,
 			"everything was denied, so nothing proves the others would survive")
 	}
+}
 
-	// 3. Nothing without an expiry may be reported as expiring. This is the
-	// check most likely to catch a field mapping that is wrong rather than
-	// missing: a zero time reads as 1st January year 1, which ranks as the most
-	// urgent thing in the account.
+// checkNothingUndated - Nothing without an expiry may be reported as expiring.
+// This is the check most likely to catch a field mapping that is wrong rather
+// than missing: a zero time reads as 1st January year 1, which ranks as the
+// most urgent thing in the account.
+func (v *AWSVerdict) checkNothingUndated(items []Item) {
+	const name = "nothing without an expiry is reported as expiring"
 	var undated []string
 	for _, it := range items {
 		if it.Expires.IsZero() || it.Expires.Year() < 2000 {
@@ -153,50 +178,45 @@ func buildAWSVerdict(region string, items []Item, per []serviceResult, collectEr
 		}
 	}
 	if len(undated) == 0 {
-		v.check("nothing without an expiry is reported as expiring", len(items) > 0,
-			len(items) == 0, fmt.Sprintf("%d item(s), all dated", len(items)))
-	} else {
-		v.check("nothing without an expiry is reported as expiring", false, false,
-			fmt.Sprintf("%d item(s) carry a zero or implausible date: %s",
-				len(undated), strings.Join(dedupe(undated), ", ")))
+		v.check(name, len(items) > 0, len(items) == 0,
+			fmt.Sprintf("%d item(s), all dated", len(items)))
+		return
 	}
+	v.check(name, false, false,
+		fmt.Sprintf("%d item(s) carry a zero or implausible date: %s",
+			len(undated), strings.Join(dedupe(undated), ", ")))
+}
 
-	// 4. Pagination past one page. The AWS list APIs return 100 or fewer per
-	// page, so more than that from one service is proof the paginator advanced.
-	// Fewer is not proof it is broken, which is why this is inconclusive.
-	paged := false
+// checkPagination - Pagination past one page. The AWS list APIs return 100 or
+// fewer per page, so more than that from one service is proof the paginator
+// advanced. Fewer is not proof it is broken, which is why this is
+// inconclusive rather than a failure.
+func (v *AWSVerdict) checkPagination() {
+	const name = "pagination exercised past one page"
 	for _, r := range v.Services {
 		if r.Items > awsPageSize {
-			paged = true
+			v.check(name, true, false, "a service returned more than one page's worth")
+			return
 		}
 	}
-	if paged {
-		v.check("pagination exercised past one page", true, false,
-			"a service returned more than one page's worth")
-	} else {
-		v.check("pagination exercised past one page", false, true,
-			fmt.Sprintf("no service returned more than %d items; create more than "+
-				"that of one kind to exercise the paginator", awsPageSize))
-	}
+	v.check(name, false, true,
+		fmt.Sprintf("no service returned more than %d items; create more than "+
+			"that of one kind to exercise the paginator", awsPageSize))
+}
 
-	// 5. Ranking. Not that the order is "right" — that is what the console
-	// comparison is for — but that it is an order at all, and that the same
-	// input produces it deterministically.
+// checkRanking - Not that the order is "right" — that is what the console
+// comparison is for — but that it is an order at all, and that the same input
+// produces it deterministically.
+func (v *AWSVerdict) checkRanking(items []Item, now time.Time) {
+	const name = "expiries span a range and sort"
 	v.Horizon = horizonDays(items, now)
-	if len(v.Horizon) > 1 {
-		sorted := sort.IntsAreSorted(v.Horizon)
-		v.check("expiries span a range and sort", sorted, false,
-			fmt.Sprintf("%d item(s), %d to %d days out",
-				len(v.Horizon), v.Horizon[0], v.Horizon[len(v.Horizon)-1]))
-	} else {
-		v.check("expiries span a range and sort", false, true,
-			"fewer than two dated items; nothing to order")
+	if len(v.Horizon) <= 1 {
+		v.check(name, false, true, "fewer than two dated items; nothing to order")
+		return
 	}
-
-	if collectErr != nil && len(items) == 0 {
-		v.Errors = append(v.Errors, "no items collected at all")
-	}
-	return v
+	v.check(name, sort.IntsAreSorted(v.Horizon), false,
+		fmt.Sprintf("%d item(s), %d to %d days out",
+			len(v.Horizon), v.Horizon[0], v.Horizon[len(v.Horizon)-1]))
 }
 
 // awsPageSize is the largest page the list APIs used here return. ACM,
