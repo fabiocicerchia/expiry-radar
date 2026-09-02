@@ -22,7 +22,7 @@ func svcErr(name string, e error) serviceResult {
 	return serviceResult{Name: name, Err: e}
 }
 
-var accessDenied = errors.New("operation error ACM: ListCertificates, AccessDeniedException: " +
+var errAccessDenied = errors.New("operation error ACM: ListCertificates, AccessDeniedException: " +
 	"User is not authorized to perform: acm:ListCertificates")
 
 // ---- degradation: the criterion that was untestable before ------------------
@@ -32,7 +32,7 @@ func TestOneDeniedServiceKeepsTheOthersFindings(t *testing.T) {
 	// own function: with the AWS calls inline there was no way to reach it
 	// without an account.
 	got, per, err := collectServices([]awsService{
-		{"acm", false, func() ([]Item, error) { return nil, accessDenied }},
+		{"acm", false, func() ([]Item, error) { return nil, errAccessDenied }},
 		{"iam", false, func() ([]Item, error) { return []Item{{Name: "k"}}, nil }},
 		{"secretsmanager", false, func() ([]Item, error) { return []Item{{Name: "s"}}, nil }},
 	})
@@ -124,8 +124,8 @@ func TestADenialIsReportedAsDegradedRatherThanBroken(t *testing.T) {
 	items := []Item{item(KindTLSCert, "aws:acm", 10*24*time.Hour, now),
 		item(KindSecret, "aws:secretsmanager", 40*24*time.Hour, now)}
 	v := buildAWSVerdict("eu-west-1", items, []serviceResult{
-		svcErr("iam", accessDenied), svcOK("acm", 1), svcOK("secretsmanager", 1),
-	}, accessDenied, now)
+		svcErr("iam", errAccessDenied), svcOK("acm", 1), svcOK("secretsmanager", 1),
+	}, errAccessDenied, now)
 
 	if !v.Services[0].Denied {
 		t.Fatal("an AccessDeniedException was not recognised as a denial")
@@ -148,9 +148,9 @@ func TestADenialIsReportedAsDegradedRatherThanBroken(t *testing.T) {
 func TestEverythingDeniedProvesNothing(t *testing.T) {
 	now := time.Now()
 	v := buildAWSVerdict("eu-west-1", nil, []serviceResult{
-		svcErr("acm", accessDenied), svcErr("iam", accessDenied),
-		svcErr("secretsmanager", accessDenied),
-	}, accessDenied, now)
+		svcErr("acm", errAccessDenied), svcErr("iam", errAccessDenied),
+		svcErr("secretsmanager", errAccessDenied),
+	}, errAccessDenied, now)
 	if v.OK() {
 		t.Fatal("a run where every call was refused passed verification")
 	}
