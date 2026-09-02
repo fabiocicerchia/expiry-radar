@@ -8,25 +8,8 @@ Each item fired because a measurement crossed a threshold. The numbers and the e
 
 | | count |
 |---|---:|
-| Worth attention | 1 |
 | Minor | 3 |
 | Notes | 1 |
-
-### Worth attention · 1 module(s) are more than 4× the median size (128 lines); the largest is 677 lines.
-
-**Why it matters.** A file this far from the median is rarely one idea. It cannot be reviewed in one sitting, it produces merge conflicts between people working on unrelated things, and it hides its internal structure from every tool that works at file granularity — including this one, which sees it as a single node.
-
-**What usually causes it.** Accretion. Each addition was small and reasonable, and no single commit was the one that made it too large.
-
-**What to do.** Split along the lines its own imports suggest: the groups of functions that share dependencies are usually the natural modules. Do it before it becomes the file everyone avoids.
-
-<details><summary>Evidence</summary>
-
-- `extensions/vscode/src/extension.ts` — 677 lines
-
-</details>
-
-<sub>`ARCH-GODFILE` · Size and shape</sub>
 
 ### Minor · 1 component(s) sit far from the balance between how abstract they are and how much depends on them.
 
@@ -38,7 +21,7 @@ Each item fired because a measurement crossed a threshold. The numbers and the e
 
 <details><summary>Evidence</summary>
 
-- `extensions` — abstractness 0.27, instability 0.0, distance 0.73
+- `extensions` — abstractness 0.24, instability 0.0, distance 0.76
 
 </details>
 
@@ -72,7 +55,7 @@ Each item fired because a measurement crossed a threshold. The numbers and the e
 
 - `cmd/expiry-radar/main.go` — 176 lines
 - `extensions/vscode/esbuild.mjs` — 47 lines
-- `extensions/vscode/src/extension.ts` — 677 lines
+- `extensions/vscode/src/extension.ts` — 127 lines
 
 </details>
 
@@ -120,7 +103,7 @@ The section above reasons about the import graph, where an edge either exists or
 
 </details>
 
-**Serious · SEC-SHELL** — 117 occurrence(s) across 13 file(s).
+**Serious · SEC-SHELL** — 117 occurrence(s) across 15 file(s).
 
 *Why it matters.* Handing a string to a shell means the shell parses it: quoting, globbing, pipes, and semicolons all apply. Any input that reaches that string can add another command. This is command injection, and it is one of the oldest and most reliably exploited defects there is.
 
@@ -132,10 +115,10 @@ The section above reasons about the import graph, where an edge either exists or
 
 - `extensions/vscode/esbuild.mjs:18` — ``src/test/${`
 - `extensions/vscode/scripts/copy-package-files.mjs:16` — ``copied ${`
-- `extensions/vscode/src/diagnostics.ts:28` — ``${item.display} expired ${`
-- `extensions/vscode/src/diagnostics.ts:29` — ``${item.display} expires in ${`
-- `extensions/vscode/src/diagnostics.ts:30` — ``${head}.\n\n${item.why}\n\n${`
-- `extensions/vscode/src/doctor.ts:36` — ``${MARK[level]} ${`
+- `extensions/vscode/src/collector.ts:104` — ``collection cancelled: ${`
+- `extensions/vscode/src/collector.ts:120` — ``expiry-radar: ${`
+- `extensions/vscode/src/collector.ts:137` — ``expiry-radar: ${`
+- `extensions/vscode/src/collector.ts:159` — ``could not read ${configPath} to place items: ${`
 
 </details>
 
@@ -153,7 +136,7 @@ The section above reasons about the import graph, where an edge either exists or
 
 - `extensions/vscode/esbuild.mjs:16` — `readdirSync(`
 - `extensions/vscode/scripts/copy-package-files.mjs:15` — `copyFileSync(`
-- `extensions/vscode/src/extension.ts:539` — `existsSync(`
+- `extensions/vscode/src/commands.ts:299` — `existsSync(`
 - `extensions/vscode/src/runner.ts:73` — `statSync(`
 
 </details>
@@ -173,9 +156,9 @@ The section above reasons about the import graph, where an edge either exists or
 - `extensions/vscode/esbuild.mjs:7` — `.includes(`
 - `extensions/vscode/esbuild.mjs:8` — `.includes(`
 - `extensions/vscode/esbuild.mjs:12` — `.includes(`
-- `extensions/vscode/src/doctor.ts:58` — `.includes(`
-- `extensions/vscode/src/doctor.ts:94` — `.includes(`
-- `extensions/vscode/src/doctor.ts:94` — `.includes(`
+- `extensions/vscode/src/commands.ts:337` — `.includes(`
+- `extensions/vscode/src/doctor.ts:54` — `.includes(`
+- `extensions/vscode/src/doctor.ts:55` — `.includes(`
 
 </details>
 
@@ -191,7 +174,7 @@ The section above reasons about the import graph, where an edge either exists or
 
 <details><summary>Evidence</summary>
 
-- `extensions/vscode/src/extension.ts:445` — `catch {`
+- `extensions/vscode/src/commands.ts:257` — `catch {`
 - `extensions/vscode/src/runner.ts:260` — `catch {                                    }`
 
 </details>
@@ -208,13 +191,13 @@ What was read, and where every import went. Third-party means the target is expe
 |---|---|---:|---:|---:|---:|---:|
 | Go | structural | 16 | 116 | 14 | 102 | 0 |
 | JavaScript | structural | 2 | 5 | 1 | 4 | 0 |
-| TypeScript | structural | 15 | 55 | 35 | 20 | 0 |
+| TypeScript | structural | 19 | 83 | 58 | 25 | 0 |
 
 ## Shape
 
-- 22 modules across 3 components
-- 49 internal import edges, 1 component couplings
-- 3595 lines
+- 26 modules across 3 components
+- 72 internal import edges, 1 component couplings
+- 3776 lines
 - propagation cost 17% — the share of other components an average component can reach through import paths
 - Go module `github.com/fabiocicerchia/expiry-radar`
 
@@ -223,7 +206,7 @@ What was read, and where every import went. Third-party means the target is expe
 ```mermaid
 graph LR
   cmd["cmd<br/><small>Go · 1 mod · 176 loc</small>"]
-  extensions["extensions<br/><small>JavaScript/TypeScript · 17 mod · 2769 loc</small>"]
+  extensions["extensions<br/><small>JavaScript/TypeScript · 21 mod · 2950 loc</small>"]
   internal["internal<br/><small>Go · 4 mod · 650 loc</small>"]
   cmd -->|4| internal
 ```
@@ -252,7 +235,7 @@ Components a route can touch by following imports, to a depth of four. This is t
 
 ## The nouns
 
-29 types declared: 1 inheritance and 15 composition relationships between types defined in this tree. Relationships to types declared elsewhere are omitted rather than guessed, so this is a lower bound. 0 types were read with a real parser; the rest come from declaration syntax, which is reliable for the declaration and weaker for the member lists.
+33 types declared: 1 inheritance and 15 composition relationships between types defined in this tree. Relationships to types declared elsewhere are omitted rather than guessed, so this is a lower bound. 0 types were read with a real parser; the rest come from declaration syntax, which is reliable for the declaration and weaker for the member lists.
 
 ### `extensions`
 
@@ -459,7 +442,7 @@ classDiagram
   Scored *-- Item : Item
 ```
 
-**Declared but never implemented in this tree:** `ConfigShape`, `DiagnosticGroup`, `GroupNode`, `Item`, `ItemNode`, `Job`, `ManualEntry`, `Origin`. Either the implementations live outside this tree, or the abstraction has no second case yet and the indirection is not paying for itself.
+**Declared but never implemented in this tree:** `ConfigShape`, `DiagnosticGroup`, `ExportChoice`, `GroupNode`, `Item`, `ItemNode`, `Job`, `ManualEntry`. Either the implementations live outside this tree, or the abstraction has no second case yet and the indirection is not paying for itself.
 
 ## Dependency matrix
 
@@ -477,39 +460,6 @@ Row depends on column; the number is how many import sites hold it. Components a
 
 What each root actually pulls in, to a depth of three. Nothing imports these modules, so they are where a reader has to start.
 
-**extensions/vscode/src/extension.ts**
-
-```
-extensions.vscode.src.extension  (TypeScript)
-├─ extensions.vscode.src.config  (TypeScript)
-├─ extensions.vscode.src.diagnostics  (TypeScript)
-│  ├─ extensions.vscode.src.config  (TypeScript)
-│  ├─ extensions.vscode.src.parse  (TypeScript)
-│  │  └─ extensions.vscode.src.types  (TypeScript)
-│  └─ extensions.vscode.src.types  (TypeScript)
-├─ extensions.vscode.src.doctor  (TypeScript)
-│  ├─ extensions.vscode.src.config  (TypeScript)
-│  ├─ extensions.vscode.src.log  (TypeScript)
-│  └─ extensions.vscode.src.runner  (TypeScript)
-│     ├─ extensions.vscode.src.config  (TypeScript)
-│     ├─ extensions.vscode.src.log  (TypeScript)
-│     ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
-│     └─ extensions.vscode.src.types  (TypeScript)
-├─ extensions.vscode.src.edit  (TypeScript)
-│  ├─ extensions.vscode.src.locate  (TypeScript)
-│  │  └─ extensions.vscode.src.types  (TypeScript)
-│  └─ extensions.vscode.src.types  (TypeScript)
-├─ extensions.vscode.src.inventoryView  (TypeScript)
-│  ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
-│  ├─ extensions.vscode.src.store  (TypeScript)
-│  │  └─ extensions.vscode.src.types  (TypeScript)
-│  └─ extensions.vscode.src.types  (TypeScript)
-├─ extensions.vscode.src.locate  (TypeScript)  ↑ shown above
-├─ extensions.vscode.src.log  (TypeScript)
-└─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
-└─ … 6 more
-```
-
 **cmd/expiry-radar/main.go**
 
 ```
@@ -525,6 +475,59 @@ cmd.expiry-radar  (Go)
 └─ internal.source  (Go)
 ```
 
+**extensions/vscode/src/extension.ts**
+
+```
+extensions.vscode.src.extension  (TypeScript)
+├─ extensions.vscode.src.collector  (TypeScript)
+│  ├─ extensions.vscode.src.diagnostics  (TypeScript)
+│  │  ├─ extensions.vscode.src.config  (TypeScript)
+│  │  ├─ extensions.vscode.src.parse  (TypeScript)
+│  │  └─ extensions.vscode.src.types  (TypeScript)
+│  ├─ extensions.vscode.src.folder  (TypeScript)
+│  │  └─ extensions.vscode.src.config  (TypeScript)
+│  ├─ extensions.vscode.src.inventoryView  (TypeScript)
+│  │  ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
+│  │  ├─ extensions.vscode.src.store  (TypeScript)
+│  │  └─ extensions.vscode.src.types  (TypeScript)
+│  ├─ extensions.vscode.src.locate  (TypeScript)
+│  │  └─ extensions.vscode.src.types  (TypeScript)
+│  ├─ extensions.vscode.src.log  (TypeScript)
+│  ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.runner  (TypeScript)
+│  │  ├─ extensions.vscode.src.config  (TypeScript)
+│  │  ├─ extensions.vscode.src.log  (TypeScript)
+│  │  ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
+│  │  └─ extensions.vscode.src.types  (TypeScript)
+│  ├─ extensions.vscode.src.scheduler  (TypeScript)
+│  │  └─ extensions.vscode.src.log  (TypeScript)
+│  └─ … 3 more
+├─ extensions.vscode.src.commands  (TypeScript)
+│  ├─ extensions.vscode.src.collector  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.doctor  (TypeScript)
+│  │  ├─ extensions.vscode.src.config  (TypeScript)
+│  │  ├─ extensions.vscode.src.log  (TypeScript)
+│  │  └─ extensions.vscode.src.runner  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.edit  (TypeScript)
+│  │  ├─ extensions.vscode.src.locate  (TypeScript)  ↑ shown above
+│  │  └─ extensions.vscode.src.types  (TypeScript)
+│  ├─ extensions.vscode.src.folder  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.inventoryView  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.log  (TypeScript)
+│  ├─ extensions.vscode.src.parse  (TypeScript)  ↑ shown above
+│  ├─ extensions.vscode.src.prompts  (TypeScript)
+│  │  ├─ extensions.vscode.src.edit  (TypeScript)  ↑ shown above
+│  │  └─ extensions.vscode.src.runner  (TypeScript)  ↑ shown above
+│  └─ … 4 more
+├─ extensions.vscode.src.diagnostics  (TypeScript)  ↑ shown above
+├─ extensions.vscode.src.folder  (TypeScript)  ↑ shown above
+├─ extensions.vscode.src.inventoryView  (TypeScript)  ↑ shown above
+├─ extensions.vscode.src.log  (TypeScript)
+├─ extensions.vscode.src.report  (TypeScript)
+└─ extensions.vscode.src.runner  (TypeScript)  ↑ shown above
+└─ … 3 more
+```
+
 **extensions/vscode/esbuild.mjs**
 
 ```
@@ -536,7 +539,7 @@ extensions.vscode.esbuild  (JavaScript)
 | Component | Languages | Modules | LOC | Fan-in | Fan-out | Instability |
 |---|---|---:|---:|---:|---:|---:|
 | `cmd` | Go | 1 | 176 | 0 | 1 | 1.0 |
-| `extensions` | JavaScript, TypeScript | 17 | 2769 | 0 | 0 | 0.0 |
+| `extensions` | JavaScript, TypeScript | 21 | 2950 | 0 | 0 | 0.0 |
 | `internal` | Go | 4 | 650 | 1 | 0 | 0.0 |
 
 Instability is fan-out / (fan-in + fan-out). A component many things depend on that itself depends widely propagates change in both directions.
@@ -551,10 +554,10 @@ Third-party packages. Standard-library imports are counted separately below, bec
 
 | Package | Sites | Components | First site |
 |---|---:|---:|---|
-| `vscode` | 11 | 1 | extensions/vscode/src/config.ts:1 |
+| `vscode` | 15 | 1 | extensions/vscode/src/collector.ts:11 |
 | `github` | 6 | 1 | internal/source/aws.go:10 |
 
-25 standard-library modules imported; most used: `fmt` (13), `time` (12), `strings` (11), `context` (8), `io` (8), `net` (8), `encoding` (7), `os` (6), `crypto` (5), `node` (4), `path` (4), `sort` (4).
+25 standard-library modules imported; most used: `fmt` (13), `time` (12), `strings` (11), `context` (8), `io` (8), `net` (8), `encoding` (7), `os` (6), `crypto` (5), `fs` (4), `node` (4), `path` (4).
 
 ## Churn against size
 
@@ -562,29 +565,37 @@ Most-changed files in the last 12 months. This is where any map you carry in you
 
 | File | Lines touched | LOC | Language |
 |---|---:|---:|---|
-| `extensions/vscode/src/extension.ts` | 677 | 677 | TypeScript |
+| `extensions/vscode/src/extension.ts` | 1393 | 127 | TypeScript |
+| `extensions/vscode/src/doctor.ts` | 411 | 207 | TypeScript |
 | `extensions/vscode/src/runner.ts` | 377 | 377 | TypeScript |
+| `extensions/vscode/src/commands.ts` | 368 | 368 | TypeScript |
 | `extensions/vscode/src/inventoryView.ts` | 357 | 357 | TypeScript |
 | `internal/rank/rank.go` | 352 | 294 | Go |
 | `extensions/vscode/src/edit.ts` | 250 | 250 | TypeScript |
 | `cmd/expiry-radar/main.go` | 248 | 176 | Go |
 | `internal/source/vault.go` | 207 | 205 | Go |
-| `extensions/vscode/src/doctor.ts` | 163 | 163 | TypeScript |
+| `extensions/vscode/src/collector.ts` | 167 | 167 | TypeScript |
 | `extensions/vscode/src/parse.ts` | 141 | 141 | TypeScript |
 | `internal/config/config.go` | 140 | 128 | Go |
 | `extensions/vscode/src/scheduler.ts` | 129 | 129 | TypeScript |
+| `extensions/vscode/src/prompts.ts` | 129 | 129 | TypeScript |
 | `extensions/vscode/src/locate.ts` | 117 | 117 | TypeScript |
-| `extensions/vscode/src/status.ts` | 100 | 100 | TypeScript |
-| `extensions/vscode/src/diagnostics.ts` | 99 | 99 | TypeScript |
-| `extensions/vscode/src/report.ts` | 93 | 93 | TypeScript |
 
 ## Public surface
 
-<details><summary><code>extensions</code> — 64 exported</summary>
+<details><summary><code>extensions</code> — 74 exported</summary>
 
 
-_Showing 40 of 64; `--full` lists them all._
+_Showing 40 of 74; `--full` lists them all._
 
+
+`extensions.vscode.src.collector`
+
+- class Collector:35
+
+`extensions.vscode.src.commands`
+
+- class Commands:26
 
 `extensions.vscode.src.config`
 
@@ -600,7 +611,7 @@ _Showing 40 of 64; `--full` lists them all._
 
 `extensions.vscode.src.doctor`
 
-- function runDoctor:29
+- function runDoctor:58
 
 `extensions.vscode.src.edit`
 
@@ -616,8 +627,13 @@ _Showing 40 of 64; `--full` lists them all._
 
 `extensions.vscode.src.extension`
 
-- function activate:48
-- function deactivate:674
+- function activate:23
+- function deactivate:74
+
+`extensions.vscode.src.folder`
+
+- function primaryFolder:11
+- function settingsFor:20
 
 `extensions.vscode.src.inventoryView`
 
@@ -648,16 +664,6 @@ _Showing 40 of 64; `--full` lists them all._
 - function kindLabel:46
 - function parseWarnings:113
 - function severity:51
-- function toItems:86
-
-`extensions.vscode.src.report`
-
-- class ReportView:39
-
-`extensions.vscode.src.runner`
-
-- class RadarNotFoundError:19
-- const INSTALL_COMMAND:21
 
 </details>
 
