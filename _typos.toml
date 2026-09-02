@@ -1,0 +1,5 @@
+# `enew` is Neovim's "edit a new empty buffer" command, not a misspelling of
+# "new". The nvim specs open a scratch buffer with `vim.cmd('enew')` before
+# asserting on what the plugin draws into it.
+[default.extend-words]
+enew = "enew"
