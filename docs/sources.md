@@ -72,6 +72,57 @@ the report for having been typed in.
 Both editor integrations can write these for you — see
 [Editor integration](editors.md).
 
+## Verifying the AWS adapters
+
+The ACM, IAM and Secrets Manager adapters compile and vet clean, and until now
+had never run with real credentials. Nothing confirmed the field mappings or
+the expiry semantics, and mocked responses cannot: they assert that the code
+does what it was written to do, and the failure being guarded against is a
+field meaning something other than what was assumed.
+
+```sh
+expiry-radar -verify-aws
+```
+
+Read-only, like everything else here — it runs the same three adapters and
+reports what they returned.
+
+### What it can decide
+
+| check | how |
+| --- | --- |
+| each adapter ran | it returned items, or it did not, or it was denied, or it was skipped — four different outcomes, kept apart |
+| a denied service degrades rather than fails the run | one service refused while the others still returned items |
+| nothing without an expiry is reported as expiring | a zero `time.Time` reads as 1 January year 1 and would rank as the most urgent thing in the account |
+| pagination past one page | a service returned more than a full page (100) |
+| expiries span a range and sort | more than one dated item, in order |
+
+**An inconclusive check is not a pass.** An account with nothing in it satisfies
+every criterion written as "nothing was wrong", and reporting that as evidence
+would be a lie — so an empty adapter, a skipped one, a run where nothing was
+denied and a run with fewer than a page of results all print `?`, not `ok`.
+
+### What it cannot
+
+Nothing in the output can confirm that a date **means** what the adapter
+assumed. That is the failure a live run exists to catch, and it needs the
+console open beside the report:
+
+- each expiry matches what the console shows for that resource
+- an IAM key's "expiry" is its age against `maxKeyAgeDays`, not a date AWS
+  reports — the console shows the **creation** date, so check the arithmetic
+- a rotating secret's next rotation matches the schedule on the secret itself
+
+The report prints that list every time, so it is not something a reader has to
+remember.
+
+### It is safe to paste into an issue
+
+Counts, outcomes and expiry **offsets in days** — never ARNs, account ids,
+domain names or secret names. The guarantee is structural rather than a filter:
+the verdict type has nowhere to put an identifier, and a test asserts that an
+ARN, an account id and a certificate's domain cannot reach the text.
+
 ## Non-negotiable: read-only
 
 expiry-radar never needs write access, and the shipped credentials say so:

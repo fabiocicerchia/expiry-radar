@@ -44,6 +44,11 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		minPriority = fs.Float64("min-priority", 0, "only report items at or above this priority")
 		out         = fs.String("out", "", "write to a file instead of stdout")
 		timeout     = fs.Duration("timeout", 2*time.Minute, "overall collection timeout")
+		// Not a scan. Runs the AWS adapters and reports what can be established
+		// about them from real results, plus what still needs the console open
+		// beside it. Read-only like everything else here.
+		verifyAWS = fs.Bool("verify-aws", false, "run the AWS adapters and report what they did, "+
+			"in a form safe to paste into an issue (no ARNs, ids or names)")
 	)
 	fs.Usage = func() {
 		_, _ = fmt.Fprint(fs.Output(), "expiry-radar — one inventory of everything that expires, ranked by blast radius.\n\n"+
@@ -59,6 +64,13 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		return 2, err
 	}
 	sources := cfg.Sources()
+
+	if *verifyAWS {
+		ctx, cancel := context.WithTimeout(ctx, *timeout)
+		defer cancel()
+		return runVerifyAWS(ctx, sources, stdout)
+	}
+
 	if len(sources) == 0 {
 		return 2, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
 	}
@@ -152,4 +164,34 @@ func filter(items []rank.Scored, withinDays int, minPriority float64) []rank.Sco
 		out = append(out, s)
 	}
 	return out
+}
+
+// runVerifyAWS reports on the AWS adapters rather than scanning with them.
+//
+// The three of them compile and vet clean and had never run with real
+// credentials, so nothing confirmed the field mappings or the expiry semantics.
+// Mocked responses cannot: they assert the code does what it was written to do,
+// and the failure being guarded against is a field meaning something other than
+// what was assumed. This is what makes the console comparison a five-minute job.
+func runVerifyAWS(ctx context.Context, sources []source.Source, stdout io.Writer) (int, error) {
+	var aws *source.AWSSource
+	for _, s := range sources {
+		if a, ok := s.(*source.AWSSource); ok {
+			aws = a
+		}
+	}
+	if aws == nil {
+		return 2, fmt.Errorf("-verify-aws needs the aws source enabled in the config")
+	}
+	v, err := source.VerifyAWS(ctx, aws)
+	if err != nil {
+		return 2, err
+	}
+	_, _ = fmt.Fprint(stdout, v.Text())
+	if !v.OK() {
+		// Non-zero, so this is usable from CI against a fixture account: a
+		// check that failed has to fail something or nobody will notice it.
+		return 1, nil
+	}
+	return 0, nil
 }
