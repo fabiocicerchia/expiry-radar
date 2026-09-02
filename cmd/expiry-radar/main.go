@@ -30,8 +30,15 @@ func main() {
 	os.Exit(code)
 }
 
-// Exit codes: 0 clean, 1 a threshold was breached, 2 bad usage or config,
-// 3 partial results (at least one source failed).
+// The exit-code table. These numbers are contract — README.md documents them
+// and CI jobs gate on them — so they are named here and never moved.
+const (
+	exitClean    = 0 // nothing to report
+	exitBreached = 1 // a -fail-within threshold was crossed: a result, not an error
+	exitUsage    = 2 // bad usage, bad config, or a report that could not be written
+	exitPartial  = 3 // results, but at least one source failed
+)
+
 func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	fs := flag.NewFlagSet("expiry-radar", flag.ContinueOnError)
 	var (
@@ -51,16 +58,16 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		return 2, nil
+		return exitUsage, nil
 	}
 
 	cfg, err := loadConfig(*cfgPath, *endpoints, *domains)
 	if err != nil {
-		return 2, err
+		return exitUsage, err
 	}
 	sources := cfg.Sources()
 	if len(sources) == 0 {
-		return 2, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
+		return exitUsage, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
@@ -77,15 +84,15 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	scored := filter(rank.Rank(items, cfg.Overrides, now), *within, *minPriority)
 
 	if err := writeReport(stdout, *out, scored, output.Format(*format), output.Options{Now: now}); err != nil {
-		return 2, err
+		return exitUsage, err
 	}
 	if err := breached(scored, *failWithin); err != nil {
-		return 1, err
+		return exitBreached, err
 	}
 	if len(errs) > 0 {
-		return 3, nil // partial results: distinct from both success and a hard failure
+		return exitPartial, nil
 	}
-	return 0, nil
+	return exitClean, nil
 }
 
 // writeReport renders to the file named by -out, or to stdout when it is empty.
