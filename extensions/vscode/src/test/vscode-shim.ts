@@ -89,6 +89,17 @@ export class Range {
   }
 }
 
+export class Selection {
+  constructor(
+    readonly anchor: Position,
+    readonly active: Position,
+  ) {}
+
+  get isEmpty(): boolean {
+    return this.anchor.line === this.active.line && this.anchor.character === this.active.character;
+  }
+}
+
 export enum DiagnosticSeverity {
   Error = 0,
   Warning = 1,
@@ -166,6 +177,43 @@ export enum ProgressLocation {
 /** Settings the tests set directly, read back through `getConfiguration`. */
 export const testConfiguration = new Map<string, unknown>();
 
+/**
+ * What the extension did to the editor, in order.
+ *
+ * `activate()` is only observable through the editor it wires itself into, so
+ * the shim records rather than ignores: which command ids exist, what was asked
+ * of the user, what the log was told. A test asserts on these lists, never on
+ * the extension's own internals.
+ */
+export const registeredCommands = new Map<string, (...args: never[]) => unknown>();
+export const executedCommands: { command: string; args: unknown[] }[] = [];
+/** Every prompt and notification, as `<kind>: <title or message>`. */
+export const prompts: string[] = [];
+/** Every line the output channel was given. */
+export const logged: string[] = [];
+/**
+ * What the next prompt returns, in order. A function is called with the items
+ * offered, so a test can pick one without restating it.
+ */
+export const answers: unknown[] = [];
+
+export function resetShim(): void {
+  registeredCommands.clear();
+  executedCommands.length = 0;
+  prompts.length = 0;
+  logged.length = 0;
+  answers.length = 0;
+  testConfiguration.clear();
+  workspace.workspaceFolders = [];
+  window.activeTextEditor = undefined;
+}
+
+function answer(kind: string, label: string, items?: unknown): unknown {
+  prompts.push(`${kind}: ${label}`);
+  const next = answers.shift();
+  return typeof next === 'function' ? (next as (i: unknown) => unknown)(items) : next;
+}
+
 export const workspace = {
   workspaceFolders: [] as { uri: Uri; name: string; index: number }[],
   getConfiguration(section: string, _scope?: unknown) {
@@ -175,32 +223,87 @@ export const workspace = {
       },
     };
   },
-  getWorkspaceFolder() {
-    return undefined;
+  getWorkspaceFolder(uri?: Uri) {
+    return workspace.workspaceFolders.find((f) => uri?.fsPath.startsWith(f.uri.fsPath));
+  },
+  async openTextDocument(target: string | Uri) {
+    const uri = typeof target === 'string' ? Uri.file(target) : target;
+    return { uri, fileName: uri.fsPath };
   },
   onDidSaveTextDocument() {
+    return { dispose() {} };
+  },
+  onDidChangeConfiguration() {
+    return { dispose() {} };
+  },
+  onDidChangeWorkspaceFolders() {
     return { dispose() {} };
   },
 };
 
 export const window = {
   state: { focused: true },
+  activeTextEditor: undefined as unknown,
   createOutputChannel() {
     return {
-      info() {},
-      warn() {},
-      error() {},
-      debug() {},
+      info(message: string) {
+        logged.push(message);
+      },
+      warn(message: string) {
+        logged.push(message);
+      },
+      error(message: string) {
+        logged.push(message);
+      },
+      debug(message: string) {
+        logged.push(message);
+      },
       show() {},
       dispose() {},
     };
   },
   createStatusBarItem() {
-    return { text: '', tooltip: undefined, show() {}, dispose() {} };
+    return {
+      text: '',
+      name: undefined as string | undefined,
+      command: undefined as string | undefined,
+      tooltip: undefined as unknown,
+      backgroundColor: undefined as unknown,
+      show() {},
+      hide() {},
+      dispose() {},
+    };
   },
-  showErrorMessage: async () => undefined,
-  showWarningMessage: async () => undefined,
-  showInformationMessage: async () => undefined,
+  createTreeView(viewId: string, _options?: unknown) {
+    return { viewId, reveal: async () => undefined, dispose() {} };
+  },
+  createTerminal() {
+    return { show() {}, sendText() {}, dispose() {} };
+  },
+  async showTextDocument(document: unknown) {
+    return {
+      document,
+      selection: undefined as unknown,
+      revealRange() {},
+    };
+  },
+  async withProgress<T>(
+    _options: unknown,
+    task: (progress: { report(): void }, token: unknown) => Thenable<T>,
+  ): Promise<T> {
+    return task({ report() {} }, new CancellationTokenSource().token);
+  },
+  onDidChangeActiveTextEditor() {
+    return { dispose() {} };
+  },
+  showErrorMessage: async (message: string) => answer('error', message),
+  showWarningMessage: async (message: string) => answer('warning', message),
+  showInformationMessage: async (message: string) => answer('information', message),
+  showQuickPick: async (items: unknown, options?: { title?: string }) =>
+    answer('quickPick', options?.title ?? '', await items),
+  showInputBox: async (options?: { title?: string; prompt?: string }) =>
+    answer('inputBox', options?.title ?? options?.prompt ?? ''),
+  showSaveDialog: async (options?: { title?: string }) => answer('saveDialog', options?.title ?? ''),
 };
 
 export const languages = {
@@ -224,8 +327,19 @@ export const languages = {
 };
 
 export const commands = {
-  executeCommand: async () => undefined,
-  registerCommand: () => ({ dispose() {} }),
+  async executeCommand(command: string, ...args: unknown[]) {
+    executedCommands.push({ command, args });
+    const handler = registeredCommands.get(command);
+    return handler ? await handler(...(args as never[])) : undefined;
+  },
+  registerCommand(command: string, handler: (...args: never[]) => unknown) {
+    registeredCommands.set(command, handler);
+    return {
+      dispose() {
+        registeredCommands.delete(command);
+      },
+    };
+  },
 };
 
 export const env = {
