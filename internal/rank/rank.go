@@ -108,11 +108,7 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 	}
 	b := blastScore{score: score}
 
-	if isPublic(it) {
-		b.adjust(0.20, "internet-facing")
-	} else if class := it.Labels[source.LabelIngressClass]; class != "" && isInternalClass(class) {
-		b.adjust(-0.15, "internal ingress class")
-	}
+	b.addExposure(it)
 
 	switch environment(it) {
 	case envProd:
@@ -131,18 +127,34 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 		}
 	}
 
-	// Traffic, when anything actually reports it, beats every other guess.
-	if rps, err := strconv.ParseFloat(it.Labels[source.LabelTraffic], 64); err == nil && rps > 1 {
-		// log10-scaled and capped: 10 rps adds 0.1, 1k rps adds 0.3, and past
-		// that "very busy" is the same answer.
-		b.adjust(math.Min(0.30, math.Log10(rps)*0.10), "traffic "+trimFloat(rps)+" rps")
-	}
+	b.addTraffic(it)
 
 	if it.Labels["in-use"] == "false" {
 		b.adjust(-0.35, "not in use")
 	}
 
 	return clamp01(b.score), b.why(it.Kind)
+}
+
+// Reachable from the internet is the biggest single multiplier; an ingress
+// class that names itself internal is the counter-evidence worth trusting.
+func (b *blastScore) addExposure(it source.Item) {
+	if isPublic(it) {
+		b.adjust(0.20, "internet-facing")
+	} else if class := it.Labels[source.LabelIngressClass]; class != "" && isInternalClass(class) {
+		b.adjust(-0.15, "internal ingress class")
+	}
+}
+
+// Traffic, when anything actually reports it, beats every other guess.
+func (b *blastScore) addTraffic(it source.Item) {
+	rps, err := strconv.ParseFloat(it.Labels[source.LabelTraffic], 64)
+	if err != nil || rps <= 1 {
+		return
+	}
+	// log10-scaled and capped: 10 rps adds 0.1, 1k rps adds 0.3, and past that
+	// "very busy" is the same answer.
+	b.adjust(math.Min(0.30, math.Log10(rps)*0.10), "traffic "+trimFloat(rps)+" rps")
 }
 
 // blastScore accumulates a blast radius and the evidence that moved it. The

@@ -76,35 +76,49 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	now := time.Now()
 	scored := filter(rank.Rank(items, cfg.Overrides, now), *within, *minPriority)
 
-	w, closeOut := stdout, func() error { return nil }
-	if *out != "" {
-		f, err := os.Create(*out)
-		if err != nil {
-			return 2, err
-		}
-		w, closeOut = f, f.Close
-	}
-	err = output.RenderAt(w, scored, output.Format(*format), output.Options{Now: now})
-	// Close reports the final flush: a silently truncated report on disk reads
-	// exactly like a clean estate.
-	if cerr := closeOut(); err == nil {
-		err = cerr
-	}
-	if err != nil {
+	if err := writeReport(stdout, *out, scored, output.Format(*format), output.Options{Now: now}); err != nil {
 		return 2, err
 	}
-
-	if *failWithin > 0 {
-		for _, s := range scored {
-			if s.DaysLeft <= float64(*failWithin) {
-				return 1, fmt.Errorf("%s expires in %.0f days (-fail-within %d)", s.Item.Name, s.DaysLeft, *failWithin)
-			}
-		}
+	if err := breached(scored, *failWithin); err != nil {
+		return 1, err
 	}
 	if len(errs) > 0 {
 		return 3, nil // partial results: distinct from both success and a hard failure
 	}
 	return 0, nil
+}
+
+// writeReport renders to the file named by -out, or to stdout when it is empty.
+func writeReport(stdout io.Writer, out string, scored []rank.Scored, format output.Format, opts output.Options) error {
+	w, closeOut := stdout, func() error { return nil }
+	if out != "" {
+		f, err := os.Create(out)
+		if err != nil {
+			return err
+		}
+		w, closeOut = f, f.Close
+	}
+	err := output.RenderAt(w, scored, format, opts)
+	// Close reports the final flush: a silently truncated report on disk reads
+	// exactly like a clean estate.
+	if cerr := closeOut(); err == nil {
+		err = cerr
+	}
+	return err
+}
+
+// breached is the -fail-within CI gate. Items arrive ranked, so the first one
+// inside the window is also the one worth putting in the failure message.
+func breached(scored []rank.Scored, withinDays int) error {
+	if withinDays <= 0 {
+		return nil
+	}
+	for _, s := range scored {
+		if s.DaysLeft <= float64(withinDays) {
+			return fmt.Errorf("%s expires in %.0f days (-fail-within %d)", s.Item.Name, s.DaysLeft, withinDays)
+		}
+	}
+	return nil
 }
 
 // Flags add to the config file rather than replacing it, so a one-off probe does

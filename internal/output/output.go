@@ -357,30 +357,12 @@ func severity(days float64) string {
 // public-suffix list is worth a dependency here. Anything that belongs to no
 // tracked domain falls back to its namespace, then to a shared bucket.
 func groupRows(items []rank.Scored) ([]htmlGroup, htmlStats) {
-	var domains []string
-	for _, s := range items {
-		if s.Item.Kind == source.KindDomain {
-			domains = append(domains, s.Item.Name)
-		}
-	}
-	// Longest first, so a.b.example.com lands under the more specific of two
-	// tracked domains rather than whichever was collected first.
-	sort.Slice(domains, func(i, j int) bool { return len(domains[i]) > len(domains[j]) })
+	domains := trackedDomains(items)
+	stats := countHorizons(items)
 
-	var stats htmlStats
 	byName := map[string]*htmlGroup{}
 	var order []string
 	for _, s := range items {
-		stats.Total++
-		switch {
-		case s.DaysLeft < 0:
-			stats.Expired++
-		case s.DaysLeft <= 14:
-			stats.In14++
-			fallthrough
-		case s.DaysLeft <= 30:
-			stats.In30++
-		}
 		key := groupOf(s, domains)
 		g, ok := byName[key]
 		if !ok {
@@ -417,6 +399,38 @@ func groupRows(items []rank.Scored) ([]htmlGroup, htmlStats) {
 	// Groups already arrive in ranked order (items are sorted by priority), so
 	// the first group holds the highest-priority item. Keep that.
 	return out, stats
+}
+
+// The domains the report itself tracks, longest first so a.b.example.com lands
+// under the more specific of two rather than whichever was collected first.
+func trackedDomains(items []rank.Scored) []string {
+	var domains []string
+	for _, s := range items {
+		if s.Item.Kind == source.KindDomain {
+			domains = append(domains, s.Item.Name)
+		}
+	}
+	sort.Slice(domains, func(i, j int) bool { return len(domains[i]) > len(domains[j]) })
+	return domains
+}
+
+// The three deadlines the report leads with. The fallthrough is deliberate:
+// anything due inside 14 days is also due inside 30.
+func countHorizons(items []rank.Scored) htmlStats {
+	var stats htmlStats
+	for _, s := range items {
+		stats.Total++
+		switch {
+		case s.DaysLeft < 0:
+			stats.Expired++
+		case s.DaysLeft <= 14:
+			stats.In14++
+			fallthrough
+		case s.DaysLeft <= 30:
+			stats.In30++
+		}
+	}
+	return stats
 }
 
 func groupOf(s rank.Scored, domains []string) string {
