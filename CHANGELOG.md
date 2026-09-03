@@ -5,6 +5,14 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.2.0...v1.3.0) (2026-09-03)
+
+
+### Features
+
+* **aws:** -verify-aws, and make the degradation rule testable at last ([#38](https://github.com/fabiocicerchia/expiry-radar/issues/38)) ([8bce5d8](https://github.com/fabiocicerchia/expiry-radar/commit/8bce5d8507834141f0d9febf344b13abf17f92c5))
+* **vscode:** swap the marketplace icon for an hourglass ([#36](https://github.com/fabiocicerchia/expiry-radar/issues/36)) ([adf79e2](https://github.com/fabiocicerchia/expiry-radar/commit/adf79e2cd166cf94f7b1a2ce7f2529586f5ea024))
+
 ## [1.2.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.1.1...v1.2.0) (2026-09-01)
 
 
