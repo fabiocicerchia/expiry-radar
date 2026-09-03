@@ -55,6 +55,10 @@ Go tests and `make clean` does not cost an `npm ci` to undo.
 - Prefer the standard library; a new module needs a reason.
 - Ranking by blast radius is the product. A new source must supply the signals
   `internal/rank` needs, not just an expiry date.
+- A source that talks to a cloud API needs its per-service collection behind a
+  seam (`collectServices` in `internal/source/aws.go` is the pattern), so the
+  rule that one denied permission must not lose the other services' findings is
+  testable without an account. That rule is the one nobody could check before.
 - Don't split this back into per-source tools.
 - Don't touch generated files or lockfiles by hand.
 - Ask before large refactors or destructive operations.
