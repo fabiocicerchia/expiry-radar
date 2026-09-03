@@ -46,39 +46,46 @@ const (
 func (s *K8sSource) Name() string { return "k8s" }
 
 func (s *K8sSource) Collect(ctx context.Context) ([]Item, error) {
-	client, base, token, err := s.client()
+	api, err := s.client()
 	if err != nil {
 		return nil, err
 	}
-
-	get := func(path string, out any) error {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
-		if err != nil {
-			return err
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		req.Header.Set("Accept", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode == http.StatusForbidden {
-			return fmt.Errorf("GET %s: forbidden — expiry-radar needs list on ingresses and secrets (see docs/rbac-readonly.yaml)", path)
-		}
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("GET %s: %s", path, resp.Status)
-		}
-		return json.NewDecoder(resp.Body).Decode(out)
-	}
-
-	refs, err := s.ingressRefs(get)
+	refs, err := s.ingressRefs(ctx, api)
 	if err != nil {
 		return nil, err
 	}
-	return s.tlsSecrets(get, refs)
+	return s.tlsSecrets(ctx, api, refs)
+}
+
+// k8sAPI is the authenticated read side of the API server: one client, one base
+// URL, one bearer token, and the single GET everything here is built from.
+type k8sAPI struct {
+	client *http.Client
+	base   string
+	token  string
+}
+
+func (a *k8sAPI) get(ctx context.Context, path string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.base+path, nil)
+	if err != nil {
+		return err
+	}
+	if a.token != "" {
+		req.Header.Set("Authorization", "Bearer "+a.token)
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("GET %s: forbidden — expiry-radar needs list on ingresses and secrets (see docs/rbac-readonly.yaml)", path)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: %s", path, resp.Status)
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
 }
 
 // ingressRef records what an ingress says about a secret it uses.
@@ -105,11 +112,11 @@ type ingressList struct {
 	} `json:"items"`
 }
 
-func (s *K8sSource) ingressRefs(get func(string, any) error) (map[string]ingressRef, error) {
+func (s *K8sSource) ingressRefs(ctx context.Context, api *k8sAPI) (map[string]ingressRef, error) {
 	refs := map[string]ingressRef{}
 	for _, path := range s.paths("/apis/networking.k8s.io/v1", "ingresses") {
 		var list ingressList
-		if err := get(path, &list); err != nil {
+		if err := api.get(ctx, path, &list); err != nil {
 			return nil, err
 		}
 		for _, ing := range list.Items {
@@ -148,11 +155,11 @@ type secretList struct {
 	} `json:"items"`
 }
 
-func (s *K8sSource) tlsSecrets(get func(string, any) error, refs map[string]ingressRef) ([]Item, error) {
+func (s *K8sSource) tlsSecrets(ctx context.Context, api *k8sAPI, refs map[string]ingressRef) ([]Item, error) {
 	var items []Item
 	for _, path := range s.paths("/api/v1", "secrets?fieldSelector=type%3Dkubernetes.io%2Ftls") {
 		var list secretList
-		if err := get(path, &list); err != nil {
+		if err := api.get(ctx, path, &list); err != nil {
 			return nil, err
 		}
 		for _, sec := range list.Items {
@@ -206,7 +213,7 @@ func (s *K8sSource) paths(apiRoot, resource string) []string {
 	return out
 }
 
-func (s *K8sSource) client() (*http.Client, string, string, error) {
+func (s *K8sSource) client() (*k8sAPI, error) {
 	base := strings.TrimSuffix(s.Server, "/")
 	token := s.Token
 	caFile := s.CAFile
@@ -216,7 +223,7 @@ func (s *K8sSource) client() (*http.Client, string, string, error) {
 		if token == "" {
 			b, err := os.ReadFile(inClusterTokenFile)
 			if err != nil {
-				return nil, "", "", fmt.Errorf("no --kube-server given and no in-cluster token: %w", err)
+				return nil, fmt.Errorf("no --kube-server given and no in-cluster token: %w", err)
 			}
 			token = strings.TrimSpace(string(b))
 		}
@@ -233,19 +240,23 @@ func (s *K8sSource) client() (*http.Client, string, string, error) {
 	if caFile != "" && !s.Insecure {
 		pem, err := os.ReadFile(caFile)
 		if err != nil {
-			return nil, "", "", fmt.Errorf("reading cluster CA: %w", err)
+			return nil, fmt.Errorf("reading cluster CA: %w", err)
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(pem) {
-			return nil, "", "", fmt.Errorf("cluster CA %s contains no certificates", caFile)
+			return nil, fmt.Errorf("cluster CA %s contains no certificates", caFile)
 		}
 		tlsCfg.RootCAs = pool
 	}
 
-	return &http.Client{
-		Timeout:   timeout,
-		Transport: &http.Transport{TLSClientConfig: tlsCfg},
-	}, base, token, nil
+	return &k8sAPI{
+		client: &http.Client{
+			Timeout:   timeout,
+			Transport: &http.Transport{TLSClientConfig: tlsCfg},
+		},
+		base:  base,
+		token: token,
+	}, nil
 }
 
 func firstCert(pemBytes []byte) (*x509.Certificate, error) {

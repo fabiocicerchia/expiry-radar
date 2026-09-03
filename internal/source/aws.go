@@ -138,32 +138,45 @@ func (s *AWSSource) iam(ctx context.Context, cfg aws.Config, account string) ([]
 			if u.UserName == nil {
 				continue
 			}
-			keys := iam.NewListAccessKeysPaginator(client, &iam.ListAccessKeysInput{UserName: u.UserName})
-			for keys.HasMorePages() {
-				kp, err := keys.NextPage(ctx)
-				if err != nil {
-					return items, err
-				}
-				for _, k := range kp.AccessKeyMetadata {
-					if k.CreateDate == nil || k.AccessKeyId == nil {
-						continue
-					}
-					if string(k.Status) != "Active" {
-						continue // an inactive key is already not working
-					}
-					items = append(items, Item{
-						Kind:      KindIAMKey,
-						Name:      *u.UserName + "/" + *k.AccessKeyId,
-						Expires:   k.CreateDate.Add(maxAge), // rotation deadline, not an AWS expiry
-						Source:    "aws:iam",
-						Namespace: account,
-						Labels: map[string]string{
-							"created":     k.CreateDate.UTC().Format(time.RFC3339),
-							"policy.days": strconv.Itoa(int(maxAge.Hours() / 24)),
-						},
-					})
-				}
+			got, err := accessKeyItems(ctx, client, *u.UserName, account, maxAge)
+			items = append(items, got...)
+			if err != nil {
+				return items, err
 			}
+		}
+	}
+	return items, nil
+}
+
+// accessKeyItems turns one user's active access keys into rotation deadlines.
+// Split out of iam because walking users and reading one user's keys are two
+// pages of AWS state, not one.
+func accessKeyItems(ctx context.Context, client *iam.Client, user, account string, maxAge time.Duration) ([]Item, error) {
+	var items []Item
+	keys := iam.NewListAccessKeysPaginator(client, &iam.ListAccessKeysInput{UserName: &user})
+	for keys.HasMorePages() {
+		page, err := keys.NextPage(ctx)
+		if err != nil {
+			return items, err
+		}
+		for _, k := range page.AccessKeyMetadata {
+			if k.CreateDate == nil || k.AccessKeyId == nil {
+				continue
+			}
+			if string(k.Status) != "Active" {
+				continue // an inactive key is already not working
+			}
+			items = append(items, Item{
+				Kind:      KindIAMKey,
+				Name:      user + "/" + *k.AccessKeyId,
+				Expires:   k.CreateDate.Add(maxAge), // rotation deadline, not an AWS expiry
+				Source:    "aws:iam",
+				Namespace: account,
+				Labels: map[string]string{
+					"created":     k.CreateDate.UTC().Format(time.RFC3339),
+					"policy.days": strconv.Itoa(int(maxAge.Hours() / 24)),
+				},
+			})
 		}
 	}
 	return items, nil

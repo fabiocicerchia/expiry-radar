@@ -30,8 +30,15 @@ func main() {
 	os.Exit(code)
 }
 
-// Exit codes: 0 clean, 1 a threshold was breached, 2 bad usage or config,
-// 3 partial results (at least one source failed).
+// The exit-code table. These numbers are contract — README.md documents them
+// and CI jobs gate on them — so they are named here and never moved.
+const (
+	exitClean    = 0 // nothing to report
+	exitBreached = 1 // a -fail-within threshold was crossed: a result, not an error
+	exitUsage    = 2 // bad usage, bad config, or a report that could not be written
+	exitPartial  = 3 // results, but at least one source failed
+)
+
 func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	fs := flag.NewFlagSet("expiry-radar", flag.ContinueOnError)
 	var (
@@ -51,16 +58,16 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		return 2, nil
+		return exitUsage, nil
 	}
 
 	cfg, err := loadConfig(*cfgPath, *endpoints, *domains)
 	if err != nil {
-		return 2, err
+		return exitUsage, err
 	}
 	sources := cfg.Sources()
 	if len(sources) == 0 {
-		return 2, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
+		return exitUsage, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
@@ -76,35 +83,49 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	now := time.Now()
 	scored := filter(rank.Rank(items, cfg.Overrides, now), *within, *minPriority)
 
+	if err := writeReport(stdout, *out, scored, output.Format(*format), output.Options{Now: now}); err != nil {
+		return exitUsage, err
+	}
+	if err := breached(scored, *failWithin); err != nil {
+		return exitBreached, err
+	}
+	if len(errs) > 0 {
+		return exitPartial, nil
+	}
+	return exitClean, nil
+}
+
+// writeReport renders to the file named by -out, or to stdout when it is empty.
+func writeReport(stdout io.Writer, out string, scored []rank.Scored, format output.Format, opts output.Options) error {
 	w, closeOut := stdout, func() error { return nil }
-	if *out != "" {
-		f, err := os.Create(*out)
+	if out != "" {
+		f, err := os.Create(out)
 		if err != nil {
-			return 2, err
+			return err
 		}
 		w, closeOut = f, f.Close
 	}
-	err = output.RenderAt(w, scored, output.Format(*format), output.Options{Now: now})
+	err := output.RenderAt(w, scored, format, opts)
 	// Close reports the final flush: a silently truncated report on disk reads
 	// exactly like a clean estate.
 	if cerr := closeOut(); err == nil {
 		err = cerr
 	}
-	if err != nil {
-		return 2, err
-	}
+	return err
+}
 
-	if *failWithin > 0 {
-		for _, s := range scored {
-			if s.DaysLeft <= float64(*failWithin) {
-				return 1, fmt.Errorf("%s expires in %.0f days (-fail-within %d)", s.Item.Name, s.DaysLeft, *failWithin)
-			}
+// breached is the -fail-within CI gate. Items arrive ranked, so the first one
+// inside the window is also the one worth putting in the failure message.
+func breached(scored []rank.Scored, withinDays int) error {
+	if withinDays <= 0 {
+		return nil
+	}
+	for _, s := range scored {
+		if s.DaysLeft <= float64(withinDays) {
+			return fmt.Errorf("%s expires in %.0f days (-fail-within %d)", s.Item.Name, s.DaysLeft, withinDays)
 		}
 	}
-	if len(errs) > 0 {
-		return 3, nil // partial results: distinct from both success and a hard failure
-	}
-	return 0, nil
+	return nil
 }
 
 // Flags add to the config file rather than replacing it, so a one-off probe does

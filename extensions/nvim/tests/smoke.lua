@@ -107,6 +107,7 @@ check('the statusline admits it', radar.statusline():find('incomplete', 1, true)
 -- every configured source to answer a question about one hostname would be
 -- slow, would hit every credential, and would bury the answer.
 local core = require('expiry-radar.core')
+local edit = require('expiry-radar.edit')
 local probe_argv = core.argv(radar.config(), {
   format = 'json',
   ignore_config = true,
@@ -138,7 +139,7 @@ for _, entry in ipairs({
   { kind = 'endpoint', value = PROBED_HOST },
   { kind = 'manual', value = { name = 'code-signing', kind = 'tls_cert', expires = '2027-03-01' } },
 }) do
-  text = core.add_to_array(text, core.ARRAY_FOR[entry.kind], core.render_entry(entry.kind, entry.value))
+  text = edit.add_to_array(text, edit.ARRAY_FOR[entry.kind], edit.render_entry(entry.kind, entry.value))
 end
 vim.fn.writefile(vim.split(text, '\n'), recorded_config, 'b')
 
@@ -171,11 +172,11 @@ if decoded_ok then
 end
 -- Recording is only half of managing: an entry has to come out again, and the
 -- config has to still load afterwards.
-local declared = core.declared_in(text)
+local declared = edit.declared_in(text)
 local origin = declared['code-signing']
 check('the recorded manual entry can be found again', origin ~= nil, vim.inspect(vim.tbl_keys(declared)))
 if origin then
-  local pruned = core.remove_entry(text, 'manual', origin.line, origin.column)
+  local pruned = edit.remove_entry(text, 'manual', origin.line, origin.column)
   check('the recorded entry could be removed', pruned ~= nil)
   if pruned then
     vim.fn.writefile(vim.split(pruned, '\n'), recorded_config, 'b')
