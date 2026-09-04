@@ -2,7 +2,7 @@
   "name": "expiry-radar",
   "displayName": "expiry-radar — Expiry Inventory",
   "description": "Everything that expires — TLS certs, intermediate CAs, secrets, IAM keys, Vault leases, domains — ranked by blast radius, in a panel, on the status bar, and as the full HTML report inside VS Code.",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "publisher": "fabiocicerchia",
   "license": "Apache-2.0",
   "pricing": "Free",
