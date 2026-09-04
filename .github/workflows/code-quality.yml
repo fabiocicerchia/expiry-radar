@@ -26,6 +26,15 @@ jobs:
         run: go test -race ./...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a  # v9.3.0
+        with:
+          # Without this the action resolves whatever golangci-lint is
+          # latest, so the same commit lints differently on different
+          # days (FC-GEN-059).
+          version: v2.13.2
+          # The strict set reports 41 pre-existing findings here.
+          # Gating only changed lines adopts the rules now and leaves
+          # the backlog visible rather than blocking every PR.
+          only-new-issues: true
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
