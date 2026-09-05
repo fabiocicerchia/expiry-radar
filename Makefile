@@ -12,8 +12,7 @@ NVIM       ?= nvim
 NVIM_SITE  := $(if $(XDG_DATA_HOME),$(XDG_DATA_HOME),$(HOME)/.local/share)/nvim/site
 NVIM_LINK  := $(NVIM_SITE)/pack/expiry-radar/start/expiry-radar
 
-.PHONY: all build install uninstall test tidy clean help lint setup \
-        ext-build ext-test ext-install ext-uninstall ext-clean
+.PHONY: all build install uninstall test tidy clean help lint setup ext-build ext-test ext-install ext-uninstall ext-clean run format analyze
 
 .DEFAULT_GOAL := help
 
@@ -130,3 +129,12 @@ ext-uninstall:
 ext-clean:
 	rm -rf $(VSCODE_DIR)/node_modules $(VSCODE_DIR)/dist $(VSCODE_DIR)/out $(VSCODE_DIR)/*.vsix
 	$(MAKE) -C $(NVIM_DIR) clean
+
+run: ## Run the binary
+	go run ./cmd/expiry-radar $(ARGS)
+
+format: ## Rewrite the sources to gofmt form
+	gofmt -w .
+
+analyze: ## Lint with the house rule set
+	golangci-lint run ./...
