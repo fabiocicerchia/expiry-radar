@@ -12,8 +12,11 @@ import (
 	"github.com/fabiocicerchia/expiry-radar/internal/rank"
 )
 
+// Format is one of the renderers below, as --format names it.
 type Format string
 
+// The renderers. Table is for a terminal; the other four exist to be fed to
+// something else -- a calendar, a scrape, an inbox.
 const (
 	FormatTable      Format = "table"
 	FormatJSON       Format = "json"
@@ -43,12 +46,16 @@ type Options struct {
 
 // Render writes the scored items in the requested format.
 func Render(w io.Writer, items []rank.Scored, format Format) error {
-	return RenderAt(w, items, format, Options{Now: time.Now()})
+	// The clock is read here, at the boundary, and passed down: RenderAt
+	// exists so nothing below this line has to.
+	return RenderAt(w, items, format, Options{Now: time.Now()}) //nolint:forbidigo // see above
 }
 
+// RenderAt is Render with the clock supplied, so a test can diff an iCal
+// feed whose DTSTAMP would otherwise move under it.
 func RenderAt(w io.Writer, items []rank.Scored, format Format, opts Options) error {
 	if opts.Now.IsZero() {
-		opts.Now = time.Now()
+		opts.Now = time.Now() //nolint:forbidigo // the default for a caller that supplied none
 	}
 	switch format {
 	case FormatTable:

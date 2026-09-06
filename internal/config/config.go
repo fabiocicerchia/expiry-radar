@@ -17,6 +17,8 @@ import (
 	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
+// File is a config file as it is written on disk: what to watch, where to
+// look for it, and how to weight what turns up.
 type File struct {
 	Endpoints []source.Endpoint `json:"endpoints"`
 	Domains   []string          `json:"domains"`
@@ -28,6 +30,8 @@ type File struct {
 	Overrides []rank.Override     `json:"overrides"`
 }
 
+// K8s points the Kubernetes source at a cluster. An empty Server means
+// in-cluster credentials.
 type K8s struct {
 	Enabled    bool     `json:"enabled"`
 	Server     string   `json:"server"` // empty = in-cluster; use http://127.0.0.1:8001 with `kubectl proxy`
@@ -36,14 +40,20 @@ type K8s struct {
 	Insecure   bool     `json:"insecure"`
 }
 
+// Vault points the Vault source at a server and the PKI mounts to read.
 type Vault struct {
-	Enabled   bool     `json:"enabled"`
-	Addr      string   `json:"addr"` // empty = $VAULT_ADDR
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"` // empty = $VAULT_ADDR
+	// Token never comes from the file -- a token in a config file is a token
+	// in a git repository. Load fills it from $VAULT_TOKEN.
+	Token     string   `json:"-"`
 	Namespace string   `json:"namespace"`
 	PKIMounts []string `json:"pkiMounts"`
 	MaxCerts  int      `json:"maxCerts"`
 }
 
+// AWS points the AWS source at an account, and says which of ACM, IAM and
+// Secrets Manager to skip.
 type AWS struct {
 	Enabled       bool   `json:"enabled"`
 	Region        string `json:"region"`
@@ -54,6 +64,8 @@ type AWS struct {
 	SkipSecrets   bool   `json:"skipSecrets"`
 }
 
+// Load reads and validates a config file, refusing one it cannot act on
+// rather than silently watching nothing.
 func Load(path string) (*File, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -76,6 +88,21 @@ func Load(path string) (*File, error) {
 	// no trace anywhere, which is the one outcome it was written to prevent.
 	if err := source.ValidateManual(f.Manual); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	// The environment is read here, once, and validated with the rest of the
+	// config: a Vault source that cannot authenticate should fail while the
+	// operator is still looking at the command, not on the first collect.
+	if f.Vault != nil && f.Vault.Enabled {
+		if f.Vault.Addr == "" {
+			f.Vault.Addr = os.Getenv("VAULT_ADDR") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		}
+		f.Vault.Token = os.Getenv("VAULT_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Vault.Addr == "" {
+			return nil, fmt.Errorf("%s: vault source is enabled but neither vault.addr nor $VAULT_ADDR is set", path)
+		}
+		if f.Vault.Token == "" {
+			return nil, fmt.Errorf("%s: vault source is enabled but $VAULT_TOKEN is not set", path)
+		}
 	}
 	return &f, nil
 }
@@ -102,13 +129,9 @@ func (f *File) Sources() []source.Source {
 		})
 	}
 	if f.Vault != nil && f.Vault.Enabled {
-		addr := f.Vault.Addr
-		if addr == "" {
-			addr = os.Getenv("VAULT_ADDR")
-		}
 		out = append(out, &source.VaultSource{
-			Addr:      addr,
-			Token:     os.Getenv("VAULT_TOKEN"),
+			Addr:      f.Vault.Addr,
+			Token:     f.Vault.Token,
 			Namespace: f.Vault.Namespace,
 			PKIMounts: f.Vault.PKIMounts,
 			MaxCerts:  f.Vault.MaxCerts,

@@ -27,10 +27,14 @@ type TLSSource struct {
 	Timeout   time.Duration
 }
 
+// Name identifies this source in an item's Source field and in --only.
 func (s *TLSSource) Name() string { return "tls:endpoint" }
 
 const tlsProbeConcurrency = 8
 
+// Collect reads certificates presented by the endpoints in the config.
+//
+// Read-only, like every source: expiry-radar never needs write access.
 func (s *TLSSource) Collect(ctx context.Context) ([]Item, error) {
 	timeout := s.Timeout
 	if timeout == 0 {
@@ -81,9 +85,14 @@ func (s *TLSSource) Collect(ctx context.Context) ([]Item, error) {
 func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, error) {
 	addr := ep.Host
 	if _, _, err := net.SplitHostPort(addr); err != nil {
+		// No port in the endpoint: default to https.
 		addr = net.JoinHostPort(addr, "443")
 	}
-	host, _, _ := net.SplitHostPort(addr)
+	// Split again now that a port is guaranteed, for the SNI name.
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("endpoint %q is not a host[:port]: %w", ep.Host, err)
+	}
 	serverName := ep.ServerName
 	if serverName == "" {
 		serverName = host
@@ -104,9 +113,14 @@ func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, err
 	if err != nil {
 		return nil, err
 	}
+	//nolint:errcheck // the probe is finished with this connection either way
 	defer func() { _ = conn.Close() }()
 
-	state := conn.(*tls.Conn).ConnectionState()
+	tc, ok := conn.(*tls.Conn)
+	if !ok {
+		return nil, fmt.Errorf("endpoint %q: dialer returned a %T, not a TLS connection", ep.Host, conn)
+	}
+	state := tc.ConnectionState()
 	if len(state.PeerCertificates) == 0 {
 		return nil, fmt.Errorf("no certificates presented")
 	}

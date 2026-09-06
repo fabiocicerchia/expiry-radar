@@ -11,6 +11,8 @@ import (
 // Kind identifies what expires, for blast-radius weighting.
 type Kind string
 
+// The kinds of thing that expire. Each weights differently: an
+// intermediate CA takes out an estate, a single leaf certificate one host.
 const (
 	KindTLSCert      Kind = "tls_cert"
 	KindIntermediate Kind = "intermediate_ca" // nobody tracks these; they take out whole estates

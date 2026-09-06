@@ -83,7 +83,9 @@ func VerifyAWS(ctx context.Context, s *AWSSource) (*AWSVerdict, error) {
 		account = *id.Account
 	}
 	items, per, collectErr := collectServices(s.services(ctx, cfg, account))
-	return buildAWSVerdict(cfg.Region, items, per, collectErr, time.Now()), nil
+	// The clock is read at this boundary and passed in, which is why
+	// buildAWSVerdict takes a now at all.
+	return buildAWSVerdict(cfg.Region, items, per, collectErr, time.Now()), nil //nolint:forbidigo // see above
 }
 
 // buildAWSVerdict is the whole judgement, separated from the AWS calls so it
