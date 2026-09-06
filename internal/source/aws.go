@@ -58,7 +58,8 @@ func (s *AWSSource) Collect(ctx context.Context) ([]Item, error) {
 	}
 
 	account := ""
-	if id, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}); err == nil && id.Account != nil {
+	if id, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx,
+		&sts.GetCallerIdentityInput{}); err == nil && id.Account != nil {
 		account = *id.Account
 	}
 
@@ -192,7 +193,9 @@ func (s *AWSSource) iam(ctx context.Context, cfg aws.Config, account string) ([]
 // accessKeyItems turns one user's active access keys into rotation deadlines.
 // Split out of iam because walking users and reading one user's keys are two
 // pages of AWS state, not one.
-func accessKeyItems(ctx context.Context, client *iam.Client, user, account string, maxAge time.Duration) ([]Item, error) {
+func accessKeyItems(
+	ctx context.Context, client *iam.Client, user, account string, maxAge time.Duration,
+) ([]Item, error) {
 	var items []Item
 	keys := iam.NewListAccessKeysPaginator(client, &iam.ListAccessKeysInput{UserName: &user})
 	for keys.HasMorePages() {

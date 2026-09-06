@@ -88,7 +88,9 @@ func (s *DomainSource) Collect(ctx context.Context) ([]Item, error) {
 }
 
 func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, domain string) (time.Time, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(base, "/")+"/domain/"+url.PathEscape(domain), nil)
+	endpoint := strings.TrimSuffix(base, "/") + "/domain/" + url.PathEscape(domain)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint,
+		nil)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -120,7 +122,9 @@ func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, do
 // date has to be scraped out of free text — every registry formats it
 // differently, and .de and .ch withhold it entirely. Hence: fallback, not
 // primary.
-func (s *DomainSource) whoisLookup(ctx context.Context, timeout time.Duration, servers map[string]string, domain string) (time.Time, error) {
+func (
+	s *DomainSource,
+) whoisLookup(ctx context.Context, timeout time.Duration, servers map[string]string, domain string) (time.Time, error) {
 	dot := strings.LastIndex(domain, ".")
 	if dot < 0 {
 		return time.Time{}, fmt.Errorf("no TLD in %q", domain)
@@ -192,7 +196,8 @@ func whoisExpiration(text string) (time.Time, error) {
 		if m == nil {
 			continue
 		}
-		for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02", "02-Jan-2006", "2006/01/02", "02.01.2006"} {
+		for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02", "02-Jan-2006", "2006/01/02",
+			"02.01.2006"} {
 			if t, err := time.Parse(layout, m[2]); err == nil {
 				return t, nil
 			}

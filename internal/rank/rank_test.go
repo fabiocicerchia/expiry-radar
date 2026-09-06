@@ -53,7 +53,8 @@ func TestExpiredSortsFirst(t *testing.T) {
 
 func TestOverrideWins(t *testing.T) {
 	items := []source.Item{
-		{Kind: source.KindTLSCert, Name: "internal-thing", Namespace: "payments", Expires: now.AddDate(0, 6, 0), Source: "test"},
+		{Kind: source.KindTLSCert, Name: "internal-thing", Namespace: "payments", Expires: now.AddDate(0, 6, 0),
+			Source: "test"},
 	}
 	got := Rank(items, []Override{{Match: "payments*", BlastRadius: 1}}, now)
 	if got[0].BlastRadius != 1 {
@@ -105,8 +106,9 @@ func TestInference(t *testing.T) {
 			desc:   "<= 0.2",
 		},
 		{
-			name:   "a wildcard covering many hosts is worse than one host",
-			item:   item(source.KindTLSCert, "wild", 30, map[string]string{source.LabelHosts: "*.example.com,a.example.com,b.example.com,c.example.com,d.example.com"}),
+			name: "a wildcard covering many hosts is worse than one host",
+			item: item(source.KindTLSCert, "wild", 30,
+				map[string]string{source.LabelHosts: "*.example.com,a.example.com,b.example.com,c.example.com,d.example.com"}),
 			expect: func(b float64) bool { return b > 0.6 },
 			desc:   "> 0.6",
 		},

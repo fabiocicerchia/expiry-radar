@@ -128,7 +128,8 @@ func TestDomainSourceReadsTheRDAPExpirationEvent(t *testing.T) {
 
 func TestDomainSourceSaysSoWhenTheRegistryHidesTheDate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"events": []map[string]string{{"eventAction": "registration", "eventDate": "2001-01-01T00:00:00Z"}}})
+		events := []map[string]string{{"eventAction": "registration", "eventDate": "2001-01-01T00:00:00Z"}}
+		_ = json.NewEncoder(w).Encode(map[string]any{"events": events})
 	}))
 	defer srv.Close()
 
@@ -150,7 +151,8 @@ func TestDomainSourceFallsBackToWhoisWhenTheTLDHasNoRDAP(t *testing.T) {
 		"fabiocicerchia.it": "Domain:             fabiocicerchia.it\nExpire Date:        2026-08-18\n",
 	})
 
-	s := &DomainSource{Domains: []string{"fabiocicerchia.it"}, Bootstrap: rdap.URL, IANAWhois: whois, Timeout: 5 * time.Second}
+	s := &DomainSource{Domains: []string{"fabiocicerchia.it"}, Bootstrap: rdap.URL, IANAWhois: whois,
+		Timeout: 5 * time.Second}
 	items, err := s.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)

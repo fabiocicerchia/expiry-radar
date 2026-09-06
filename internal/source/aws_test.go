@@ -114,7 +114,8 @@ func TestAWSSourceTurnsAccessKeyAgeIntoARotationDeadline(t *testing.T) {
 		"bob/AKIABOB1":     time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC),
 	}
 	if len(items) != len(want) {
-		t.Fatalf("got %d items, want %d (inactive keys must be skipped, both pages walked): %+v", len(items), len(want), items)
+		t.Fatalf("got %d items, want %d (inactive keys must be skipped, both pages walked): %+v", len(items), len(want),
+			items)
 	}
 	for _, it := range items {
 		expires, ok := want[it.Name]

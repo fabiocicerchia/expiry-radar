@@ -81,7 +81,9 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	}
 
 	if len(sources) == 0 {
-		return exitUsage, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
+		return exitUsage, fmt.Errorf(
+			"no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s",
+			*cfgPath)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)

@@ -24,7 +24,8 @@ func sample() []rank.Scored {
 			DaysLeft: 12, BlastRadius: 0.9, Priority: 0.88, Why: "base tls_cert, internet-facing, production",
 		},
 		{
-			Item:     source.Item{Kind: source.KindDomain, Name: "example.com", Expires: now.AddDate(0, 0, 200), Source: "domain:rdap"},
+			Item: source.Item{Kind: source.KindDomain, Name: "example.com", Expires: now.AddDate(0, 0, 200),
+				Source: "domain:rdap"},
 			DaysLeft: 200, BlastRadius: 0.85, Priority: 0.38, Why: "base domain, internet-facing",
 		},
 	}
@@ -178,7 +179,8 @@ func TestPrometheusEscapesLabelValues(t *testing.T) {
 
 func TestHTMLReportIsSelfContainedAndFlagsTheDeadline(t *testing.T) {
 	out := render(t, FormatHTML)
-	for _, want := range []string{"payments/checkout.example.com", "internet-facing", "12d", "2026-08-13", `class="urgent"`} {
+	for _, want := range []string{"payments/checkout.example.com", "internet-facing", "12d", "2026-08-13",
+		`class="urgent"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q:\n%s", want, out)
 		}
@@ -206,10 +208,34 @@ func TestHTMLEscapesNamesFromUntrustedSources(t *testing.T) {
 // together — the cert, the registration, and the wildcard in front of it.
 func TestHTMLGroupsRowsUnderTheDomainTheyBelongTo(t *testing.T) {
 	items := []rank.Scored{
-		{Item: source.Item{Kind: source.KindDomain, Name: "example.com", Expires: now.AddDate(0, 0, 40), Source: "domain:rdap"}, DaysLeft: 40},
-		{Item: source.Item{Kind: source.KindTLSCert, Name: "*.example.com", Expires: now.AddDate(0, 0, 9), Source: "tls:endpoint"}, DaysLeft: 9},
-		{Item: source.Item{Kind: source.KindIntermediate, Name: "Issuing CA", Expires: now.AddDate(0, 0, 400), Source: "tls:chain"}, DaysLeft: 400},
-		{Item: source.Item{Kind: source.KindSecret, Name: "db-password", Namespace: "payments", Expires: now.AddDate(0, 0, -2), Source: "vault"}, DaysLeft: -2},
+		{
+			Item: source.Item{
+				Kind: source.KindDomain, Name: "example.com", Expires: now.AddDate(0, 0, 40),
+				Source: "domain:rdap",
+			},
+			DaysLeft: 40,
+		},
+		{
+			Item: source.Item{
+				Kind: source.KindTLSCert, Name: "*.example.com", Expires: now.AddDate(0, 0, 9),
+				Source: "tls:endpoint",
+			},
+			DaysLeft: 9,
+		},
+		{
+			Item: source.Item{
+				Kind: source.KindIntermediate, Name: "Issuing CA", Expires: now.AddDate(0, 0, 400),
+				Source: "tls:chain",
+			},
+			DaysLeft: 400,
+		},
+		{
+			Item: source.Item{
+				Kind: source.KindSecret, Name: "db-password", Namespace: "payments", Expires: now.AddDate(0, 0,
+					-2), Source: "vault",
+			},
+			DaysLeft: -2,
+		},
 	}
 	groups, stats := groupRows(items)
 

@@ -14,7 +14,8 @@ import (
 // an earlier alarm, because that is the whole point of ranking.
 func renderICal(w io.Writer, items []rank.Scored, opts Options) error {
 	var b strings.Builder
-	b.WriteString("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//expiry-radar//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:Expiry radar\r\n")
+	b.WriteString("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//expiry-radar//EN\r\n" +
+		"CALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:Expiry radar\r\n")
 	stamp := opts.Now.UTC().Format(icalTimestamp)
 
 	for _, s := range items {
@@ -44,7 +45,9 @@ func alarm(s rank.Scored) string {
 	case s.BlastRadius >= 0.6:
 		lead = "-P14D"
 	}
-	return "BEGIN:VALARM\r\nACTION:DISPLAY\r\n" + fold("DESCRIPTION:Renew "+escapeText(displayName(s))) + "TRIGGER:" + lead + "\r\nEND:VALARM\r\n"
+	return "BEGIN:VALARM\r\nACTION:DISPLAY\r\n" +
+		fold("DESCRIPTION:Renew "+escapeText(displayName(s))) +
+		"TRIGGER:" + lead + "\r\nEND:VALARM\r\n"
 }
 
 // Stable across runs so calendars update the same event instead of piling up

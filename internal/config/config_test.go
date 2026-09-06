@@ -36,8 +36,10 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 		// A manual item exists because nothing else can find the thing, so one
 		// that fails to load leaves no trace anywhere.
 		{"manual item with no date", `{"manual": [{"name": "a", "kind": "domain"}]}`, "no expires date"},
-		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`, "unknown kind"},
-		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`, "neither"},
+		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`,
+			"unknown kind"},
+		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`,
+			"neither"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := Load(write(t, tc.body))

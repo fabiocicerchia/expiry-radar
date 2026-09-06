@@ -66,7 +66,8 @@ func (s *VaultSource) Collect(ctx context.Context) ([]Item, error) {
 		items = append(items, got...)
 		if truncated > 0 {
 			// Never let a cap look like a clean result.
-			warnings = append(warnings, fmt.Sprintf("%s: stopped after %d certificates, %d not read", mount, s.maxCerts(), truncated))
+			warnings = append(warnings,
+				fmt.Sprintf("%s: stopped after %d certificates, %d not read", mount, s.maxCerts(), truncated))
 		}
 	}
 
@@ -165,7 +166,8 @@ func (s *VaultSource) pkiCerts(ctx context.Context, client *http.Client, mount s
 				Certificate string `json:"certificate"`
 			} `json:"data"`
 		}
-		if err := s.do(ctx, client, http.MethodGet, "/v1/"+url.PathEscape(mount)+"/cert/"+url.PathEscape(serial), &body); err != nil {
+		if err := s.do(ctx, client, http.MethodGet, "/v1/"+url.PathEscape(mount)+"/cert/"+url.PathEscape(serial),
+			&body); err != nil {
 			continue
 		}
 		cert, err := parsePEMCert(body.Data.Certificate)
