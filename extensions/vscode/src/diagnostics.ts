@@ -10,11 +10,11 @@
  * came out where it did: a ranking nobody can explain gets ignored, and a hover
  * is where somebody actually reads it.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { Settings } from './config';
-import { describe, humanDays } from './parse';
-import { Item } from './types';
+import { Settings } from "./config";
+import { describe, humanDays } from "./parse";
+import { Item } from "./types";
 
 const SEVERITY: Record<string, vscode.DiagnosticSeverity> = {
   expired: vscode.DiagnosticSeverity.Error,
@@ -27,7 +27,7 @@ export function message(item: Item): string {
     item.daysLeft < 0
       ? `${item.display} expired ${Math.floor(-item.daysLeft)} day(s) ago`
       : `${item.display} expires in ${humanDays(item.daysLeft)}`;
-  return `${head}.\n\n${item.why}\n\n${describe(item).join(' · ')}`;
+  return `${head}.\n\n${item.why}\n\n${describe(item).join(" · ")}`;
 }
 
 /** One folder's items, with the settings that folder resolves to. */
@@ -37,7 +37,7 @@ export interface DiagnosticGroup {
 }
 
 export class DiagnosticPublisher {
-  private readonly collection = vscode.languages.createDiagnosticCollection('expiry-radar');
+  private readonly collection = vscode.languages.createDiagnosticCollection("expiry-radar");
 
   /**
    * Republishes everything at once. A partial publish is not an option: the
@@ -63,7 +63,7 @@ export class DiagnosticPublisher {
           message(item),
           severity,
         );
-        diagnostic.source = 'expiry-radar';
+        diagnostic.source = "expiry-radar";
         diagnostic.code = item.kind;
         const list = byFile.get(item.origin.file);
         if (list) list.push(diagnostic);

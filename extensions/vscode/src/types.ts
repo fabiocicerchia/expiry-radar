@@ -11,12 +11,12 @@
 
 /** `source.Kind` — what expires. Open-ended: a new source may add one. */
 export type Kind =
-  | 'tls_cert'
-  | 'intermediate_ca'
-  | 'secret'
-  | 'iam_access_key'
-  | 'vault_lease'
-  | 'domain'
+  | "tls_cert"
+  | "intermediate_ca"
+  | "secret"
+  | "iam_access_key"
+  | "vault_lease"
+  | "domain"
   | (string & {});
 
 /**
@@ -25,7 +25,7 @@ export type Kind =
  * "already broken" and "broken next week" impossible to miss, and priority
  * deliberately floats a calm 100-day domain above an urgent staging cert.
  */
-export type Severity = 'expired' | 'urgent' | 'soon' | 'ok';
+export type Severity = "expired" | "urgent" | "soon" | "ok";
 
 export interface ReportItem {
   priority: number;

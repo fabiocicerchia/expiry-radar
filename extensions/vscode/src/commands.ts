@@ -6,23 +6,23 @@
  * `package.json` contributes, so they live in one readable list rather than
  * scattered through the activation sequence.
  */
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import * as vscode from 'vscode';
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import * as vscode from "vscode";
 
-import { Collector } from './collector';
-import { arrayForSource, ARRAY_FOR, addToArray, removeEntry } from './edit';
-import { runDoctor } from './doctor';
-import { primaryFolder, settingsFor } from './folder';
-import { InventoryView, Node } from './inventoryView';
-import { log } from './log';
-import { describe, humanDays, toItems } from './parse';
-import { pickEntryKind, pickExportFormat, promptEntry, promptHost } from './prompts';
-import { ReportView } from './report';
-import { collect, Format, hasSources, resolveConfig, runRadar } from './runner';
-import { Job, Scheduler } from './scheduler';
-import { ResultStore } from './store';
+import { Collector } from "./collector";
+import { arrayForSource, ARRAY_FOR, addToArray, removeEntry } from "./edit";
+import { runDoctor } from "./doctor";
+import { primaryFolder, settingsFor } from "./folder";
+import { InventoryView, Node } from "./inventoryView";
+import { log } from "./log";
+import { describe, humanDays, toItems } from "./parse";
+import { pickEntryKind, pickExportFormat, promptEntry, promptHost } from "./prompts";
+import { ReportView } from "./report";
+import { collect, Format, hasSources, resolveConfig, runRadar } from "./runner";
+import { Job, Scheduler } from "./scheduler";
+import { ResultStore } from "./store";
 
 export class Commands {
   /** When the report in the tab was rendered, so a stale one is replaced. */
@@ -39,32 +39,30 @@ export class Commands {
   /** Every command id this extension answers to, and what answers it. */
   register(): vscode.Disposable[] {
     const handlers: Record<string, (...args: never[]) => unknown> = {
-      'expiryRadar.scan': () => this.run('command'),
-      'expiryRadar.showReport': () => this.openReport(),
-      'expiryRadar.exportReport': () => this.exportReport(),
-      'expiryRadar.probeHost': () => this.probeHost(),
-      'expiryRadar.addItem': () => this.addItem(),
-      'expiryRadar.openConfig': () => this.openConfig(),
-      'expiryRadar.cancel': () => this.scheduler.cancel(),
-      'expiryRadar.showLog': () => log().show(true),
-      'expiryRadar.filterItems': () => this.inventoryView.pickFilters(),
-      'expiryRadar.groupByKind': () => this.inventoryView.setGrouping('kind'),
-      'expiryRadar.groupByRank': () => this.inventoryView.setGrouping('rank'),
-      'expiryRadar.expandAll': () => this.inventoryView.expandAll(),
-      'expiryRadar.removeItem': (node?: Node) => this.removeItem(node),
-      'expiryRadar.copyItem': (node?: Node) => this.copyItem(node),
-      'expiryRadar.checkEnvironment': () => this.checkEnvironment(),
+      "expiryRadar.scan": () => this.run("command"),
+      "expiryRadar.showReport": () => this.openReport(),
+      "expiryRadar.exportReport": () => this.exportReport(),
+      "expiryRadar.probeHost": () => this.probeHost(),
+      "expiryRadar.addItem": () => this.addItem(),
+      "expiryRadar.openConfig": () => this.openConfig(),
+      "expiryRadar.cancel": () => this.scheduler.cancel(),
+      "expiryRadar.showLog": () => log().show(true),
+      "expiryRadar.filterItems": () => this.inventoryView.pickFilters(),
+      "expiryRadar.groupByKind": () => this.inventoryView.setGrouping("kind"),
+      "expiryRadar.groupByRank": () => this.inventoryView.setGrouping("rank"),
+      "expiryRadar.expandAll": () => this.inventoryView.expandAll(),
+      "expiryRadar.removeItem": (node?: Node) => this.removeItem(node),
+      "expiryRadar.copyItem": (node?: Node) => this.copyItem(node),
+      "expiryRadar.checkEnvironment": () => this.checkEnvironment(),
     };
-    return Object.entries(handlers).map(([id, handler]) =>
-      vscode.commands.registerCommand(id, handler),
-    );
+    return Object.entries(handlers).map(([id, handler]) => vscode.commands.registerCommand(id, handler));
   }
 
   /** A manual collection, with a cancellable progress notification. */
   async run(reason: string): Promise<boolean> {
     const folder = primaryFolder();
     if (!folder) {
-      void vscode.window.showWarningMessage('expiry-radar: open a folder first.');
+      void vscode.window.showWarningMessage("expiry-radar: open a folder first.");
       return false;
     }
     if (!hasSources(folder, settingsFor(folder))) {
@@ -92,13 +90,13 @@ export class Commands {
    */
   private async offerToConfigure(): Promise<void> {
     const choice = await vscode.window.showWarningMessage(
-      'expiry-radar: no sources configured — every source is opt-in, so there is nothing to collect.',
-      'Open config file',
-      'Open settings',
+      "expiry-radar: no sources configured — every source is opt-in, so there is nothing to collect.",
+      "Open config file",
+      "Open settings",
     );
-    if (choice === 'Open config file') await this.openConfig();
-    else if (choice === 'Open settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', 'expiryRadar');
+    if (choice === "Open config file") await this.openConfig();
+    else if (choice === "Open settings") {
+      await vscode.commands.executeCommand("workbench.action.openSettings", "expiryRadar");
     }
   }
 
@@ -110,7 +108,7 @@ export class Commands {
   private async render(format: Format, title: string): Promise<string | undefined> {
     const folder = primaryFolder();
     if (!folder) {
-      void vscode.window.showWarningMessage('expiry-radar: open a folder first.');
+      void vscode.window.showWarningMessage("expiry-radar: open a folder first.");
       return undefined;
     }
     const s = settingsFor(folder);
@@ -141,7 +139,7 @@ export class Commands {
       // The CLI renders one format per invocation, so the report is its own
       // collection — this dials the estate a second time, which is why it is
       // only ever done on demand and never on a background refresh.
-      const html = await this.render('html', 'expiry-radar: rendering the report');
+      const html = await this.render("html", "expiry-radar: rendering the report");
       if (!html) return;
       this.reportView.current = html;
       this.reportRenderedAt = Date.now();
@@ -160,19 +158,17 @@ export class Commands {
 
     const stamp = new Date().toISOString().slice(0, 10);
     const target = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(
-        path.join(folder.uri.fsPath || os.homedir(), `expiry-radar-${stamp}.${choice.ext}`),
-      ),
+      defaultUri: vscode.Uri.file(path.join(folder.uri.fsPath || os.homedir(), `expiry-radar-${stamp}.${choice.ext}`)),
       filters: { [choice.label]: [choice.ext] },
-      title: 'Export the expiry-radar report',
+      title: "Export the expiry-radar report",
     });
     if (!target) return;
-    await fs.promises.writeFile(target.fsPath, body, 'utf8');
+    await fs.promises.writeFile(target.fsPath, body, "utf8");
     const opened = await vscode.window.showInformationMessage(
       `expiry-radar: exported to ${path.basename(target.fsPath)}.`,
-      'Open',
+      "Open",
     );
-    if (opened === 'Open') await vscode.env.openExternal(target);
+    if (opened === "Open") await vscode.env.openExternal(target);
   }
 
   /**
@@ -183,7 +179,7 @@ export class Commands {
   async probeHost(): Promise<void> {
     const folder = primaryFolder();
     if (!folder) {
-      void vscode.window.showWarningMessage('expiry-radar: open a folder first.');
+      void vscode.window.showWarningMessage("expiry-radar: open a folder first.");
       return;
     }
     const host = await promptHost();
@@ -194,7 +190,7 @@ export class Commands {
     // Both sources, because "when does this expire" about a hostname means the
     // certificate *and* the registration, and only one of them is usually the
     // one about to bite.
-    const domain = target.replace(/:\d+$/, '');
+    const domain = target.replace(/:\d+$/, "");
     const result = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: `expiry-radar: probing ${target}`, cancellable: true },
       async (_progress, token) => {
@@ -214,9 +210,9 @@ export class Commands {
 
     const items = toItems(result.report, s.warnWithinDays, s.infoWithinDays);
     if (items.length === 0) {
-      const detail = result.result.warnings.join('; ');
+      const detail = result.result.warnings.join("; ");
       void vscode.window.showWarningMessage(
-        `expiry-radar: nothing came back for ${target}${detail ? ` — ${detail}` : ''}.`,
+        `expiry-radar: nothing came back for ${target}${detail ? ` — ${detail}` : ""}.`,
       );
       return;
     }
@@ -227,7 +223,7 @@ export class Commands {
       items.map((item) => ({
         label: `${item.display} — ${humanDays(item.daysLeft)}`,
         description: item.source,
-        detail: describe(item).join(' · '),
+        detail: describe(item).join(" · "),
       })),
       { title: `expiry-radar: ${target}`, placeHolder: `${items.length} item(s), ranked by blast radius` },
     );
@@ -241,7 +237,7 @@ export class Commands {
   async addItem(): Promise<void> {
     const folder = primaryFolder();
     if (!folder) {
-      void vscode.window.showWarningMessage('expiry-radar: open a folder first.');
+      void vscode.window.showWarningMessage("expiry-radar: open a folder first.");
       return;
     }
     const kind = await pickEntryKind();
@@ -250,15 +246,15 @@ export class Commands {
     if (!rendered) return;
 
     const s = settingsFor(folder);
-    const target = resolveConfig(folder, s) || path.join(folder.uri.fsPath, s.configPath || 'expiry-radar.json');
-    let existing = '';
+    const target = resolveConfig(folder, s) || path.join(folder.uri.fsPath, s.configPath || "expiry-radar.json");
+    let existing = "";
     try {
-      existing = await fs.promises.readFile(target, 'utf8');
+      existing = await fs.promises.readFile(target, "utf8");
     } catch {
       // No config yet: addToArray writes one around the entry.
     }
     const { text, line } = addToArray(existing, ARRAY_FOR[kind], rendered);
-    await fs.promises.writeFile(target, text, 'utf8');
+    await fs.promises.writeFile(target, text, "utf8");
 
     // Shown, not just written: the entry is now the operator's to check, and a
     // config edited invisibly is one nobody trusts.
@@ -270,7 +266,7 @@ export class Commands {
 
     // Straight into a collection, so the row appears in the panel rather than
     // waiting for the next refresh to prove the edit worked.
-    await this.run('item added');
+    await this.run("item added");
   }
 
   async openConfig(): Promise<void> {
@@ -282,24 +278,24 @@ export class Commands {
       await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(existing));
       return;
     }
-    const target = path.join(folder.uri.fsPath, s.configPath || 'expiry-radar.json');
-    const example = path.join(folder.uri.fsPath, 'expiry-radar.example.json');
+    const target = path.join(folder.uri.fsPath, s.configPath || "expiry-radar.json");
+    const example = path.join(folder.uri.fsPath, "expiry-radar.example.json");
     const choice = await vscode.window.showInformationMessage(
       `expiry-radar: no config at ${path.basename(target)}.`,
-      'Create it',
-      'Open settings',
+      "Create it",
+      "Open settings",
     );
-    if (choice === 'Open settings') {
-      await vscode.commands.executeCommand('workbench.action.openSettings', 'expiryRadar');
+    if (choice === "Open settings") {
+      await vscode.commands.executeCommand("workbench.action.openSettings", "expiryRadar");
       return;
     }
-    if (choice !== 'Create it') return;
+    if (choice !== "Create it") return;
     // Seeded from the repository's own example when there is one, so a new file
     // shows every source rather than the two that need no credentials.
     const seed = fs.existsSync(example)
-      ? await fs.promises.readFile(example, 'utf8')
-      : `${JSON.stringify({ endpoints: [{ host: 'shop.example.com' }], domains: ['example.com'] }, null, 2)}\n`;
-    await fs.promises.writeFile(target, seed, { encoding: 'utf8', flag: 'wx' });
+      ? await fs.promises.readFile(example, "utf8")
+      : `${JSON.stringify({ endpoints: [{ host: "shop.example.com" }], domains: ["example.com"] }, null, 2)}\n`;
+    await fs.promises.writeFile(target, seed, { encoding: "utf8", flag: "wx" });
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(target));
   }
 
@@ -312,20 +308,23 @@ export class Commands {
    * does.
    */
   async removeItem(node?: Node): Promise<void> {
-    if (!node || node.kind !== 'item' || !node.item.origin) return;
+    if (!node || node.kind !== "item" || !node.item.origin) return;
     const item = node.item;
     const origin = item.origin!;
 
     const confirmed = await vscode.window.showWarningMessage(
       `Stop tracking ${item.display}?`,
-      { modal: true, detail: `Removes its entry from ${path.basename(origin.file)}. Nothing in your estate is touched.` },
-      'Remove',
+      {
+        modal: true,
+        detail: `Removes its entry from ${path.basename(origin.file)}. Nothing in your estate is touched.`,
+      },
+      "Remove",
     );
-    if (confirmed !== 'Remove') return;
+    if (confirmed !== "Remove") return;
 
     let text: string;
     try {
-      text = await fs.promises.readFile(origin.file, 'utf8');
+      text = await fs.promises.readFile(origin.file, "utf8");
     } catch (err) {
       void vscode.window.showErrorMessage(`expiry-radar: could not read the config: ${String(err)}`);
       return;
@@ -333,7 +332,7 @@ export class Commands {
     // The line came from the last collection; the file may have been edited
     // since. Removing whatever now sits on that line would delete the wrong
     // entry, so check it still names this item before touching anything.
-    const onLine = text.split('\n')[origin.line - 1] ?? '';
+    const onLine = text.split("\n")[origin.line - 1] ?? "";
     if (!onLine.includes(item.name)) {
       void vscode.window.showWarningMessage(
         `expiry-radar: ${path.basename(origin.file)} has changed since the last collection — refresh and try again.`,
@@ -343,20 +342,18 @@ export class Commands {
     const key = arrayForSource(item.source);
     const next = key ? removeEntry(text, key, origin.line, origin.column) : undefined;
     if (next === undefined) {
-      void vscode.window.showWarningMessage(
-        `expiry-radar: could not find the entry for ${item.display} to remove.`,
-      );
+      void vscode.window.showWarningMessage(`expiry-radar: could not find the entry for ${item.display} to remove.`);
       return;
     }
-    await fs.promises.writeFile(origin.file, next, 'utf8');
-    await this.run('item removed');
+    await fs.promises.writeFile(origin.file, next, "utf8");
+    await this.run("item removed");
   }
 
   async copyItem(node?: Node): Promise<void> {
-    if (!node || node.kind !== 'item') return;
+    if (!node || node.kind !== "item") return;
     const item = node.item;
     await vscode.env.clipboard.writeText(
-      [`${item.display} — ${humanDays(item.daysLeft)}`, item.why, ...describe(item)].join('\n'),
+      [`${item.display} — ${humanDays(item.daysLeft)}`, item.why, ...describe(item)].join("\n"),
     );
   }
 

@@ -12,7 +12,7 @@
  * report switches on `prefers-color-scheme`, which the editor propagates to a
  * webview from the active theme.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 const BRIDGE = `
 (function(){
@@ -34,12 +34,12 @@ function adapt(html: string, webview: vscode.Webview): string {
     `style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src ${webview.cspSource} data:;">`;
   return html
     .replace('<meta charset="utf-8">', `<meta charset="utf-8">${csp}`)
-    .replace('</body>', `<script>${BRIDGE}</script></body>`);
+    .replace("</body>", `<script>${BRIDGE}</script></body>`);
 }
 
 export class ReportView {
   private panel?: vscode.WebviewPanel;
-  private html = '';
+  private html = "";
   /** A newer report landed while the tab was hidden; it repaints on return. */
   private stale = false;
 
@@ -61,8 +61,8 @@ export class ReportView {
     this.html = html;
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
-        'expiryRadar.report',
-        'expiry-radar report',
+        "expiryRadar.report",
+        "expiry-radar report",
         { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
         { enableScripts: true, enableFindWidget: true, retainContextWhenHidden: true },
       );
@@ -71,7 +71,7 @@ export class ReportView {
         if (this.panel?.visible && this.stale) this.paint();
       });
       this.panel.webview.onDidReceiveMessage((msg: { type: string; href?: string }) => {
-        if (msg.type === 'open' && msg.href) {
+        if (msg.type === "open" && msg.href) {
           void vscode.env.openExternal(vscode.Uri.parse(msg.href));
         }
       });

@@ -7,11 +7,11 @@
  * drops the ordering somebody chose. An operator who added one host should get
  * a one-line diff, not a rewritten file.
  */
-import { arraySpan } from './locate';
-import { Kind } from './types';
+import { arraySpan } from "./locate";
+import { Kind } from "./types";
 
 /** What can be recorded, as opposed to discovered. */
-export type EntryKind = 'endpoint' | 'domain' | 'manual';
+export type EntryKind = "endpoint" | "domain" | "manual";
 
 export interface ManualEntry {
   name: string;
@@ -23,19 +23,19 @@ export interface ManualEntry {
 
 /** The config key each kind of entry lives under. */
 export const ARRAY_FOR: Record<EntryKind, string> = {
-  endpoint: 'endpoints',
-  domain: 'domains',
-  manual: 'manual',
+  endpoint: "endpoints",
+  domain: "domains",
+  manual: "manual",
 };
 
 /** The CLI's `source.Kinds`, in the order `internal/rank` weights them. */
 export const MANUAL_KINDS: { kind: Kind; label: string; hint: string }[] = [
-  { kind: 'domain', label: 'Domain', hint: 'a registration — the whole estate, including mail' },
-  { kind: 'intermediate_ca', label: 'Intermediate CA', hint: 'every leaf it signed, at once' },
-  { kind: 'tls_cert', label: 'TLS certificate', hint: 'a code-signing or client cert, say' },
-  { kind: 'iam_access_key', label: 'IAM access key', hint: 'a key rotated by hand' },
-  { kind: 'secret', label: 'Secret', hint: 'an API token, a password' },
-  { kind: 'vault_lease', label: 'Vault lease', hint: 'a lease nothing enumerates' },
+  { kind: "domain", label: "Domain", hint: "a registration — the whole estate, including mail" },
+  { kind: "intermediate_ca", label: "Intermediate CA", hint: "every leaf it signed, at once" },
+  { kind: "tls_cert", label: "TLS certificate", hint: "a code-signing or client cert, say" },
+  { kind: "iam_access_key", label: "IAM access key", hint: "a key rotated by hand" },
+  { kind: "secret", label: "Secret", hint: "an API token, a password" },
+  { kind: "vault_lease", label: "Vault lease", hint: "a lease nothing enumerates" },
 ];
 
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -57,9 +57,9 @@ function isRealDate(y: number, m: number, d: number): boolean {
  */
 export function invalidExpires(value: string): string | undefined {
   const trimmed = value.trim();
-  if (!trimmed) return 'A date is required.';
+  if (!trimmed) return "A date is required.";
   const parts = DATE_ONLY.exec(trimmed) ?? RFC_3339.exec(trimmed);
-  if (!parts) return 'Use YYYY-MM-DD, or a full RFC 3339 timestamp.';
+  if (!parts) return "Use YYYY-MM-DD, or a full RFC 3339 timestamp.";
   // The shape is right; the calendar still has to have the day. `Date.UTC`
   // rolls 2027-02-31 over to 3 March rather than failing, which would record a
   // deadline nobody chose.
@@ -71,8 +71,8 @@ export function invalidExpires(value: string): string | undefined {
 
 /** One entry, rendered as the CLI's config expects it. */
 export function renderEntry(kind: EntryKind, value: string | ManualEntry): string {
-  if (kind === 'domain') return JSON.stringify(String(value).trim());
-  if (kind === 'endpoint') return JSON.stringify({ host: String(value).trim() });
+  if (kind === "domain") return JSON.stringify(String(value).trim());
+  if (kind === "endpoint") return JSON.stringify({ host: String(value).trim() });
   const entry = value as ManualEntry;
   const out: Record<string, string> = {
     name: entry.name.trim(),
@@ -85,8 +85,8 @@ export function renderEntry(kind: EntryKind, value: string | ManualEntry): strin
 
 /** The indentation of the line `offset` sits on. */
 function indentAt(text: string, offset: number): string {
-  const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
-  return /^[ \t]*/.exec(text.slice(lineStart, offset))?.[0] ?? '';
+  const lineStart = text.lastIndexOf("\n", offset - 1) + 1;
+  return /^[ \t]*/.exec(text.slice(lineStart, offset))?.[0] ?? "";
 }
 
 /**
@@ -115,10 +115,10 @@ function appendToExisting(
   entry: string,
 ): { text: string; line: number } {
   const body = text.slice(open + 1, close - 1);
-  const empty = body.trim() === '';
+  const empty = body.trim() === "";
   // A one-line array stays a one-line array: re-flowing `["a", "b"]` across
   // three lines to add a third element is not the diff anybody asked for.
-  const inline = !body.includes('\n');
+  const inline = !body.includes("\n");
 
   if (empty && inline) {
     const insertAt = close - 1;
@@ -133,10 +133,10 @@ function appendToExisting(
 
   // Multi-line: land on a line of its own, indented like its siblings, with a
   // comma added to whatever was previously last.
-  const lastContent = open + 1 + body.replace(/\s+$/, '').length;
+  const lastContent = open + 1 + body.replace(/\s+$/, "").length;
   const indent = empty
-    ? indentAt(text, open) + '  '
-    : indentAt(text, lastContent - body.trim().split('\n').pop()!.length);
+    ? indentAt(text, open) + "  "
+    : indentAt(text, lastContent - body.trim().split("\n").pop()!.length);
   const closeIndent = indentAt(text, close - 1);
   if (empty) {
     const next = `${text.slice(0, open + 1)}\n${indent}${entry}\n${closeIndent}${text.slice(close - 1)}`;
@@ -148,15 +148,15 @@ function appendToExisting(
 
 /** Which config array an item's source records into, or undefined if discovered. */
 export function arrayForSource(source: string): string | undefined {
-  if (source === 'tls:endpoint') return 'endpoints';
-  if (source === 'domain:rdap' || source === 'domain:whois') return 'domains';
-  if (source === 'manual') return 'manual';
+  if (source === "tls:endpoint") return "endpoints";
+  if (source === "domain:rdap" || source === "domain:whois") return "domains";
+  if (source === "manual") return "manual";
   return undefined;
 }
 
 /** The offset of a 1-based line and column. */
 function offsetOf(text: string, line: number, column: number): number {
-  const lines = text.split('\n');
+  const lines = text.split("\n");
   if (line < 1 || line > lines.length) return -1;
   return lines.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0) + (column - 1);
 }
@@ -170,22 +170,22 @@ function elementSpans(text: string, [open, close]: [number, number]): [number, n
   for (let i = open + 1; i < close - 1; i += 1) {
     const ch = text[i];
     if (inString) {
-      if (ch === '\\') i += 1;
+      if (ch === "\\") i += 1;
       else if (ch === '"') inString = false;
       continue;
     }
-    if (depth === 0 && start < 0 && !/\s/.test(ch) && ch !== ',') start = i;
+    if (depth === 0 && start < 0 && !/\s/.test(ch) && ch !== ",") start = i;
     if (ch === '"') inString = true;
-    else if (ch === '[' || ch === '{') depth += 1;
-    else if (ch === ']' || ch === '}') depth -= 1;
-    else if (ch === ',' && depth === 0 && start >= 0) {
+    else if (ch === "[" || ch === "{") depth += 1;
+    else if (ch === "]" || ch === "}") depth -= 1;
+    else if (ch === "," && depth === 0 && start >= 0) {
       spans.push([start, i]);
       start = -1;
     }
   }
   if (start >= 0) spans.push([start, close - 1]);
   // Trailing whitespace belongs to the layout, not the element.
-  return spans.map(([a, b]): [number, number] => [a, a + text.slice(a, b).replace(/\s+$/, '').length]);
+  return spans.map(([a, b]): [number, number] => [a, a + text.slice(a, b).replace(/\s+$/, "").length]);
 }
 
 /**
@@ -199,12 +199,7 @@ function elementSpans(text: string, [open, close]: [number, number]): [number, n
  * Returns undefined when the position names no element, which is the right
  * answer when the file has been edited since the collection that reported it.
  */
-export function removeEntry(
-  text: string,
-  key: string,
-  line: number,
-  column: number,
-): string | undefined {
+export function removeEntry(text: string, key: string, line: number, column: number): string | undefined {
   const span = arraySpan(text, key);
   if (!span) return undefined;
   const offset = offsetOf(text, line, column);
@@ -220,7 +215,7 @@ export function removeEntry(
   if (after) {
     to += after[0].length;
     // And the rest of the line, so no blank line is left behind.
-    to += (/^[ \t]*\n?/.exec(text.slice(to))?.[0] ?? '').length;
+    to += (/^[ \t]*\n?/.exec(text.slice(to))?.[0] ?? "").length;
   } else {
     const before = /,\s*$/.exec(text.slice(0, from));
     if (before) from -= before[0].length;
@@ -234,17 +229,16 @@ export function removeEntry(
 /** No such array yet — add the key to the top-level object, or make one. */
 function addKey(text: string, key: string, entry: string): { text: string; line: number } {
   const trimmed = text.trim();
-  if (!trimmed || !trimmed.startsWith('{')) {
+  if (!trimmed || !trimmed.startsWith("{")) {
     const next = `{\n  "${key}": [${entry}]\n}\n`;
     return { text: next, line: 2 };
   }
 
-  const close = text.lastIndexOf('}');
-  const before = text.slice(0, close).replace(/\s+$/, '');
+  const close = text.lastIndexOf("}");
+  const before = text.slice(0, close).replace(/\s+$/, "");
   // An empty object has nothing to separate the new key from.
-  const needsComma = before.trimEnd().endsWith(',') === false && before.trim() !== '{';
-  const indent = indentAt(text, close) + '  ';
-  const next =
-    `${before}${needsComma ? ',' : ''}\n${indent}"${key}": [${entry}]\n` + text.slice(close);
+  const needsComma = before.trimEnd().endsWith(",") === false && before.trim() !== "{";
+  const indent = indentAt(text, close) + "  ";
+  const next = `${before}${needsComma ? "," : ""}\n${indent}"${key}": [${entry}]\n` + text.slice(close);
   return { text: next, line: lineOf(next, before.length + 2) };
 }

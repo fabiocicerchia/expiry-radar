@@ -6,24 +6,23 @@
  * for the report tab, whatever the user picked for an export. Nothing is staged
  * through a temporary file except an export, which is a file by definition.
  */
-import { spawn } from 'child_process';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
-import * as vscode from 'vscode';
+import { spawn } from "child_process";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import * as vscode from "vscode";
 
-import { Settings } from './config';
-import { log } from './log';
-import { parseWarnings } from './parse';
-import { Report } from './types';
+import { Settings } from "./config";
+import { log } from "./log";
+import { parseWarnings } from "./parse";
+import { Report } from "./types";
 
 export class RadarNotFoundError extends Error {}
 
 /** The one-liner from the README — kept here so the notification can run it. */
-export const INSTALL_COMMAND =
-  'go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest';
+export const INSTALL_COMMAND = "go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest";
 
-export type Format = 'json' | 'html' | 'ical' | 'prometheus' | 'table';
+export type Format = "json" | "html" | "ical" | "prometheus" | "table";
 
 export interface RunRequest {
   folder: vscode.WorkspaceFolder;
@@ -65,7 +64,7 @@ export function resetBinaryCache(): void {
 }
 
 function expand(p: string): string {
-  return p.startsWith('~') ? path.join(os.homedir(), p.slice(1)) : p;
+  return p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
 }
 
 function isFile(candidate: string): boolean {
@@ -77,34 +76,33 @@ function isFile(candidate: string): boolean {
 }
 
 export function findOnPath(name: string): string {
-  const exts =
-    process.platform === 'win32' ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
-  for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+  const exts = process.platform === "win32" ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT").split(";") : [""];
+  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
     if (!dir) continue;
     for (const ext of exts) {
       const candidate = path.join(dir, name + ext);
       if (isFile(candidate)) return candidate;
     }
   }
-  return '';
+  return "";
 }
 
 /** Every plausible location, most explicit first. */
 function candidates(folder: vscode.WorkspaceFolder, s: Settings): string[] {
-  const exe = process.platform === 'win32' ? 'expiry-radar.exe' : 'expiry-radar';
+  const exe = process.platform === "win32" ? "expiry-radar.exe" : "expiry-radar";
   const out: string[] = [];
   if (s.path) out.push(expand(s.path));
   // `make build` writes here, so a checkout of this repository is its own
   // best source of the binary — and the one most likely to be current.
-  out.push(path.join(folder.uri.fsPath, 'bin', exe));
-  const onPath = findOnPath('expiry-radar');
+  out.push(path.join(folder.uri.fsPath, "bin", exe));
+  const onPath = findOnPath("expiry-radar");
   if (onPath) out.push(onPath);
   // `go install` puts it in GOBIN, or GOPATH/bin, neither of which is
   // necessarily on the PATH of a GUI editor launched from a dock icon.
   const goBins = [
     process.env.GOBIN,
-    process.env.GOPATH ? path.join(process.env.GOPATH, 'bin') : '',
-    path.join(os.homedir(), 'go', 'bin'),
+    process.env.GOPATH ? path.join(process.env.GOPATH, "bin") : "",
+    path.join(os.homedir(), "go", "bin"),
   ];
   for (const dir of goBins) if (dir) out.push(path.join(dir, exe));
   return out;
@@ -122,7 +120,7 @@ export function resolveBinary(folder: vscode.WorkspaceFolder, s: Settings): stri
     return candidate;
   }
   throw new RadarNotFoundError(
-    'the expiry-radar binary was not found. Install it now?  It runs:  ' +
+    "the expiry-radar binary was not found. Install it now?  It runs:  " +
       `${INSTALL_COMMAND}  — or point "expiryRadar.path" at an existing build.`,
   );
 }
@@ -134,21 +132,21 @@ export function resolveBinary(folder: vscode.WorkspaceFolder, s: Settings): stri
 export async function promptInstall(message: string): Promise<void> {
   const choice = await vscode.window.showErrorMessage(
     `expiry-radar: ${message}`,
-    'Install',
-    'Copy command',
-    'Open settings',
+    "Install",
+    "Copy command",
+    "Open settings",
   );
-  if (choice === 'Install') {
-    const terminal = vscode.window.createTerminal('expiry-radar: install');
+  if (choice === "Install") {
+    const terminal = vscode.window.createTerminal("expiry-radar: install");
     terminal.show(true);
     terminal.sendText(INSTALL_COMMAND);
     // `go install` takes a moment; the next run should look again rather than
     // trust the "not found" we just cached.
     resetBinaryCache();
-  } else if (choice === 'Copy command') {
+  } else if (choice === "Copy command") {
     await vscode.env.clipboard.writeText(INSTALL_COMMAND);
-  } else if (choice === 'Open settings') {
-    await vscode.commands.executeCommand('workbench.action.openSettings', 'expiryRadar');
+  } else if (choice === "Open settings") {
+    await vscode.commands.executeCommand("workbench.action.openSettings", "expiryRadar");
   }
 }
 
@@ -160,13 +158,13 @@ export async function promptInstall(message: string): Promise<void> {
  * what lets a diagnostic land on the line that asked for the item.
  */
 export function resolveConfig(folder: vscode.WorkspaceFolder, s: Settings): string {
-  const configured = s.configPath ? expand(s.configPath) : '';
+  const configured = s.configPath ? expand(s.configPath) : "";
   const candidate = configured
     ? path.isAbsolute(configured)
       ? configured
       : path.join(folder.uri.fsPath, configured)
-    : path.join(folder.uri.fsPath, 'expiry-radar.json');
-  return isFile(candidate) ? candidate : '';
+    : path.join(folder.uri.fsPath, "expiry-radar.json");
+  return isFile(candidate) ? candidate : "";
 }
 
 /**
@@ -178,13 +176,13 @@ export function resolveConfig(folder: vscode.WorkspaceFolder, s: Settings): stri
  * opens in a repository that has nothing to do with this tool.
  */
 export function hasSources(folder: vscode.WorkspaceFolder, s: Settings): boolean {
-  return resolveConfig(folder, s) !== '' || s.endpoints.length > 0 || s.domains.length > 0;
+  return resolveConfig(folder, s) !== "" || s.endpoints.length > 0 || s.domains.length > 0;
 }
 
 export function buildArgs(req: RunRequest, s: Settings, configPath: string): string[] {
-  const args = ['-format', req.format];
+  const args = ["-format", req.format];
   if (configPath) {
-    args.push('-config', configPath);
+    args.push("-config", configPath);
   } else if (req.ignoreConfig) {
     // Not merely omitting the flag: `-config` defaults to `expiry-radar.json`,
     // resolved against the working directory, which is the workspace folder.
@@ -193,20 +191,20 @@ export function buildArgs(req: RunRequest, s: Settings, configPath: string): str
     // every credentialed source hit for a question about a single hostname.
     // An empty path stats as "does not exist", which the CLI already handles as
     // "no config"; the contract test pins that against the real binary.
-    args.push('-config', '');
+    args.push("-config", "");
   }
 
   const endpoints = [...(req.ignoreConfig ? [] : s.endpoints), ...(req.endpoints ?? [])];
   const domains = [...(req.ignoreConfig ? [] : s.domains), ...(req.domains ?? [])];
-  if (endpoints.length) args.push('-endpoints', endpoints.join(','));
-  if (domains.length) args.push('-domains', domains.join(','));
+  if (endpoints.length) args.push("-endpoints", endpoints.join(","));
+  if (domains.length) args.push("-domains", domains.join(","));
 
   // Filtering happens in the CLI rather than in the panel: `-within` also caps
   // what the report and the export contain, and a panel that hid rows the
   // export still carried would be two different answers to one question.
-  if (s.withinDays > 0) args.push('-within', String(s.withinDays));
-  if (s.minPriority > 0) args.push('-min-priority', String(s.minPriority));
-  args.push('-timeout', `${s.timeoutSeconds}s`);
+  if (s.withinDays > 0) args.push("-within", String(s.withinDays));
+  if (s.minPriority > 0) args.push("-min-priority", String(s.minPriority));
+  args.push("-timeout", `${s.timeoutSeconds}s`);
 
   if (!req.ignoreConfig) args.push(...s.extraArgs);
   return args;
@@ -226,7 +224,7 @@ function exec(
       child = spawn(command, args, {
         cwd: opts.cwd,
         env: process.env,
-        detached: process.platform !== 'win32',
+        detached: process.platform !== "win32",
       });
     } catch (err) {
       reject(err);
@@ -249,8 +247,8 @@ function exec(
 
     const signal = (sig: NodeJS.Signals) => {
       try {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/pid', String(child.pid), '/T', '/F']).unref();
+        if (process.platform === "win32") {
+          spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]).unref();
         } else if (child.pid) {
           process.kill(-child.pid, sig);
         }
@@ -266,15 +264,13 @@ function exec(
     // SIGTERM first: the CLI closes its sources on the signal, and a half-open
     // TLS dial left behind is a socket on somebody else's server too.
     const kill = () => {
-      signal('SIGTERM');
-      setTimeout(() => exited || signal('SIGKILL'), 3000).unref?.();
+      signal("SIGTERM");
+      setTimeout(() => exited || signal("SIGKILL"), 3000).unref?.();
     };
 
     const timer = setTimeout(() => {
       kill();
-      finish(() =>
-        reject(new Error(`expiry-radar timed out after ${Math.round(opts.timeoutMs / 1000)}s`)),
-      );
+      finish(() => reject(new Error(`expiry-radar timed out after ${Math.round(opts.timeoutMs / 1000)}s`)));
     }, opts.timeoutMs);
 
     const cancelSub = opts.token?.onCancellationRequested(() => {
@@ -285,40 +281,36 @@ function exec(
     // Decoded by the stream rather than per chunk: a read boundary lands
     // mid-UTF-8 often enough on a large report, and decoding each half
     // separately corrupts the character that straddles it.
-    child.stdout?.setEncoding('utf8');
-    child.stderr?.setEncoding('utf8');
-    child.stdout?.on('data', (s: string) => {
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (s: string) => {
       if (outChars >= MAX_OUTPUT_CHARS) return;
       out.push(s);
       outChars += s.length;
     });
-    child.stderr?.on('data', (s: string) => errOut.push(s));
-    child.on('error', (err) => {
+    child.stderr?.on("data", (s: string) => errOut.push(s));
+    child.on("error", (err) => {
       exited = true;
       finish(() => reject(err));
     });
-    child.on('exit', () => (exited = true));
-    child.on('close', (code) =>
-      finish(() => resolve({ code: code ?? -1, stdout: out.join(''), stderr: errOut.join('') })),
+    child.on("exit", () => (exited = true));
+    child.on("close", (code) =>
+      finish(() => resolve({ code: code ?? -1, stdout: out.join(""), stderr: errOut.join("") })),
     );
   });
 }
 
 function tail(text: string, lines = 3): string {
-  return text.trimEnd().split('\n').slice(-lines).join('\n');
+  return text.trimEnd().split("\n").slice(-lines).join("\n");
 }
 
-export async function runRadar(
-  req: RunRequest,
-  s: Settings,
-  token: vscode.CancellationToken,
-): Promise<RunResult> {
+export async function runRadar(req: RunRequest, s: Settings, token: vscode.CancellationToken): Promise<RunResult> {
   const binary = resolveBinary(req.folder, s);
-  const configPath = req.ignoreConfig ? '' : resolveConfig(req.folder, s);
+  const configPath = req.ignoreConfig ? "" : resolveConfig(req.folder, s);
   const args = buildArgs(req, s, configPath);
   const started = Date.now();
 
-  log().info(`collect (${req.reason}): ${binary} ${args.join(' ')}`);
+  log().info(`collect (${req.reason}): ${binary} ${args.join(" ")}`);
   const { code, stdout, stderr } = await exec(binary, args, {
     cwd: req.folder.uri.fsPath,
     // A few seconds past the CLI's own budget, so its timeout wins and we get
@@ -332,7 +324,7 @@ export async function runRadar(
   if (!CODES_WITH_OUTPUT.has(code) || !stdout.trim()) {
     // Exit 2 is bad usage or config; anything with no output at all is a real
     // failure whatever it claims. The CLI's own message is the useful part.
-    const detail = tail(stderr) || tail(stdout) || 'no output';
+    const detail = tail(stderr) || tail(stdout) || "no output";
     log().error(`no report (exit ${code})\n${stderr.trimEnd() || stdout.trimEnd()}`);
     throw new Error(`expiry-radar failed (exit ${code}): ${detail}`);
   }
@@ -343,18 +335,18 @@ export async function runRadar(
 
 /** A `-format json` run, decoded. */
 export async function collect(
-  req: Omit<RunRequest, 'format'>,
+  req: Omit<RunRequest, "format">,
   s: Settings,
   token: vscode.CancellationToken,
 ): Promise<{ report: Report; result: RunResult }> {
-  const result = await runRadar({ ...req, format: 'json' }, s, token);
+  const result = await runRadar({ ...req, format: "json" }, s, token);
   let report: Report;
   try {
     report = JSON.parse(result.stdout) as Report;
   } catch (err) {
     throw new Error(`expiry-radar wrote a report that is not JSON: ${String(err)}`);
   }
-  if (!Array.isArray(report.items)) throw new Error('expiry-radar wrote a report with no items');
+  if (!Array.isArray(report.items)) throw new Error("expiry-radar wrote a report with no items");
   return { report, result };
 }
 

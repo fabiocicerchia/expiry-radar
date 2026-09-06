@@ -13,9 +13,9 @@
  *  - **focus gate** — the periodic refresh skips while the window is in the
  *    background, and skips again if a run already landed recently.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { log } from './log';
+import { log } from "./log";
 
 export interface Job {
   folder: vscode.WorkspaceFolder;
@@ -79,7 +79,7 @@ export class Scheduler {
     const periodMs = this.settings().intervalMinutes * 60_000;
     this.sweep = setInterval(() => {
       if (!vscode.window.state.focused) {
-        log().debug('refresh skipped — window not focused');
+        log().debug("refresh skipped — window not focused");
         return;
       }
       if (Date.now() - this.lastCompletedAt < periodMs * 0.9) return; // Already fresh.

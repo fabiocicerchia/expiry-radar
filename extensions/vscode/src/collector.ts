@@ -7,20 +7,20 @@
  * diagnostics, repaint — and say something useful when a run fails or comes
  * back short of a source.
  */
-import * as fs from 'fs';
-import * as vscode from 'vscode';
+import * as fs from "fs";
+import * as vscode from "vscode";
 
-import { DiagnosticGroup, DiagnosticPublisher } from './diagnostics';
-import { primaryFolder, settingsFor } from './folder';
-import { InventoryView } from './inventoryView';
-import { declaredIn } from './locate';
-import { log } from './log';
-import { toItems } from './parse';
-import { collect, promptInstall, RadarNotFoundError } from './runner';
-import { Job } from './scheduler';
-import { StatusBar } from './status';
-import { ResultStore } from './store';
-import { Item, Snapshot } from './types';
+import { DiagnosticGroup, DiagnosticPublisher } from "./diagnostics";
+import { primaryFolder, settingsFor } from "./folder";
+import { InventoryView } from "./inventoryView";
+import { declaredIn } from "./locate";
+import { log } from "./log";
+import { toItems } from "./parse";
+import { collect, promptInstall, RadarNotFoundError } from "./runner";
+import { Job } from "./scheduler";
+import { StatusBar } from "./status";
+import { ResultStore } from "./store";
+import { Item, Snapshot } from "./types";
 
 /** A broken binary must not produce a popup every hour. */
 const ERROR_COOLDOWN_MS = 60_000;
@@ -31,7 +31,7 @@ const ERROR_COOLDOWN_MS = 60_000;
  * certificate on an Ingress was never written down here, so squiggling a config
  * line for it would be a lie, and offering to delete it would be worse.
  */
-const DECLARED_BY = new Set(['tls:endpoint', 'domain:rdap', 'domain:whois', 'manual']);
+const DECLARED_BY = new Set(["tls:endpoint", "domain:rdap", "domain:whois", "manual"]);
 
 export class Collector {
   private lastErrorAt = 0;
@@ -75,10 +75,7 @@ export class Collector {
     this.statusBar.collecting(job.folder.name);
     try {
       const { report, result } = await collect({ folder: job.folder, reason: job.reason }, s, token);
-      const items = await withOrigins(
-        toItems(report, s.warnWithinDays, s.infoWithinDays),
-        result.configPath,
-      );
+      const items = await withOrigins(toItems(report, s.warnWithinDays, s.infoWithinDays), result.configPath);
       const snapshot: Snapshot = {
         items,
         warnings: result.warnings,
@@ -94,7 +91,7 @@ export class Collector {
       this.reportFailure(err, job);
     } finally {
       this.collecting = undefined;
-      this.inventoryView.setCollecting('');
+      this.inventoryView.setCollecting("");
       this.paint();
     }
   }
@@ -116,11 +113,9 @@ export class Collector {
     // Automatic runs fail quietly after the first notification.
     if (job.manual || Date.now() - this.lastErrorAt > ERROR_COOLDOWN_MS) {
       this.lastErrorAt = Date.now();
-      void vscode.window
-        .showErrorMessage(`expiry-radar: ${message}`, 'Show log')
-        .then((choice) => {
-          if (choice === 'Show log') log().show(true);
-        });
+      void vscode.window.showErrorMessage(`expiry-radar: ${message}`, "Show log").then((choice) => {
+        if (choice === "Show log") log().show(true);
+      });
     }
   }
 
@@ -135,12 +130,12 @@ export class Collector {
     void vscode.window
       .showWarningMessage(
         `expiry-radar: ${warnings.length} source(s) failed — this inventory is incomplete.`,
-        'Show log',
-        'Check environment',
+        "Show log",
+        "Check environment",
       )
       .then((choice) => {
-        if (choice === 'Show log') log().show(true);
-        else if (choice === 'Check environment') void vscode.commands.executeCommand('expiryRadar.checkEnvironment');
+        if (choice === "Show log") log().show(true);
+        else if (choice === "Check environment") void vscode.commands.executeCommand("expiryRadar.checkEnvironment");
       });
   }
 }
@@ -154,7 +149,7 @@ async function withOrigins(items: Item[], configPath: string): Promise<Item[]> {
   if (!configPath) return items;
   let declared: Map<string, { file: string; line: number; column: number }>;
   try {
-    declared = declaredIn(configPath, await fs.promises.readFile(configPath, 'utf8'));
+    declared = declaredIn(configPath, await fs.promises.readFile(configPath, "utf8"));
   } catch (err) {
     log().debug(`could not read ${configPath} to place items: ${String(err)}`);
     return items;
