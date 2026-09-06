@@ -133,8 +133,9 @@ ext-clean:
 run: ## Run the binary
 	go run ./cmd/expiry-radar $(ARGS)
 
-format: ## Rewrite the sources to gofmt form
+format: ## Rewrite the sources to canonical form — Go and TypeScript
 	gofmt -w .
+	npx --yes @biomejs/biome@2.5.7 format --write .
 
 analyze: ## Lint with the house rule set
 	golangci-lint run ./...
