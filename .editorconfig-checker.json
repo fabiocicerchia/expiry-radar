@@ -1,0 +1,10 @@
+{
+  "Exclude": [
+    "^LICENSE$",
+    "^Makefile$",
+    "^internal/config/config_test\\.go$"
+  ],
+  "Disable": {
+    "IndentSize": true
+  }
+}

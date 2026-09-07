@@ -20,9 +20,9 @@ NVIM_LINK  := $(NVIM_SITE)/pack/expiry-radar/start/expiry-radar
 ## help: show this help
 help:
 	@awk '/^## [a-zA-Z0-9_-]+:/ { l=$$0; sub(/^## /,"",l); i=index(l,":"); \
-	         printf "  %-14s %s\n", substr(l,1,i-1), substr(l,i+2); next } \
-	     /^[a-zA-Z0-9_-]+:.*## / { i=index($$0,":"); j=index($$0,"## "); \
-	         printf "  %-14s %s\n", substr($$0,1,i-1), substr($$0,j+3) }' $(MAKEFILE_LIST)
+		printf "  %-14s %s\n", substr(l,1,i-1), substr(l,i+2); next } \
+		/^[a-zA-Z0-9_-]+:.*## / { i=index($$0,":"); j=index($$0,"## "); \
+		printf "  %-14s %s\n", substr($$0,1,i-1), substr($$0,j+3) }' $(MAKEFILE_LIST)
 
 all: build
 
@@ -39,12 +39,12 @@ install:
 ifeq ($(strip $(PREFIX)),)
 	go install $(PKG)
 	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
-	  echo "installed $$dir/$(BINARY)"; \
-	  case ":$$PATH:" in \
-	    *":$$dir:"*) ;; \
-	    *) echo "  note: $$dir is not on your PATH, so \`$(BINARY)\` will not resolve."; \
-	       echo "        The editor integrations look there anyway.";; \
-	  esac
+		echo "installed $$dir/$(BINARY)"; \
+		case ":$$PATH:" in \
+		*":$$dir:"*) ;; \
+		*) echo "  note: $$dir is not on your PATH, so \`$(BINARY)\` will not resolve."; \
+		echo "        The editor integrations look there anyway.";; \
+		esac
 else
 	@$(MAKE) build
 	install -d "$(DESTDIR)$(PREFIX)/bin"
@@ -56,7 +56,7 @@ endif
 uninstall:
 ifeq ($(strip $(PREFIX)),)
 	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
-	  rm -f "$$dir/$(BINARY)" && echo "removed $$dir/$(BINARY)"
+		rm -f "$$dir/$(BINARY)" && echo "removed $$dir/$(BINARY)"
 else
 	rm -f "$(DESTDIR)$(PREFIX)/bin/$(BINARY)"
 	@echo "removed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
@@ -99,13 +99,13 @@ ext-test: build
 ## ext-install: install both editor integrations for the current user
 ext-install:
 	@command -v code >/dev/null 2>&1 || { \
-	  echo "make ext-install: the 'code' command is not on PATH."; \
-	  echo "  VS Code ships it under Command Palette -> 'Shell Command: Install code command in PATH'."; \
-	  echo "  Skipping the VS Code extension; the Neovim plugin is still installed below."; }
+		echo "make ext-install: the 'code' command is not on PATH."; \
+		echo "  VS Code ships it under Command Palette -> 'Shell Command: Install code command in PATH'."; \
+		echo "  Skipping the VS Code extension; the Neovim plugin is still installed below."; }
 	@if command -v code >/dev/null 2>&1; then \
-	  $(MAKE) ext-build && \
-	  code --install-extension "$$(ls -t $(VSCODE_DIR)/*.vsix | head -1)" --force && \
-	  echo "installed the VS Code extension (reload the window to activate it)"; \
+		$(MAKE) ext-build && \
+		code --install-extension "$$(ls -t $(VSCODE_DIR)/*.vsix | head -1)" --force && \
+		echo "installed the VS Code extension (reload the window to activate it)"; \
 	fi
 	@command -v $(NVIM) >/dev/null 2>&1 || { echo "make ext-install: $(NVIM) is not on PATH; skipping the plugin."; exit 0; }
 	@mkdir -p "$(dir $(NVIM_LINK))"
@@ -121,7 +121,7 @@ ext-install:
 ## ext-uninstall: remove both editor integrations for the current user
 ext-uninstall:
 	@if command -v code >/dev/null 2>&1; then \
-	  code --uninstall-extension fabiocicerchia.expiry-radar || true; \
+		code --uninstall-extension fabiocicerchia.expiry-radar || true; \
 	fi
 	@rm -rf "$(NVIM_LINK)"
 	@echo "removed $(NVIM_LINK)"
