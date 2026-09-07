@@ -4,19 +4,19 @@
  * collection does is in `collector.ts`; what is left here is the wiring, which
  * is the only part that has to be read in order.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { Collector } from './collector';
-import { Commands } from './commands';
-import { DiagnosticPublisher } from './diagnostics';
-import { primaryFolder, settingsFor } from './folder';
-import { InventoryView } from './inventoryView';
-import { disposeLog, log } from './log';
-import { ReportView } from './report';
-import { hasSources, resetBinaryCache, resolveConfig } from './runner';
-import { Job, Scheduler } from './scheduler';
-import { StatusBar } from './status';
-import { ResultStore } from './store';
+import { Collector } from "./collector";
+import { Commands } from "./commands";
+import { DiagnosticPublisher } from "./diagnostics";
+import { primaryFolder, settingsFor } from "./folder";
+import { InventoryView } from "./inventoryView";
+import { disposeLog, log } from "./log";
+import { ReportView } from "./report";
+import { hasSources, resetBinaryCache, resolveConfig } from "./runner";
+import { Job, Scheduler } from "./scheduler";
+import { StatusBar } from "./status";
+import { ResultStore } from "./store";
 
 /** Let the window settle before dialling anything. */
 const STARTUP_DELAY_MS = 5000;
@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeActiveTextEditor(() => inventoryView.refresh()),
     vscode.workspace.onDidSaveTextDocument((doc) => onSave(doc, scheduler)),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e.affectsConfiguration('expiryRadar')) return;
+      if (!e.affectsConfiguration("expiryRadar")) return;
       resetBinaryCache();
       collector.forgetNotFound();
       armSweep();
@@ -69,7 +69,7 @@ export function activate(context: vscode.ExtensionContext): void {
   collector.paint();
   scheduleStartupCollection(context, scheduler);
 
-  log().info('expiry-radar extension activated');
+  log().info("expiry-radar extension activated");
 }
 
 export function deactivate(): void {
@@ -79,10 +79,10 @@ export function deactivate(): void {
 /** (Re)arm the periodic refresh from whatever the settings now say. */
 function setSweep(scheduler: Scheduler): void {
   const s = settingsFor(primaryFolder());
-  scheduler.setSweep(s.trigger === 'interval' || s.trigger === 'onConfigSaveAndInterval', () => {
+  scheduler.setSweep(s.trigger === "interval" || s.trigger === "onConfigSaveAndInterval", () => {
     const folder = primaryFolder();
     if (!folder || !hasSources(folder, settingsFor(folder))) return undefined;
-    return { folder, reason: 'periodic refresh', manual: false };
+    return { folder, reason: "periodic refresh", manual: false };
   });
 }
 
@@ -101,27 +101,24 @@ function scheduleAutomatic(job: Job, scheduler: Scheduler): void {
 }
 
 function onSave(doc: vscode.TextDocument, scheduler: Scheduler): void {
-  if (doc.uri.scheme !== 'file') return;
+  if (doc.uri.scheme !== "file") return;
   const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
   if (!folder) return;
   const s = settingsFor(folder);
-  if (s.trigger !== 'onConfigSave' && s.trigger !== 'onConfigSaveAndInterval') return;
+  if (s.trigger !== "onConfigSave" && s.trigger !== "onConfigSaveAndInterval") return;
   // Only the config file. Every other save in the repository has nothing to do
   // with what the estate has expiring, and re-dialling every host because
   // somebody saved a README would be indefensible.
   if (doc.uri.fsPath !== resolveConfig(folder, s)) return;
-  scheduleAutomatic({ folder, reason: 'config saved', manual: false }, scheduler);
+  scheduleAutomatic({ folder, reason: "config saved", manual: false }, scheduler);
 }
 
-function scheduleStartupCollection(
-  context: vscode.ExtensionContext,
-  scheduler: Scheduler,
-): void {
+function scheduleStartupCollection(context: vscode.ExtensionContext, scheduler: Scheduler): void {
   const startup = settingsFor(primaryFolder());
-  if (!startup.scanOnStartup || startup.trigger === 'manual') return;
+  if (!startup.scanOnStartup || startup.trigger === "manual") return;
   const timer = setTimeout(() => {
     const folder = primaryFolder();
-    if (folder) scheduleAutomatic({ folder, reason: 'startup', manual: false }, scheduler);
+    if (folder) scheduleAutomatic({ folder, reason: "startup", manual: false }, scheduler);
   }, STARTUP_DELAY_MS);
   context.subscriptions.push({ dispose: () => clearTimeout(timer) });
 }

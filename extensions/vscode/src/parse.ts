@@ -6,10 +6,10 @@
  * in the editor would be a different tool wearing the same name. The report
  * arrives in priority order and stays in it.
  */
-import { Item, Kind, Report, ReportItem, Severity } from './types';
+import { Item, Kind, Report, ReportItem, Severity } from "./types";
 
 /** Worst deadline first — the panel's order and the filter's order. */
-export const SEVERITIES: Severity[] = ['expired', 'urgent', 'soon', 'ok'];
+export const SEVERITIES: Severity[] = ["expired", "urgent", "soon", "ok"];
 
 export const SEVERITY_RANK: Record<Severity, number> = {
   expired: 0,
@@ -19,34 +19,27 @@ export const SEVERITY_RANK: Record<Severity, number> = {
 };
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
-  expired: 'Expired',
-  urgent: 'Within 14 days',
-  soon: 'Within 30 days',
-  ok: 'Further out',
+  expired: "Expired",
+  urgent: "Within 14 days",
+  soon: "Within 30 days",
+  ok: "Further out",
 };
 
 /** The kinds the CLI ships today, in the order `internal/rank` weights them. */
-export const KINDS: Kind[] = [
-  'domain',
-  'intermediate_ca',
-  'tls_cert',
-  'iam_access_key',
-  'secret',
-  'vault_lease',
-];
+export const KINDS: Kind[] = ["domain", "intermediate_ca", "tls_cert", "iam_access_key", "secret", "vault_lease"];
 
 const KIND_LABELS: Record<string, string> = {
-  tls_cert: 'TLS certificate',
-  intermediate_ca: 'Intermediate CA',
-  secret: 'Secret',
-  iam_access_key: 'IAM access key',
-  vault_lease: 'Vault lease',
-  domain: 'Domain',
+  tls_cert: "TLS certificate",
+  intermediate_ca: "Intermediate CA",
+  secret: "Secret",
+  iam_access_key: "IAM access key",
+  vault_lease: "Vault lease",
+  domain: "Domain",
 };
 
 /** A kind the extension has never heard of still gets a readable label. */
 export function kindLabel(kind: Kind): string {
-  return KIND_LABELS[kind] ?? String(kind).replace(/_/g, ' ');
+  return KIND_LABELS[kind] ?? String(kind).replace(/_/g, " ");
 }
 
 /**
@@ -54,22 +47,22 @@ export function kindLabel(kind: Kind): string {
  * HTML report's, so a row is the same colour in the panel and in the report.
  */
 export function severity(daysLeft: number, warnWithin = 14, infoWithin = 30): Severity {
-  if (daysLeft < 0) return 'expired';
-  if (daysLeft <= warnWithin) return 'urgent';
-  if (daysLeft <= infoWithin) return 'soon';
-  return 'ok';
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= warnWithin) return "urgent";
+  if (daysLeft <= infoWithin) return "soon";
+  return "ok";
 }
 
 /** Whole days, and never a cheerful "0 days" for something already broken. */
 export function humanDays(days: number): string {
   if (days < 0) return `expired ${Math.floor(-days)}d ago`;
-  if (days < 1) return 'today';
+  if (days < 1) return "today";
   return `${Math.floor(days)}d`;
 }
 
 /** `internal/output.displayName` — the namespace is a prefix, not a repeat. */
 export function displayName(item: ReportItem): string {
-  const ns = item.namespace ?? '';
+  const ns = item.namespace ?? "";
   if (ns && !item.name.startsWith(`${ns}/`)) return `${ns}/${item.name}`;
   return item.name;
 }
@@ -121,7 +114,7 @@ const WARNING_LINE = /^expiry-radar:\s*warning:\s*(.+)$/;
  */
 export function parseWarnings(stderr: string): string[] {
   const out: string[] = [];
-  for (const line of stderr.split('\n')) {
+  for (const line of stderr.split("\n")) {
     const match = WARNING_LINE.exec(line.trim());
     if (match) out.push(match[1].trim());
   }

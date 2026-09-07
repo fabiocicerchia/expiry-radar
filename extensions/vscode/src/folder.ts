@@ -5,17 +5,14 @@
  * places would mean a collection and the diagnostics it publishes could end up
  * describing different folders.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { readSettings, Settings } from './config';
+import { readSettings, Settings } from "./config";
 
 /** The folder the active editor is in, or the first one the window has open. */
 export function primaryFolder(): vscode.WorkspaceFolder | undefined {
   const active = vscode.window.activeTextEditor?.document.uri;
-  return (
-    (active ? vscode.workspace.getWorkspaceFolder(active) : undefined) ??
-    vscode.workspace.workspaceFolders?.[0]
-  );
+  return (active ? vscode.workspace.getWorkspaceFolder(active) : undefined) ?? vscode.workspace.workspaceFolders?.[0];
 }
 
 export function settingsFor(folder?: vscode.WorkspaceFolder): Settings {

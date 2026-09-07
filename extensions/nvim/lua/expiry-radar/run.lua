@@ -284,7 +284,8 @@ function M.export(format, path)
     end)
   end
   if not vim.tbl_contains(formats, format) then
-    return state.notify(('unknown format %q (want one of: %s)'):format(format, table.concat(formats, ', ')), vim.log.levels.ERROR)
+    local msg = ('unknown format %q (want one of: %s)'):format(format, table.concat(formats, ', '))
+    return state.notify(msg, vim.log.levels.ERROR)
   end
 
   local root = state.root()

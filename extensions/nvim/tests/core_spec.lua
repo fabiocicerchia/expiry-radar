@@ -219,7 +219,8 @@ describe('declared_in', function()
     local found = edit.declared_in(CONFIG)
     assert.equals(3, found['shop.example.com'].line)
     local line = vim.split(CONFIG, '\n')[3]
-    assert.equals('"shop.example.com"', line:sub(found['shop.example.com'].column, found['shop.example.com'].column + 17))
+    local at = found['shop.example.com'].column
+    assert.equals('"shop.example.com"', line:sub(at, at + 17))
   end)
 
   it('keeps the port, because the item name does', function()

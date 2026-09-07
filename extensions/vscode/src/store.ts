@@ -6,9 +6,9 @@
  * newer run is not an update to the last one — it *is* the inventory, and
  * keeping rows the latest run did not return would be inventing an estate.
  */
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-import { Item, Snapshot } from './types';
+import { Item, Snapshot } from "./types";
 
 function key(folder: vscode.WorkspaceFolder): string {
   return folder.uri.toString();

@@ -7,22 +7,22 @@
  * config, a source enabled with no credentials in the environment to reach it —
  * so that is what this checks.
  */
-import * as fs from 'fs';
-import * as path from 'path';
-import * as vscode from 'vscode';
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
 
-import { Settings } from './config';
-import { log } from './log';
-import { INSTALL_COMMAND, probe, RadarNotFoundError, resolveBinary, resolveConfig } from './runner';
+import { Settings } from "./config";
+import { log } from "./log";
+import { INSTALL_COMMAND, probe, RadarNotFoundError, resolveBinary, resolveConfig } from "./runner";
 
-type Level = 'ok' | 'warn' | 'error' | 'info';
+type Level = "ok" | "warn" | "error" | "info";
 
-const MARK: Record<Level, string> = { ok: '✓', warn: '!', error: '✗', info: '·' };
+const MARK: Record<Level, string> = { ok: "✓", warn: "!", error: "✗", info: "·" };
 
-const SUMMARY: Record<'ok' | 'warn' | 'error', string> = {
-  error: 'expiry-radar: the doctor found something that stops it running — see the log.',
-  warn: 'expiry-radar: the doctor found something that will limit results — see the log.',
-  ok: 'expiry-radar: everything the doctor checks looks fine.',
+const SUMMARY: Record<"ok" | "warn" | "error", string> = {
+  error: "expiry-radar: the doctor found something that stops it running — see the log.",
+  warn: "expiry-radar: the doctor found something that will limit results — see the log.",
+  ok: "expiry-radar: everything the doctor checks looks fine.",
 };
 
 interface ConfigShape {
@@ -51,14 +51,14 @@ class Findings {
   }
 
   get summary(): string {
-    if (this.levels.includes('error')) return SUMMARY.error;
-    return this.levels.includes('warn') ? SUMMARY.warn : SUMMARY.ok;
+    if (this.levels.includes("error")) return SUMMARY.error;
+    return this.levels.includes("warn") ? SUMMARY.warn : SUMMARY.ok;
   }
 }
 
 export async function runDoctor(folder: vscode.WorkspaceFolder, s: Settings): Promise<void> {
   const found = new Findings();
-  found.lines.push(`expiry-radar doctor — ${folder.name}`, '');
+  found.lines.push(`expiry-radar doctor — ${folder.name}`, "");
 
   const binary = locateBinary(folder, s, found);
   if (binary) await checkBinaryIsRadar(binary, folder, found);
@@ -66,7 +66,7 @@ export async function runDoctor(folder: vscode.WorkspaceFolder, s: Settings): Pr
   // is not the thing standing between the operator and a result.
   if (binary) await checkConfig(folder, s, found);
   noteSettings(s, found);
-  found.lines.push('');
+  found.lines.push("");
 
   const channel = log();
   for (const line of found.lines) channel.info(line);
@@ -80,72 +80,64 @@ function locateBinary(folder: vscode.WorkspaceFolder, s: Settings, found: Findin
     return resolveBinary(folder, s);
   } catch (err) {
     if (!(err instanceof RadarNotFoundError)) throw err;
-    found.say('error', 'the expiry-radar binary was not found', INSTALL_COMMAND, 'or set "expiryRadar.path"');
-    return '';
+    found.say("error", "the expiry-radar binary was not found", INSTALL_COMMAND, 'or set "expiryRadar.path"');
+    return "";
   }
 }
 
-async function checkBinaryIsRadar(
-  binary: string,
-  folder: vscode.WorkspaceFolder,
-  found: Findings,
-): Promise<void> {
+async function checkBinaryIsRadar(binary: string, folder: vscode.WorkspaceFolder, found: Findings): Promise<void> {
   // There is no --version; the usage text is the cheapest proof that the thing
   // on disk is the CLI we are about to trust with the panel.
-  const help = await probe(binary, ['-h'], folder.uri.fsPath);
-  if (help.output.includes('expiry-radar')) found.say('ok', `runs: ${binary}`);
-  else found.say('warn', `${binary} ran, but does not look like expiry-radar`, help.output.split('\n')[0] ?? '');
+  const help = await probe(binary, ["-h"], folder.uri.fsPath);
+  if (help.output.includes("expiry-radar")) found.say("ok", `runs: ${binary}`);
+  else found.say("warn", `${binary} ran, but does not look like expiry-radar`, help.output.split("\n")[0] ?? "");
 }
 
-async function checkConfig(
-  folder: vscode.WorkspaceFolder,
-  s: Settings,
-  found: Findings,
-): Promise<void> {
+async function checkConfig(folder: vscode.WorkspaceFolder, s: Settings, found: Findings): Promise<void> {
   const configPath = resolveConfig(folder, s);
   if (configPath) {
-    found.say('ok', `config: ${path.relative(folder.uri.fsPath, configPath) || configPath}`);
+    found.say("ok", `config: ${path.relative(folder.uri.fsPath, configPath) || configPath}`);
     await describeConfig(configPath, found);
     return;
   }
-  const expected = s.configPath || 'expiry-radar.json';
+  const expected = s.configPath || "expiry-radar.json";
   if (s.endpoints.length || s.domains.length) {
-    found.say('info', `no config file at ${expected} — running on settings alone`);
+    found.say("info", `no config file at ${expected} — running on settings alone`);
     return;
   }
   found.say(
-    'warn',
+    "warn",
     `no config file at ${expected}, and no endpoints or domains in settings`,
-    'Nothing is enabled implicitly: without one of these there are no sources to run.',
-    'Copy expiry-radar.example.json to expiry-radar.json to start.',
+    "Nothing is enabled implicitly: without one of these there are no sources to run.",
+    "Copy expiry-radar.example.json to expiry-radar.json to start.",
   );
 }
 
 /** Settings that quietly shrink what a collection returns. */
 function noteSettings(s: Settings, found: Findings): void {
-  if (s.endpoints.length) found.say('info', `settings add ${s.endpoints.length} endpoint(s)`);
-  if (s.domains.length) found.say('info', `settings add ${s.domains.length} domain(s)`);
+  if (s.endpoints.length) found.say("info", `settings add ${s.endpoints.length} endpoint(s)`);
+  if (s.domains.length) found.say("info", `settings add ${s.domains.length} domain(s)`);
   if (s.withinDays > 0) {
-    found.say('info', `"expiryRadar.view.withinDays" is ${s.withinDays} — anything further out is not collected`);
+    found.say("info", `"expiryRadar.view.withinDays" is ${s.withinDays} — anything further out is not collected`);
   }
   if (s.minPriority > 0) {
-    found.say('info', `"expiryRadar.view.minPriority" is ${s.minPriority} — lower-ranked items are not collected`);
+    found.say("info", `"expiryRadar.view.minPriority" is ${s.minPriority} — lower-ranked items are not collected`);
   }
 }
 
 async function describeConfig(configPath: string, found: Findings): Promise<void> {
   let parsed: ConfigShape;
   try {
-    parsed = JSON.parse(await fs.promises.readFile(configPath, 'utf8')) as ConfigShape;
+    parsed = JSON.parse(await fs.promises.readFile(configPath, "utf8")) as ConfigShape;
   } catch (err) {
-    found.say('error', 'the config file is not valid JSON', String(err));
+    found.say("error", "the config file is not valid JSON", String(err));
     return;
   }
 
   const endpoints = parsed.endpoints?.length ?? 0;
   const domains = parsed.domains?.length ?? 0;
-  if (endpoints) found.say('ok', `${endpoints} endpoint(s) to probe over TLS`);
-  if (domains) found.say('ok', `${domains} domain(s) to check via RDAP`);
+  if (endpoints) found.say("ok", `${endpoints} endpoint(s) to probe over TLS`);
+  if (domains) found.say("ok", `${domains} domain(s) to check via RDAP`);
 
   // Credentials never come from the config file — they come from the
   // environment — so an enabled source with an empty environment is the most
@@ -159,35 +151,35 @@ async function describeConfig(configPath: string, found: Findings): Promise<void
     describeAws(parsed.aws, found),
   ].some(Boolean);
   if (!endpoints && !domains && !discovered) {
-    found.say('error', 'the config file enables no sources at all', 'Every source is opt-in; nothing runs implicitly.');
+    found.say("error", "the config file enables no sources at all", "Every source is opt-in; nothing runs implicitly.");
   }
 }
 
-function describeKubernetes(k8s: ConfigShape['k8s'], found: Findings): boolean {
+function describeKubernetes(k8s: ConfigShape["k8s"], found: Findings): boolean {
   if (!k8s?.enabled) return false;
-  if (k8s.server) found.say('ok', `kubernetes: ${k8s.server}`);
-  else if (process.env.KUBERNETES_SERVICE_HOST) found.say('ok', 'kubernetes: in-cluster');
+  if (k8s.server) found.say("ok", `kubernetes: ${k8s.server}`);
+  else if (process.env.KUBERNETES_SERVICE_HOST) found.say("ok", "kubernetes: in-cluster");
   else {
     found.say(
-      'warn',
-      'kubernetes is enabled with no server, and this is not a cluster pod',
+      "warn",
+      "kubernetes is enabled with no server, and this is not a cluster pod",
       'Run `kubectl proxy` and set "server": "http://127.0.0.1:8001", or run in-cluster.',
     );
   }
   return true;
 }
 
-function describeVault(vault: ConfigShape['vault'], found: Findings): boolean {
+function describeVault(vault: ConfigShape["vault"], found: Findings): boolean {
   if (!vault?.enabled) return false;
-  const addr = vault.addr || process.env.VAULT_ADDR || '';
-  if (!addr) found.say('warn', 'vault is enabled with no addr and no $VAULT_ADDR');
+  const addr = vault.addr || process.env.VAULT_ADDR || "";
+  if (!addr) found.say("warn", "vault is enabled with no addr and no $VAULT_ADDR");
   else if (!process.env.VAULT_TOKEN) {
-    found.say('warn', `vault is enabled (${addr}) but $VAULT_TOKEN is not set in the editor's environment`);
-  } else found.say('ok', `vault: ${addr}`);
+    found.say("warn", `vault is enabled (${addr}) but $VAULT_TOKEN is not set in the editor's environment`);
+  } else found.say("ok", `vault: ${addr}`);
   return true;
 }
 
-function describeAws(aws: ConfigShape['aws'], found: Findings): boolean {
+function describeAws(aws: ConfigShape["aws"], found: Findings): boolean {
   if (!aws?.enabled) return false;
   const credentialed =
     process.env.AWS_ACCESS_KEY_ID ||
@@ -195,12 +187,12 @@ function describeAws(aws: ConfigShape['aws'], found: Findings): boolean {
     process.env.AWS_ROLE_ARN ||
     process.env.AWS_WEB_IDENTITY_TOKEN_FILE ||
     aws.profile;
-  if (credentialed) found.say('ok', `aws: ${aws.region || '$AWS_REGION'}`);
+  if (credentialed) found.say("ok", `aws: ${aws.region || "$AWS_REGION"}`);
   else {
     found.say(
-      'warn',
-      'aws is enabled but the editor has no AWS credentials in its environment',
-      'The credential chain is read from the process the editor was launched from.',
+      "warn",
+      "aws is enabled but the editor has no AWS credentials in its environment",
+      "The credential chain is read from the process the editor was launched from.",
     );
   }
   return true;

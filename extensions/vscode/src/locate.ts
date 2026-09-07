@@ -11,7 +11,7 @@
  * position is exactly what parsing throws away, and a hand-rolled scanner over
  * two known arrays is a great deal less code than a position-preserving parser.
  */
-import { Origin } from './types';
+import { Origin } from "./types";
 
 /** 1-based line and column of an offset, as an editor counts them. */
 function positionOf(text: string, offset: number): { line: number; column: number } {
@@ -35,19 +35,19 @@ function positionOf(text: string, offset: number): { line: number; column: numbe
 export function arraySpan(text: string, key: string): [number, number] | undefined {
   const at = text.search(new RegExp(`"${key}"\\s*:\\s*\\[`));
   if (at < 0) return undefined;
-  const open = text.indexOf('[', at);
+  const open = text.indexOf("[", at);
   let depth = 0;
   let inString = false;
   for (let i = open; i < text.length; i += 1) {
     const ch = text[i];
     if (inString) {
-      if (ch === '\\') i += 1;
+      if (ch === "\\") i += 1;
       else if (ch === '"') inString = false;
       continue;
     }
     if (ch === '"') inString = true;
-    else if (ch === '[' || ch === '{') depth += 1;
-    else if (ch === ']' || ch === '}') {
+    else if (ch === "[" || ch === "{") depth += 1;
+    else if (ch === "]" || ch === "}") {
       depth -= 1;
       if (depth === 0) return [open, i + 1];
     }
@@ -72,7 +72,7 @@ export function declaredIn(file: string, text: string): Map<string, Origin> {
     if (value && !found.has(value)) found.set(value, { file, ...positionOf(text, offset) });
   };
 
-  const endpoints = arraySpan(text, 'endpoints');
+  const endpoints = arraySpan(text, "endpoints");
   if (endpoints) {
     const [from, to] = endpoints;
     const section = text.slice(from, to);
@@ -85,7 +85,7 @@ export function declaredIn(file: string, text: string): Map<string, Origin> {
 
   // Manual entries are keyed by `name`, which is exactly what the CLI reports
   // as the item's name — the same equality the other two rely on.
-  const manual = arraySpan(text, 'manual');
+  const manual = arraySpan(text, "manual");
   if (manual) {
     const [from, to] = manual;
     const section = text.slice(from, to);
@@ -95,7 +95,7 @@ export function declaredIn(file: string, text: string): Map<string, Origin> {
     }
   }
 
-  const domains = arraySpan(text, 'domains');
+  const domains = arraySpan(text, "domains");
   if (domains) {
     const [from, to] = domains;
     const section = text.slice(from, to);

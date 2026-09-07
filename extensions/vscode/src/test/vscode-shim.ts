@@ -30,8 +30,8 @@ export class EventEmitter<T> {
 
 export class CancellationError extends Error {
   constructor() {
-    super('Canceled');
-    this.name = 'Canceled';
+    super("Canceled");
+    this.name = "Canceled";
   }
 }
 
@@ -60,11 +60,11 @@ export class Uri {
   ) {}
 
   static file(fsPath: string): Uri {
-    return new Uri('file', fsPath);
+    return new Uri("file", fsPath);
   }
 
   static parse(value: string): Uri {
-    return new Uri(value.split(':')[0] ?? 'file', value);
+    return new Uri(value.split(":")[0] ?? "file", value);
   }
 
   toString(): string {
@@ -108,7 +108,7 @@ export enum DiagnosticSeverity {
 }
 
 export class Diagnostic {
-  source = '';
+  source = "";
   code: unknown = undefined;
 
   constructor(
@@ -119,7 +119,7 @@ export class Diagnostic {
 }
 
 export class MarkdownString {
-  value = '';
+  value = "";
 
   appendMarkdown(text: string): this {
     this.value += text;
@@ -211,7 +211,7 @@ export function resetShim(): void {
 function answer(kind: string, label: string, items?: unknown): unknown {
   prompts.push(`${kind}: ${label}`);
   const next = answers.shift();
-  return typeof next === 'function' ? (next as (i: unknown) => unknown)(items) : next;
+  return typeof next === "function" ? (next as (i: unknown) => unknown)(items) : next;
 }
 
 export const workspace = {
@@ -227,7 +227,7 @@ export const workspace = {
     return workspace.workspaceFolders.find((f) => uri?.fsPath.startsWith(f.uri.fsPath));
   },
   async openTextDocument(target: string | Uri) {
-    const uri = typeof target === 'string' ? Uri.file(target) : target;
+    const uri = typeof target === "string" ? Uri.file(target) : target;
     return { uri, fileName: uri.fsPath };
   },
   onDidSaveTextDocument() {
@@ -264,7 +264,7 @@ export const window = {
   },
   createStatusBarItem() {
     return {
-      text: '',
+      text: "",
       name: undefined as string | undefined,
       command: undefined as string | undefined,
       tooltip: undefined as unknown,
@@ -296,14 +296,14 @@ export const window = {
   onDidChangeActiveTextEditor() {
     return { dispose() {} };
   },
-  showErrorMessage: async (message: string) => answer('error', message),
-  showWarningMessage: async (message: string) => answer('warning', message),
-  showInformationMessage: async (message: string) => answer('information', message),
+  showErrorMessage: async (message: string) => answer("error", message),
+  showWarningMessage: async (message: string) => answer("warning", message),
+  showInformationMessage: async (message: string) => answer("information", message),
   showQuickPick: async (items: unknown, options?: { title?: string }) =>
-    answer('quickPick', options?.title ?? '', await items),
+    answer("quickPick", options?.title ?? "", await items),
   showInputBox: async (options?: { title?: string; prompt?: string }) =>
-    answer('inputBox', options?.title ?? options?.prompt ?? ''),
-  showSaveDialog: async (options?: { title?: string }) => answer('saveDialog', options?.title ?? ''),
+    answer("inputBox", options?.title ?? options?.prompt ?? ""),
+  showSaveDialog: async (options?: { title?: string }) => answer("saveDialog", options?.title ?? ""),
 };
 
 export const languages = {
