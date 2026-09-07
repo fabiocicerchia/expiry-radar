@@ -11,15 +11,18 @@ import (
 
 func renderPrometheus(w io.Writer, items []rank.Scored, opts Options) error {
 	var b strings.Builder
-	writeGauge(&b, items, "expiry_radar_seconds_left", "Seconds until this item expires (negative once expired).", func(s rank.Scored) string {
-		return strconv.FormatInt(int64(s.Item.Expires.Sub(opts.Now).Seconds()), 10)
-	})
-	writeGauge(&b, items, "expiry_radar_blast_radius", "Inferred consequence of this item expiring, 0..1.", func(s rank.Scored) string {
-		return strconv.FormatFloat(s.BlastRadius, 'f', 2, 64)
-	})
-	writeGauge(&b, items, "expiry_radar_priority", "Combined urgency and blast radius used for ordering, 0..1.", func(s rank.Scored) string {
-		return strconv.FormatFloat(s.Priority, 'f', 2, 64)
-	})
+	writeGauge(&b, items, "expiry_radar_seconds_left", "Seconds until this item expires (negative once expired).",
+		func(s rank.Scored) string {
+			return strconv.FormatInt(int64(s.Item.Expires.Sub(opts.Now).Seconds()), 10)
+		})
+	writeGauge(&b, items, "expiry_radar_blast_radius", "Inferred consequence of this item expiring, 0..1.",
+		func(s rank.Scored) string {
+			return strconv.FormatFloat(s.BlastRadius, 'f', 2, 64)
+		})
+	writeGauge(&b, items, "expiry_radar_priority", "Combined urgency and blast radius used for ordering, 0..1.",
+		func(s rank.Scored) string {
+			return strconv.FormatFloat(s.Priority, 'f', 2, 64)
+		})
 
 	b.WriteString("# HELP expiry_radar_items Total items inventoried, by kind.\n# TYPE expiry_radar_items gauge\n")
 	counts := countByKind(items)

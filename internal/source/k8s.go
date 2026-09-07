@@ -38,13 +38,18 @@ type K8sSource struct {
 }
 
 const (
-	inClusterServer    = "https://kubernetes.default.svc"
-	inClusterTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // well-known path, not a credential
+	inClusterServer = "https://kubernetes.default.svc"
+	// Well-known path, not a credential
+	inClusterTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec
 	inClusterCAFile    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
+// Name identifies this source in an item's Source field and in --only.
 func (s *K8sSource) Name() string { return "k8s" }
 
+// Collect reads TLS secrets and ingress certificates from a cluster.
+//
+// Read-only, like every source: expiry-radar never needs write access.
 func (s *K8sSource) Collect(ctx context.Context) ([]Item, error) {
 	api, err := s.client()
 	if err != nil {
@@ -78,9 +83,13 @@ func (a *k8sAPI) get(ctx context.Context, path string, out any) error {
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck // the body is read or abandoned either way; a failed
+	// close only costs a pooled connection.
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("GET %s: forbidden — expiry-radar needs list on ingresses and secrets (see docs/rbac-readonly.yaml)", path)
+		return fmt.Errorf(
+			"GET %s: forbidden — expiry-radar needs list on ingresses and secrets (see docs/rbac-readonly.yaml)",
+			path)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: %s", path, resp.Status)
@@ -236,7 +245,8 @@ func (s *K8sSource) client() (*k8sAPI, error) {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
-	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: s.Insecure} //nolint:gosec // opt-in, documented
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12,
+		InsecureSkipVerify: s.Insecure} //nolint:gosec // opt-in, documented
 	if caFile != "" && !s.Insecure {
 		pem, err := os.ReadFile(caFile)
 		if err != nil {

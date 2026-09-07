@@ -32,8 +32,12 @@ type VaultSource struct {
 
 const defaultMaxCerts = 500
 
+// Name identifies this source in an item's Source field and in --only.
 func (s *VaultSource) Name() string { return "vault" }
 
+// Collect reads certificates issued by the configured Vault PKI mounts.
+//
+// Read-only, like every source: expiry-radar never needs write access.
 func (s *VaultSource) Collect(ctx context.Context) ([]Item, error) {
 	if s.Addr == "" || s.Token == "" {
 		return nil, fmt.Errorf("vault source needs an address and a token")
@@ -62,7 +66,8 @@ func (s *VaultSource) Collect(ctx context.Context) ([]Item, error) {
 		items = append(items, got...)
 		if truncated > 0 {
 			// Never let a cap look like a clean result.
-			warnings = append(warnings, fmt.Sprintf("%s: stopped after %d certificates, %d not read", mount, s.maxCerts(), truncated))
+			warnings = append(warnings,
+				fmt.Sprintf("%s: stopped after %d certificates, %d not read", mount, s.maxCerts(), truncated))
 		}
 	}
 
@@ -92,6 +97,8 @@ func (s *VaultSource) do(ctx context.Context, client *http.Client, method, path 
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck // the body is read or abandoned either way; a failed
+	// close only costs a pooled connection.
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusForbidden {
 		return fmt.Errorf("%s %s: permission denied (a read-only policy needs read+list on this path)", method, path)
@@ -159,7 +166,8 @@ func (s *VaultSource) pkiCerts(ctx context.Context, client *http.Client, mount s
 				Certificate string `json:"certificate"`
 			} `json:"data"`
 		}
-		if err := s.do(ctx, client, http.MethodGet, "/v1/"+url.PathEscape(mount)+"/cert/"+url.PathEscape(serial), &body); err != nil {
+		if err := s.do(ctx, client, http.MethodGet, "/v1/"+url.PathEscape(mount)+"/cert/"+url.PathEscape(serial),
+			&body); err != nil {
 			continue
 		}
 		cert, err := parsePEMCert(body.Data.Certificate)

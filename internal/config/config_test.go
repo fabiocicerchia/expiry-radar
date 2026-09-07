@@ -36,8 +36,10 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 		// A manual item exists because nothing else can find the thing, so one
 		// that fails to load leaves no trace anywhere.
 		{"manual item with no date", `{"manual": [{"name": "a", "kind": "domain"}]}`, "no expires date"},
-		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`, "unknown kind"},
-		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`, "neither"},
+		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`,
+			"unknown kind"},
+		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`,
+			"neither"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := Load(write(t, tc.body))
@@ -78,6 +80,8 @@ func TestNothingIsEnabledImplicitly(t *testing.T) {
 }
 
 func TestSourcesBuildsOneSourcePerEnabledBlock(t *testing.T) {
+	t.Setenv("VAULT_ADDR", "https://vault.example:8200")
+	t.Setenv("VAULT_TOKEN", "test-token")
 	f, err := Load(write(t, `{
 		"endpoints": [{"host": "example.com:443"}],
 		"domains": ["example.com"],
@@ -102,6 +106,7 @@ func TestSourcesBuildsOneSourcePerEnabledBlock(t *testing.T) {
 
 func TestVaultAddrFallsBackToTheEnvironment(t *testing.T) {
 	t.Setenv("VAULT_ADDR", "https://vault.example:8200")
+	t.Setenv("VAULT_TOKEN", "test-token")
 	f, err := Load(write(t, `{"vault": {"enabled": true}}`))
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +119,19 @@ func TestVaultAddrFallsBackToTheEnvironment(t *testing.T) {
 	// $VAULT_ADDR would silently probe nothing.
 	if got := src[0].Name(); got != "vault" {
 		t.Fatalf("want the vault source, got %q", got)
+	}
+}
+
+// An enabled Vault source with no address or no token can only fail on the
+// first collect, by which time the operator has walked away. Load refuses it
+// while they are still looking at the command.
+func TestVaultWithoutCredentialsIsRefusedAtLoad(t *testing.T) {
+	if _, err := Load(write(t, `{"vault": {"enabled": true}}`)); err == nil {
+		t.Fatal("vault enabled with neither addr nor $VAULT_ADDR was accepted")
+	}
+	t.Setenv("VAULT_ADDR", "https://vault.example:8200")
+	if _, err := Load(write(t, `{"vault": {"enabled": true}}`)); err == nil {
+		t.Fatal("vault enabled with no $VAULT_TOKEN was accepted")
 	}
 }
 

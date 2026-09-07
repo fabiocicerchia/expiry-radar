@@ -21,10 +21,11 @@ import (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	code, err := run(ctx, os.Args[1:], os.Stdout)
+	// Not deferred: os.Exit below does not run deferred functions.
+	stop()
 	if err != nil {
+		//nolint:errcheck // writing to the caller's stream; a failed write has nowhere to go
 		fmt.Fprintln(os.Stderr, "expiry-radar:", err)
 	}
 	os.Exit(code)
@@ -58,6 +59,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 			"in a form safe to paste into an issue (no ARNs, ids or names)")
 	)
 	fs.Usage = func() {
+		//nolint:errcheck // usage text, to the flag set's own output
 		_, _ = fmt.Fprint(fs.Output(), "expiry-radar — one inventory of everything that expires, ranked by blast radius.\n\n"+
 			"All sources are read-only. See docs/ for the exact IAM policy and RBAC Role.\n\n")
 		fs.PrintDefaults()
@@ -79,7 +81,9 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	}
 
 	if len(sources) == 0 {
-		return exitUsage, fmt.Errorf("no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s", *cfgPath)
+		return exitUsage, fmt.Errorf(
+			"no sources configured — pass -endpoints/-domains, or add manual items / enable k8s/vault/aws in %s",
+			*cfgPath)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
@@ -89,6 +93,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 	for _, e := range errs {
 		// Partial failures are reported, never swallowed: a report that quietly
 		// lost a source reads exactly like a clean estate.
+		//nolint:errcheck // writing to the caller's stream; a failed write has nowhere to go
 		fmt.Fprintln(os.Stderr, "expiry-radar: warning:", e)
 	}
 
@@ -208,6 +213,8 @@ func runVerifyAWS(ctx context.Context, sources []source.Source, stdout io.Writer
 	if err != nil {
 		return 2, err
 	}
+	//nolint:errcheck // the report, to the caller's stream; a failed write
+	// has nowhere left to be reported
 	_, _ = fmt.Fprint(stdout, v.Text())
 	if !v.OK() {
 		// Non-zero, so this is usable from CI against a fixture account: a

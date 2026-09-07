@@ -92,8 +92,12 @@ type ManualSource struct {
 	Items []ManualItem
 }
 
+// Name identifies this source in an item's Source field and in --only.
 func (s *ManualSource) Name() string { return "manual" }
 
+// Collect reads the items the config lists by hand, for things no API can enumerate.
+//
+// Read-only, like every source: expiry-radar never needs write access.
 func (s *ManualSource) Collect(context.Context) ([]Item, error) {
 	out := make([]Item, 0, len(s.Items))
 	for _, m := range s.Items {

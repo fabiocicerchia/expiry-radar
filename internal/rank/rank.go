@@ -115,6 +115,8 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 		b.adjust(0.20, "production")
 	case envNonProd:
 		b.adjust(-0.30, "non-production")
+	case envUnknown:
+		// No labels, no name convention: no adjustment either way.
 	}
 
 	// A wildcard or multi-SAN certificate takes down everything it covers.

@@ -36,8 +36,12 @@ const (
 // over WHOIS.
 var errNoRDAP = errors.New("no RDAP service for this TLD")
 
+// Name identifies this source in an item's Source field and in --only.
 func (s *DomainSource) Name() string { return "domain:rdap" }
 
+// Collect reads domain registration expiry, over RDAP with a WHOIS fallback.
+//
+// Read-only, like every source: expiry-radar never needs write access.
 func (s *DomainSource) Collect(ctx context.Context) ([]Item, error) {
 	timeout := s.Timeout
 	if timeout == 0 {
@@ -84,7 +88,9 @@ func (s *DomainSource) Collect(ctx context.Context) ([]Item, error) {
 }
 
 func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, domain string) (time.Time, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(base, "/")+"/domain/"+url.PathEscape(domain), nil)
+	endpoint := strings.TrimSuffix(base, "/") + "/domain/" + url.PathEscape(domain)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint,
+		nil)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -93,6 +99,8 @@ func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, do
 	if err != nil {
 		return time.Time{}, err
 	}
+	//nolint:errcheck // the body is read or abandoned either way; a failed
+	// close only costs a pooled connection.
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
 		// Either the domain does not exist or — far more often — the TLD is one
@@ -114,7 +122,9 @@ func (s *DomainSource) lookup(ctx context.Context, client *http.Client, base, do
 // date has to be scraped out of free text — every registry formats it
 // differently, and .de and .ch withhold it entirely. Hence: fallback, not
 // primary.
-func (s *DomainSource) whoisLookup(ctx context.Context, timeout time.Duration, servers map[string]string, domain string) (time.Time, error) {
+func (
+	s *DomainSource,
+) whoisLookup(ctx context.Context, timeout time.Duration, servers map[string]string, domain string) (time.Time, error) {
 	dot := strings.LastIndex(domain, ".")
 	if dot < 0 {
 		return time.Time{}, fmt.Errorf("no TLD in %q", domain)
@@ -159,7 +169,10 @@ func whoisQuery(ctx context.Context, timeout time.Duration, server, query string
 	if err != nil {
 		return "", err
 	}
+	//nolint:errcheck // the probe is finished with this connection either way
 	defer func() { _ = conn.Close() }()
+	//nolint:forbidigo // a socket deadline is an absolute time; there is no
+	// injectable clock that SetDeadline would accept.
 	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return "", err
 	}
@@ -183,7 +196,8 @@ func whoisExpiration(text string) (time.Time, error) {
 		if m == nil {
 			continue
 		}
-		for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02", "02-Jan-2006", "2006/01/02", "02.01.2006"} {
+		for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02", "02-Jan-2006", "2006/01/02",
+			"02.01.2006"} {
 			if t, err := time.Parse(layout, m[2]); err == nil {
 				return t, nil
 			}
