@@ -5,6 +5,31 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.4.0...v1.5.0) (2026-09-09)
+
+
+### Features
+
+* **aws:** -verify-aws, and make the degradation rule testable at last ([#38](https://github.com/fabiocicerchia/expiry-radar/issues/38)) ([8bce5d8](https://github.com/fabiocicerchia/expiry-radar/commit/8bce5d8507834141f0d9febf344b13abf17f92c5))
+* **ci:** let the release publish the extension ([#34](https://github.com/fabiocicerchia/expiry-radar/issues/34)) ([1dd70e6](https://github.com/fabiocicerchia/expiry-radar/commit/1dd70e663cfcdf6876629b79cc08b2937d207349))
+* **docs:** build the docs site in Actions and drop Read the Docs ([#24](https://github.com/fabiocicerchia/expiry-radar/issues/24)) ([9e32012](https://github.com/fabiocicerchia/expiry-radar/commit/9e3201228d683fe6df895316b0bea6bcf552b8c0))
+* **domain:** fall back to WHOIS when a TLD has no RDAP service ([9e0834a](https://github.com/fabiocicerchia/expiry-radar/commit/9e0834ae9c54706ee56bfa906b9ddb3d08625036))
+* **output:** add an HTML report with stats, grouping and filtering ([8f36956](https://github.com/fabiocicerchia/expiry-radar/commit/8f3695607b42d12d56903e1b1f496c623595a1f7))
+* **packaging:** man page, OS packages and a staged install ([#51](https://github.com/fabiocicerchia/expiry-radar/issues/51)) ([97a53a3](https://github.com/fabiocicerchia/expiry-radar/commit/97a53a3d46a7a06b368ec91792afdddd1f10c08b))
+* **vscode:** swap the marketplace icon for an hourglass ([#36](https://github.com/fabiocicerchia/expiry-radar/issues/36)) ([adf79e2](https://github.com/fabiocicerchia/expiry-radar/commit/adf79e2cd166cf94f7b1a2ce7f2529586f5ea024))
+
+
+### Bug Fixes
+
+* **ci:** pin the editorconfig-checker binary version ([#40](https://github.com/fabiocicerchia/expiry-radar/issues/40)) ([cb741f4](https://github.com/fabiocicerchia/expiry-radar/commit/cb741f43e990c6683b03fcea2c54d8bea1baf8d9))
+* **ci:** stop security workflows failing on private repos ([#3](https://github.com/fabiocicerchia/expiry-radar/issues/3)) ([59942f0](https://github.com/fabiocicerchia/expiry-radar/commit/59942f02b45ad172222713505675324ae69a6967))
+* **pre-commit:** stop check-yaml failing on Helm templates and multi-doc manifests ([4a634bd](https://github.com/fabiocicerchia/expiry-radar/commit/4a634bdbe63a2075d6fa8e0c28137d027f065ec7))
+* **release:** actually publish the Homebrew cask ([#56](https://github.com/fabiocicerchia/expiry-radar/issues/56)) ([d739d26](https://github.com/fabiocicerchia/expiry-radar/commit/d739d26ec04782086f72d6c5f409e6d187dff904))
+* **release:** sign checksums with a Sigstore bundle ([#53](https://github.com/fabiocicerchia/expiry-radar/issues/53)) ([298bb15](https://github.com/fabiocicerchia/expiry-radar/commit/298bb15aed7f8372a36f7f28075e6f2408b32daf))
+* security and code-quality findings ([#14](https://github.com/fabiocicerchia/expiry-radar/issues/14)) ([83da568](https://github.com/fabiocicerchia/expiry-radar/commit/83da56859049cd9054cf81217694b307ee98e682))
+* spell "unparsable" the way the typos linter expects ([35f1bcd](https://github.com/fabiocicerchia/expiry-radar/commit/35f1bcddb5b9faeaf105ff1f7bd851005378ec75))
+* unblock quality and clear the Scorecard pinned-dependencies finding ([#26](https://github.com/fabiocicerchia/expiry-radar/issues/26)) ([fb67097](https://github.com/fabiocicerchia/expiry-radar/commit/fb67097d3dd8981bd1ce647dfdd7c706e19195ca))
+
 ## [1.4.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.3.1...v1.4.0) (2026-09-09)
 
 
