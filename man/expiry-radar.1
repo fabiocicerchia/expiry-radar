@@ -1,0 +1,96 @@
+.TH EXPIRY-RADAR 1 "2026-09" "expiry-radar" "User Commands"
+.SH NAME
+expiry-radar \- one inventory of everything that expires, ranked by blast radius
+.SH SYNOPSIS
+.B expiry-radar
+.RI [ flags ]
+.SH DESCRIPTION
+.B expiry-radar
+collects everything in an estate that has an expiry date \(em TLS certificates,
+intermediate CAs, secrets, IAM keys, Vault leases, domains \(em into one report,
+ranked by blast radius, so that the certificate on the payment path outranks the
+one on a staging dashboard.
+.PP
+All sources are read-only. The project documentation carries the exact IAM
+policy and Kubernetes RBAC Role required.
+.PP
+Partial failures are reported, never swallowed: if a source fails, the report is
+still written, a warning goes to standard error, and the exit status says so.
+.SH OPTIONS
+.TP
+.BI \-config " PATH"
+Config file listing the read-only sources to scan (default
+.IR expiry-radar.json ).
+.TP
+.BI \-format " FORMAT"
+Output format:
+.BR table ", " json ", " ical ", " prometheus ", " html
+(default table).
+.TP
+.BI \-endpoints " HOSTS"
+Comma-separated hosts to probe over TLS, in addition to the config.
+.TP
+.BI \-domains " DOMAINS"
+Comma-separated domains to check via RDAP, in addition to the config.
+.TP
+.BI \-within " N"
+Only report items expiring within N days (0 = everything).
+.TP
+.BI \-fail\-within " N"
+Exit 1 if anything expires within N days (0 = never fail).
+.TP
+.BI \-min\-priority " P"
+Only report items at or above this priority.
+.TP
+.BI \-out " FILE"
+Write to a file instead of standard output.
+.TP
+.BI \-timeout " DURATION"
+Overall collection timeout (default 2m).
+.TP
+.B \-verify\-aws
+Run the AWS adapters and report what they did, in a form safe to paste into an
+issue (no ARNs, ids or names). This is not a scan.
+.SH EXIT STATUS
+.TP
+.B 0
+Success; nothing breached the
+.B \-fail\-within
+window.
+.TP
+.B 1
+Something expires within the
+.B \-fail\-within
+window.
+.TP
+.B 2
+Usage error, bad config, or the report could not be written.
+.TP
+.B 3
+Results were produced, but at least one source failed.
+.SH FILES
+.TP
+.I expiry-radar.json
+Default configuration.
+.SH EXAMPLES
+.PP
+Probe two hosts with no config file at all:
+.PP
+.RS
+.B expiry-radar \-endpoints example.com,api.example.com
+.RE
+.PP
+Fail a CI job if anything expires inside a fortnight:
+.PP
+.RS
+.B expiry-radar \-fail\-within 14
+.RE
+.PP
+Scrape it from Prometheus:
+.PP
+.RS
+.B expiry-radar \-format prometheus \-out /var/lib/node_exporter/expiry.prom
+.RE
+.SH SEE ALSO
+Project documentation:
+https://github.com/fabiocicerchia/expiry-radar

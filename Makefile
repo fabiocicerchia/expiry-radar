@@ -37,6 +37,8 @@ build:
 install:
 ifeq ($(strip $(PREFIX)),)
 	go install $(PKG)
+	install -d "$(USER_MANDIR)"
+	install -m 0644 man/$(BINARY).1 "$(USER_MANDIR)/$(BINARY).1"
 	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
 		echo "installed $$dir/$(BINARY)"; \
 		case ":$$PATH:" in \
@@ -46,8 +48,9 @@ ifeq ($(strip $(PREFIX)),)
 		esac
 else
 	@$(MAKE) build
-	install -d "$(DESTDIR)$(PREFIX)/bin"
+	install -d "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(PREFIX)/share/man/man1"
 	install -m 0755 $(BIN_DIR)/$(BINARY) "$(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+	install -m 0644 man/$(BINARY).1 "$(DESTDIR)$(PREFIX)/share/man/man1/$(BINARY).1"
 	@echo "installed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
 endif
 
@@ -55,9 +58,10 @@ endif
 uninstall:
 ifeq ($(strip $(PREFIX)),)
 	@dir="$$(go env GOBIN)"; [ -n "$$dir" ] || dir="$$(go env GOPATH)/bin"; \
-		rm -f "$$dir/$(BINARY)" && echo "removed $$dir/$(BINARY)"
+		rm -f "$$dir/$(BINARY)" "$(USER_MANDIR)/$(BINARY).1" && echo "removed $$dir/$(BINARY)"
 else
-	rm -f "$(DESTDIR)$(PREFIX)/bin/$(BINARY)"
+	rm -f "$(DESTDIR)$(PREFIX)/bin/$(BINARY)" \
+		"$(DESTDIR)$(PREFIX)/share/man/man1/$(BINARY).1"
 	@echo "removed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
 endif
 
