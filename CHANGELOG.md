@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/fabiocicerchia/expiry-radar/compare/v1.3.1...v1.4.0) (2026-09-09)
+
+
+### Features
+
+* **packaging:** man page, OS packages and a staged install ([#51](https://github.com/fabiocicerchia/expiry-radar/issues/51)) ([97a53a3](https://github.com/fabiocicerchia/expiry-radar/commit/97a53a3d46a7a06b368ec91792afdddd1f10c08b))
+
 ## [1.3.1](https://github.com/fabiocicerchia/expiry-radar/compare/v1.3.0...v1.3.1) (2026-09-04)
 
 
