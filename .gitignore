@@ -9,3 +9,6 @@ site/
 # a real one names internal hostnames, cloud regions and profiles — an estate
 # map, in a repository. Anchored, so only the one at the root is ignored.
 /expiry-radar.json
+
+# goreleaser output
+dist/
