@@ -91,6 +91,22 @@ Neovim 0.11+ users get [`extensions/nvim`](extensions/nvim) — `:ExpiryRadarRep
 `:ExpiryRadarList`, `:ExpiryRadarProbe`. Both live in [`extensions/`](extensions/)
 and are documented in [`docs/editors.md`](docs/editors.md).
 
+## Verify the download
+
+Every release is signed with [cosign][cosign], keyless: the identity is the
+workflow that published it, not a key anybody holds.
+
+```sh
+cosign verify-blob \
+  --bundle checksums.txt.bundle \
+  --certificate-identity-regexp 'https://github.com/fabiocicerchia/expiry-radar' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum --ignore-missing -c checksums.txt
+```
+
+[cosign]: https://docs.sigstore.dev/
+
 ## Documentation
 
 Full docs live in [`docs/`](docs/). Runnable examples live in [`examples/`](examples/).
