@@ -19,6 +19,21 @@ class and namespace, and overridable.
 
 ## Install
 
+macOS, via Homebrew:
+
+```sh
+brew install fabiocicerchia/tap/expiry-radar
+```
+
+Linux — a `.deb`, `.rpm`, `.apk` or Arch package from the
+[latest release](https://github.com/fabiocicerchia/expiry-radar/releases/latest):
+
+```sh
+sudo dpkg -i expiry-radar_*_linux_amd64.deb     # or rpm -i / apk add --allow-untrusted
+```
+
+Or with Go:
+
 ```sh
 go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest
 ```
