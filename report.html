@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>expiry-radar report</title>
+<style>
+:root{color-scheme:light dark;
+--bg:#fcfcfb;--card:#fff;--fg:#1a1a19;--mute:#6b6b68;--line:#e4e4e1;--head:#f4f4f2;
+--expired:#d03b3b;--urgent:#ec835a;--soon:#fab219;--ok:#0ca30c}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a19;--card:#212120;--fg:#e9e9e6;--mute:#9a9a95;--line:#32322f;--head:#262625}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,sans-serif;margin:0;padding:2rem 1rem 4rem}
+main{max-width:74rem;margin:0 auto}
+header h1{font-size:1.5rem;margin:0 0 .2rem;letter-spacing:-.01em}
+header p{color:var(--mute);margin:0 0 1.75rem;font-size:.875rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:.75rem;margin-bottom:1.5rem}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.85rem 1rem}
+.stat .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);display:block;margin-bottom:.3rem}
+.stat .v{font-size:1.75rem;font-weight:650;line-height:1.1;letter-spacing:-.02em;display:block}
+.stat .s{font-size:.8rem;color:var(--mute);display:block;margin-top:.15rem;overflow:hidden;text-overflow:ellipsis}
+.stat.next .v{font-size:1.15rem;word-break:break-all}
+.dot{display:inline-block;width:.55rem;height:.55rem;border-radius:50%;margin-right:.4rem;vertical-align:baseline}
+.expired .dot,.stat.expired .v{color:var(--expired)}
+.dot.expired{background:var(--expired)}.dot.urgent{background:var(--urgent)}
+.dot.soon{background:var(--soon)}.dot.ok{background:var(--ok)}
+.controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1.25rem}
+input[type=search]{flex:1 1 14rem;min-width:10rem;padding:.45rem .7rem;font:inherit;font-size:.9rem;
+background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:7px}
+.chip{padding:.35rem .7rem;font-size:.82rem;background:var(--card);color:var(--mute);
+border:1px solid var(--line);border-radius:99px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.count{font-size:.82rem;color:var(--mute);margin-left:auto}
+.group{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:1rem;overflow:hidden}
+.group>summary{padding:.7rem 1rem;cursor:pointer;font-weight:600;display:flex;gap:.6rem;align-items:baseline}
+.group>summary::-webkit-details-marker{display:none}
+.group>summary::before{content:"▸";color:var(--mute);font-size:.8rem;transition:transform .12s}
+.group[open]>summary::before{content:"▾"}
+.group .n{font-size:.8rem;font-weight:400;color:var(--mute);margin-left:auto}
+.scroll{overflow-x:auto;border-top:1px solid var(--line)}
+ 
+table{border-collapse:collapse;width:100%;min-width:56rem;table-layout:fixed;font-size:.88rem}
+th,td{padding:.5rem .75rem;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis}
+td.name{white-space:normal;word-break:break-word}
+th{background:var(--head);font-weight:600;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
+tr:last-child td{border-bottom:0}
+td.why{white-space:normal;overflow:visible;color:var(--mute);font-size:.84rem}
+td.left{font-variant-numeric:tabular-nums}
+tr.expired td.left{color:var(--expired);font-weight:650}
+tr.urgent td.left{font-weight:650}
+td.pri{font-variant-numeric:tabular-nums}
+.bar{display:inline-block;vertical-align:middle;width:2.6rem;height:.35rem;border-radius:2px;background:var(--line);margin-right:.5rem}
+.bar>span{display:block;height:100%;border-radius:2px;background:var(--mute)}
+.empty{padding:2.5rem 1rem;text-align:center;color:var(--mute)}
+[hidden]{display:none!important}
+</style></head><body><main>
+<header>
+<h1>expiry-radar</h1>
+<p>generated 2026-08-04 02:20 UTC</p>
+</header>
+
+<section class="stats">
+<div class="stat"><span class="k">Tracked</span><span class="v">10</span><span class="s">items</span></div>
+<div class="stat"><span class="k">Expired</span><span class="v">0</span><span class="s">already broken</span></div>
+<div class="stat"><span class="k">Next 14 days</span><span class="v">1</span><span class="s">need action now</span></div>
+<div class="stat"><span class="k">Next 30 days</span><span class="v">1</span><span class="s">on the horizon</span></div>
+<div class="stat next"><span class="k">Soonest</span><span class="v">fabiocicerchia.it</span><span class="s"><i class="dot urgent"></i>13d</span></div>
+</section>
+
+<div class="controls">
+<input type="search" id="q" placeholder="Filter by name, source or reason…" aria-label="Filter rows">
+<button class="chip" data-kind="" aria-pressed="true">all kinds</button>
+<button class="chip" data-kind="domain" aria-pressed="false">domain</button>
+<button class="chip" data-kind="intermediate_ca" aria-pressed="false">intermediate_ca</button>
+<button class="chip" data-kind="tls_cert" aria-pressed="false">tls_cert</button>
+<button class="chip" data-sev="soon30" aria-pressed="false">≤ 30 days</button>
+<span class="count" id="count"></span>
+</div>
+<details class="group" data-group open>
+<summary><i class="dot urgent"></i>fabiocicerchia.it<span class="n"><span data-visible>3</span> of 3 · soonest 13d</span></summary>
+<div class="scroll">
+<table>
+<colgroup><col style="width:7.5rem"><col style="width:4.5rem"><col style="width:7.5rem"><col style="width:7rem"><col style="width:8.5rem"><col style="width:16rem"><col style="width:8.5rem"><col></colgroup>
+<thead><tr><th>Priority</th><th>Blast</th><th>Expires in</th><th>On</th><th>Kind</th><th>Name</th><th>Source</th><th>Why</th></tr></thead>
+<tbody>
+<tr class="urgent" data-kind="domain" data-sev="urgent" data-days="14" data-text="fabiocicerchia.it domain:whois domain base domain, internet-facing">
+<td class="pri"><span class="bar"><span style="width:92%"></span></span>0.92</td>
+<td>1.00</td>
+<td class="left">13d</td>
+<td>2026-08-18</td>
+<td>domain</td>
+<td class="name">fabiocicerchia.it</td>
+<td>domain:whois</td>
+<td class="why">base domain, internet-facing</td>
+</tr>
+<tr class="ok" data-kind="tls_cert" data-sev="ok" data-days="33" data-text="fabiocicerchia.it tls:endpoint tls_cert base tls_cert, internet-facing">
+<td class="pri"><span class="bar"><span style="width:67%"></span></span>0.67</td>
+<td>0.70</td>
+<td class="left">32d</td>
+<td>2026-09-05</td>
+<td>tls_cert</td>
+<td class="name">fabiocicerchia.it</td>
+<td>tls:endpoint</td>
+<td class="why">base tls_cert, internet-facing</td>
+</tr>
+<tr class="ok" data-kind="tls_cert" data-sev="ok" data-days="49" data-text="www.fabiocicerchia.it tls:endpoint tls_cert base tls_cert, internet-facing, wildcard certificate">
+<td class="pri"><span class="bar"><span style="width:61%"></span></span>0.61</td>
+<td>0.80</td>
+<td class="left">49d</td>
+<td>2026-09-22</td>
+<td>tls_cert</td>
+<td class="name">www.fabiocicerchia.it</td>
+<td>tls:endpoint</td>
+<td class="why">base tls_cert, internet-facing, wildcard certificate</td>
+</tr>
+</tbody></table>
+</div>
+</details>
+<details class="group" data-group open>
+<summary><i class="dot ok"></i>ephemera.sh<span class="n"><span data-visible>2</span> of 2 · soonest 86d</span></summary>
+<div class="scroll">
+<table>
+<colgroup><col style="width:7.5rem"><col style="width:4.5rem"><col style="width:7.5rem"><col style="width:7rem"><col style="width:8.5rem"><col style="width:16rem"><col style="width:8.5rem"><col></colgroup>
+<thead><tr><th>Priority</th><th>Blast</th><th>Expires in</th><th>On</th><th>Kind</th><th>Name</th><th>Source</th><th>Why</th></tr></thead>
+<tbody>
+<tr class="ok" data-kind="domain" data-sev="ok" data-days="258" data-text="ephemera.sh domain:whois domain base domain, internet-facing">
+<td class="pri"><span class="bar"><span style="width:45%"></span></span>0.45</td>
+<td>1.00</td>
+<td class="left">257d</td>
+<td>2027-04-18</td>
+<td>domain</td>
+<td class="name">ephemera.sh</td>
+<td>domain:whois</td>
+<td class="why">base domain, internet-facing</td>
+</tr>
+<tr class="ok" data-kind="tls_cert" data-sev="ok" data-days="86" data-text="ephemera.sh tls:endpoint tls_cert base tls_cert, internet-facing">
+<td class="pri"><span class="bar"><span style="width:34%"></span></span>0.34</td>
+<td>0.70</td>
+<td class="left">86d</td>
+<td>2026-10-29</td>
+<td>tls_cert</td>
+<td class="name">ephemera.sh</td>
+<td>tls:endpoint</td>
+<td class="why">base tls_cert, internet-facing</td>
+</tr>
+</tbody></table>
+</div>
+</details>
+<details class="group" data-group open>
+<summary><i class="dot ok"></i>shared chain<span class="n"><span data-visible>5</span> of 5 · soonest 541d</span></summary>
+<div class="scroll">
+<table>
+<colgroup><col style="width:7.5rem"><col style="width:4.5rem"><col style="width:7.5rem"><col style="width:7rem"><col style="width:8.5rem"><col style="width:16rem"><col style="width:8.5rem"><col></colgroup>
+<thead><tr><th>Priority</th><th>Blast</th><th>Expires in</th><th>On</th><th>Kind</th><th>Name</th><th>Source</th><th>Why</th></tr></thead>
+<tbody>
+<tr class="ok" data-kind="intermediate_ca" data-sev="ok" data-days="542" data-text="GTS Root R4 tls:chain intermediate_ca base intermediate_ca">
+<td class="pri"><span class="bar"><span style="width:36%"></span></span>0.36</td>
+<td>0.80</td>
+<td class="left">541d</td>
+<td>2028-01-28</td>
+<td>intermediate_ca</td>
+<td class="name">GTS Root R4</td>
+<td>tls:chain</td>
+<td class="why">base intermediate_ca</td>
+</tr>
+<tr class="ok" data-kind="intermediate_ca" data-sev="ok" data-days="761" data-text="YE2 tls:chain intermediate_ca base intermediate_ca">
+<td class="pri"><span class="bar"><span style="width:36%"></span></span>0.36</td>
+<td>0.80</td>
+<td class="left">760d</td>
+<td>2028-09-02</td>
+<td>intermediate_ca</td>
+<td class="name">YE2</td>
+<td>tls:chain</td>
+<td class="why">base intermediate_ca</td>
+</tr>
+<tr class="ok" data-kind="intermediate_ca" data-sev="ok" data-days="931" data-text="WE1 tls:chain intermediate_ca base intermediate_ca">
+<td class="pri"><span class="bar"><span style="width:36%"></span></span>0.36</td>
+<td>0.80</td>
+<td class="left">931d</td>
+<td>2029-02-20</td>
+<td>intermediate_ca</td>
+<td class="name">WE1</td>
+<td>tls:chain</td>
+<td class="why">base intermediate_ca</td>
+</tr>
+<tr class="ok" data-kind="intermediate_ca" data-sev="ok" data-days="2222" data-text="Root YE tls:chain intermediate_ca base intermediate_ca">
+<td class="pri"><span class="bar"><span style="width:36%"></span></span>0.36</td>
+<td>0.80</td>
+<td class="left">2221d</td>
+<td>2032-09-02</td>
+<td>intermediate_ca</td>
+<td class="name">Root YE</td>
+<td>tls:chain</td>
+<td class="why">base intermediate_ca</td>
+</tr>
+<tr class="ok" data-kind="intermediate_ca" data-sev="ok" data-days="2222" data-text="ISRG Root X2 tls:chain intermediate_ca base intermediate_ca">
+<td class="pri"><span class="bar"><span style="width:36%"></span></span>0.36</td>
+<td>0.80</td>
+<td class="left">2221d</td>
+<td>2032-09-02</td>
+<td>intermediate_ca</td>
+<td class="name">ISRG Root X2</td>
+<td>tls:chain</td>
+<td class="why">base intermediate_ca</td>
+</tr>
+</tbody></table>
+</div>
+</details>
+
+<script>
+(function () {
+  var q = document.getElementById('q'), count = document.getElementById('count');
+  var chips = [].slice.call(document.querySelectorAll('.chip'));
+  var kind = '', soon = false;
+
+  function apply() {
+    var needle = q.value.toLowerCase(), shown = 0, total = 0;
+    [].forEach.call(document.querySelectorAll('[data-group]'), function (g) {
+      var visible = 0, rows = g.querySelectorAll('tbody tr');
+      [].forEach.call(rows, function (tr) {
+        var ok = (!kind || tr.dataset.kind === kind) &&
+                 (!soon || +tr.dataset.days <= 30) &&
+                 (!needle || tr.dataset.text.toLowerCase().indexOf(needle) > -1);
+        tr.hidden = !ok;
+        if (ok) visible++;
+      });
+      g.querySelector('[data-visible]').textContent = visible;
+      g.hidden = visible === 0;
+      shown += visible; total += rows.length;
+    });
+    count.textContent = shown === total ? total + ' items' : shown + ' of ' + total + ' items';
+  }
+
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      if ('sev' in c.dataset) {
+        soon = !soon;
+        c.setAttribute('aria-pressed', soon);
+      } else {
+        kind = c.dataset.kind;
+        chips.forEach(function (o) {
+          if (!('sev' in o.dataset)) o.setAttribute('aria-pressed', o === c);
+        });
+      }
+      apply();
+    });
+  });
+  q.addEventListener('input', apply);
+  apply();
+})();
+</script>
+</main></body></html>
