@@ -17,6 +17,31 @@ one tool with one code path. Building two would just be two dormant repos.
 dates; the value is ordering by consequence, inferred from traffic, ingress
 class and namespace, and overridable.
 
+## Features
+
+- One inventory of everything that expires — TLS certificates, intermediate
+  CAs, secrets, IAM keys, Vault leases and domains — instead of one script per
+  kind.
+- **Ranked by blast radius**, inferred from traffic, ingress class and
+  namespace, so the cert on the payment path outranks the one on a staging
+  dashboard. Overridable where the inference is wrong.
+- Most of the inventory is **discovered**: grant read access and the sources
+  enumerate themselves.
+- A `manual` source for what nothing can discover — a registrar with no RDAP,
+  a hand-rotated credential, a code-signing cert on somebody's laptop — ranked
+  by the same rules as everything else.
+- Four output formats: text, `ical` for the renewals calendar, `prometheus`
+  for alerting, and a standalone `html` report.
+- `-fail-within N` turns it into a CI gate.
+- Flags add to the config rather than replacing it, so a one-off probe needs
+  no config file at all.
+- **A failed source is never silent**: it returns what it managed to read,
+  prints the failure to stderr, and exits 3 — because a report that quietly
+  lost a source looks exactly like a clean estate.
+- The same binary runs in the editor: a ranked panel, diagnostics on the
+  config lines that declared what is about to break, and the HTML report in a
+  tab.
+
 ## Install
 
 macOS, via Homebrew:
