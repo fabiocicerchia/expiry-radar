@@ -11,6 +11,7 @@
 
 /** `source.Kind` — what expires. Open-ended: a new source may add one. */
 export type Kind =
+  | "trust_anchor"
   | "tls_cert"
   | "intermediate_ca"
   | "secret"

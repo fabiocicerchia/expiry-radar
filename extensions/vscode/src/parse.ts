@@ -26,9 +26,18 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
 };
 
 /** The kinds the CLI ships today, in the order `internal/rank` weights them. */
-export const KINDS: Kind[] = ["domain", "intermediate_ca", "tls_cert", "iam_access_key", "secret", "vault_lease"];
+export const KINDS: Kind[] = [
+  "trust_anchor",
+  "domain",
+  "intermediate_ca",
+  "tls_cert",
+  "iam_access_key",
+  "secret",
+  "vault_lease",
+];
 
 const KIND_LABELS: Record<string, string> = {
+  trust_anchor: "Trust anchor",
   tls_cert: "TLS certificate",
   intermediate_ca: "Intermediate CA",
   secret: "Secret",

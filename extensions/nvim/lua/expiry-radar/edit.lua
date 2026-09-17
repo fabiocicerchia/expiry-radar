@@ -145,6 +145,7 @@ M.ARRAY_FOR = { endpoint = 'endpoints', domain = 'domains', manual = 'manual' }
 --- not cosmetic: it picks the base blast radius, which decides where a recorded
 --- item lands in the ranking.
 M.MANUAL_KINDS = {
+  { kind = 'trust_anchor', label = 'Trust anchor', hint = 'a root everything else validates against' },
   { kind = 'domain', label = 'Domain', hint = 'a registration -- the whole estate, including mail' },
   { kind = 'intermediate_ca', label = 'Intermediate CA', hint = 'every leaf it signed, at once' },
   { kind = 'tls_cert', label = 'TLS certificate', hint = 'a code-signing or client cert, say' },

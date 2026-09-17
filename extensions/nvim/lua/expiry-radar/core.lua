@@ -173,6 +173,7 @@ M.SEVERITY_LABEL = {
 }
 
 M.KIND_LABEL = {
+  trust_anchor = 'Trust anchor',
   tls_cert = 'TLS certificate',
   intermediate_ca = 'Intermediate CA',
   secret = 'Secret',
