@@ -49,14 +49,28 @@ type K8sSource struct {
 	Insecure   bool
 	Timeout    time.Duration
 
-	// Skips mirror the AWS source: a resource class an operator has decided not
-	// to grant is skipped outright rather than collected and denied, so the run
-	// is quiet instead of warning about a permission nobody intends to give.
-	SkipSecrets     bool
-	SkipCertManager bool
-	SkipWebhooks    bool
-	SkipAPIServices bool
-	SkipMesh        bool
+	// SkipSecrets turns off the TLS-secret collector. It is a skip rather than
+	// an opt-in because reading TLS secrets is what this source has always
+	// done, and an existing deployment already has the permission.
+	SkipSecrets bool
+
+	// The rest are opt-in, and deliberately so. Each needs a permission the
+	// previous release did not ask for, so defaulting them on would take an
+	// install that was exiting 0 and start it exiting 3 on upgrade — a CI gate
+	// going red because of a config change nobody was prompted to make. A
+	// permission the operator never granted is not a partial result; it is a
+	// collector that is not configured.
+	//
+	// CertManager reads Certificate CRs: `list` on cert-manager.io.
+	CertManager bool
+	// TrustAnchors reads the admission webhook and APIService CA bundles and
+	// the mesh trust roots. All cluster-scoped, so it needs a ClusterRole.
+	TrustAnchors bool
+	// MeshSigningSecrets additionally reads the mesh objects that hold the
+	// signing key beside the certificate. It needs `get` on Secrets containing
+	// cluster-wide mTLS CA private keys — read docs/rbac-readonly.yaml before
+	// setting it. Requires TrustAnchors.
+	MeshSigningSecrets bool
 
 	// MeshAnchors are read in addition to the built-in Linkerd and Istio
 	// locations, never instead of them — see anchors().
@@ -170,10 +184,10 @@ func (s *K8sSource) resources(ctx context.Context, api *k8sAPI, st *k8sState) []
 		// special case, and losing it costs ranking evidence, not findings.
 		{"ingresses", s.SkipSecrets, func() ([]Item, error) { return nil, st.ingressErr }},
 		{"secrets", s.SkipSecrets, func() ([]Item, error) { return s.tlsSecrets(ctx, api, st) }},
-		{"certificates", s.SkipCertManager, func() ([]Item, error) { return s.certificates(ctx, api, st) }},
-		{"webhooks", s.SkipWebhooks, func() ([]Item, error) { return s.webhookCAs(ctx, api, st) }},
-		{"apiservices", s.SkipAPIServices, func() ([]Item, error) { return s.apiServiceCAs(ctx, api, st) }},
-		{"mesh", s.SkipMesh, func() ([]Item, error) { return s.meshAnchors(ctx, api, st) }},
+		{"certificates", !s.CertManager, func() ([]Item, error) { return s.certificates(ctx, api, st) }},
+		{"webhooks", !s.TrustAnchors, func() ([]Item, error) { return s.webhookCAs(ctx, api, st) }},
+		{"apiservices", !s.TrustAnchors, func() ([]Item, error) { return s.apiServiceCAs(ctx, api, st) }},
+		{"mesh", !s.TrustAnchors, func() ([]Item, error) { return s.meshAnchors(ctx, api, st) }},
 	}
 }
 
@@ -226,18 +240,32 @@ func (a *k8sAPI) get(ctx context.Context, path string, out any) error {
 // findings — the same rule collectResources enforces one level up, applied
 // where the namespace fan-out actually happens.
 //
-// A 404 is not a failure: on a list endpoint it means the CRD is not installed,
-// and on a namespaced path it means the namespace is not there. Both are
-// answers about the cluster, and a cluster without cert-manager should not
-// warn on every run.
+// A 404 is a failure here, and that is the whole point. Only the endpoints
+// where absence is a genuine answer about the cluster — a CRD that is not
+// installed — may swallow one, and those call listEachIfPresent instead.
+// Everywhere else a 404 means the request went somewhere unintended, usually a
+// k8s.server carrying a path prefix, and swallowing it turns a misconfigured
+// run into an empty report that exits 0. A report that quietly lost a source
+// reads exactly like a clean estate, which is the failure this tool exists to
+// prevent.
 func listEach[T any](ctx context.Context, api *k8sAPI, paths []string, fn func(T)) error {
+	return listPaths(ctx, api, paths, fn, false)
+}
+
+// listEachIfPresent treats a 404 as "this is not installed here" rather than as
+// an error. Only for optional API groups.
+func listEachIfPresent[T any](ctx context.Context, api *k8sAPI, paths []string, fn func(T)) error {
+	return listPaths(ctx, api, paths, fn, true)
+}
+
+func listPaths[T any](ctx context.Context, api *k8sAPI, paths []string, fn func(T), optional bool) error {
 	var warnings []string
 	for _, p := range paths {
 		var list struct {
 			Items []T `json:"items"`
 		}
 		if err := api.get(ctx, p, &list); err != nil {
-			if !errors.Is(err, errNotFound) {
+			if !optional || !errors.Is(err, errNotFound) {
 				warnings = append(warnings, err.Error())
 			}
 			continue
@@ -318,9 +346,7 @@ func (s *K8sSource) tlsSecrets(ctx context.Context, api *k8sAPI, st *k8sState) (
 			Items []secretItem `json:"items"`
 		}
 		if err := api.get(ctx, sc.Path, &list); err != nil {
-			if !errors.Is(err, errNotFound) {
-				warnings = append(warnings, err.Error())
-			}
+			warnings = append(warnings, err.Error())
 			continue
 		}
 		// Only now may anything conclude that a secret in this namespace is

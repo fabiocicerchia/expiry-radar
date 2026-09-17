@@ -48,6 +48,11 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
 				` "namespace": "istio-system", "name": "cacerts", "keys": []}]}}`,
 			"at least one key"},
+		// Granting read access to CA private keys and getting no findings for
+		// it is the worst of both.
+		{"mesh signing secrets without trust anchors",
+			`{"k8s": {"enabled": true, "meshSigningSecrets": true}}`,
+			"needs k8s.trustAnchors"},
 		{"mesh anchor key with an unknown role",
 			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
 				` "namespace": "istio-system", "name": "cacerts", "keys": [{"key": "ca.pem", "role": "root"}]}]}}`,

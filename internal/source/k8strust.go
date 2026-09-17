@@ -55,7 +55,8 @@ type apiServiceItem struct {
 // webhookCAs reads both admission webhook configuration kinds. These are
 // cluster-scoped, so they bypass paths() — a namespaced Role cannot list them,
 // and the resulting 403 is a warning the operator can silence with
-// skipWebhooks rather than a failure that loses the namespaced findings.
+// trustAnchors being off rather than a failure that loses the namespaced
+// findings.
 func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	acc := st.anchors
 	var errs []string
@@ -115,14 +116,34 @@ const (
 	roleIssuer       = "issuer"
 )
 
-// Both Linkerd entries are here on purpose and for different reasons: the trust
-// root runs for years, while the issuer runs a year by default and twenty-four
-// hours under cert-manager. The issuer is the one that actually bites.
+// The default anchors are ConfigMaps, and that is the point: a ConfigMap holds
+// the certificate and nothing else, so reading one cannot expose a key.
+//
+// Both meshes publish their trust root that way. Linkerd keeps it in
+// linkerd-identity-trust-roots under ca-bundle.crt, and Istio distributes
+// istio-ca-root-cert to every namespace with root-cert.pem in it — the same
+// root istio-ca-secret holds, without the private key beside it.
 var defaultMeshAnchors = []MeshAnchor{
 	{"linkerd", anchorConfigMaps, "linkerd", "linkerd-identity-trust-roots",
 		[]MeshAnchorKey{{"ca-bundle.crt", roleTrustAnchor}}},
+	{"istio", anchorConfigMaps, "istio-system", "istio-ca-root-cert",
+		[]MeshAnchorKey{{"root-cert.pem", roleTrustAnchor}}},
+}
+
+// signingSecretAnchors carry the signing key alongside the certificate, so
+// reading one means reading a cluster-wide mTLS signing key. Behind
+// MeshSigningSecrets, never on by default.
+//
+// What that costs is worth stating plainly: the Linkerd issuer lapses in a year
+// by default and in twenty-four hours under cert-manager, which makes it the
+// mesh certificate most likely to expire unnoticed, and no ConfigMap exposes it.
+//
+// linkerd-identity-issuer is a kubernetes.io/tls Secret on current Linkerd, so
+// the issuer certificate is under tls.crt. crt.pem is the legacy Opaque-scheme
+// name, kept so an older cluster is not silently unreadable.
+var signingSecretAnchors = []MeshAnchor{
 	{"linkerd", anchorSecrets, "linkerd", "linkerd-identity-issuer",
-		[]MeshAnchorKey{{"crt.pem", roleIssuer}}},
+		[]MeshAnchorKey{{"tls.crt", roleIssuer}, {"crt.pem", roleIssuer}}},
 	{"istio", anchorSecrets, "istio-system", "cacerts",
 		[]MeshAnchorKey{{"root-cert.pem", roleTrustAnchor}, {"ca-cert.pem", roleIssuer}}},
 	{"istio", anchorSecrets, "istio-system", "istio-ca-secret",
@@ -138,11 +159,12 @@ func (s *K8sSource) Anchors() []MeshAnchor { return s.anchors() }
 // instead of overriding it. Silently dropping Linkerd and Istio support because
 // somebody named one extra object is not a trade anybody would choose.
 func (s *K8sSource) anchors() []MeshAnchor {
-	if len(s.MeshAnchors) == 0 {
-		return defaultMeshAnchors
-	}
-	out := make([]MeshAnchor, 0, len(defaultMeshAnchors)+len(s.MeshAnchors))
+	out := make([]MeshAnchor, 0,
+		len(defaultMeshAnchors)+len(signingSecretAnchors)+len(s.MeshAnchors))
 	out = append(out, defaultMeshAnchors...)
+	if s.MeshSigningSecrets {
+		out = append(out, signingSecretAnchors...)
+	}
 	return append(out, s.MeshAnchors...)
 }
 
@@ -213,7 +235,16 @@ func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI, st *k8sState) 
 			continue
 		}
 		for _, f := range found {
-			acc.addBundle(allCerts(f.pem), "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace,
+			certs := allCerts(f.pem)
+			if len(certs) == 0 {
+				// Present, and holding something that is not a certificate. The
+				// len(found)==0 guard does not cover this, and with no warning
+				// the trust root just drops out of the inventory.
+				errs = append(errs, fmt.Sprintf("%s/%s: %s holds no certificate",
+					a.Mesh, a.Name, f.key))
+				continue
+			}
+			acc.addBundle(certs, "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace,
 				map[string]string{"mesh": a.Mesh, "role": f.role, "key": f.key})
 		}
 	}
@@ -242,8 +273,18 @@ type anchorPEM struct {
 // A ConfigMap holds PEM as plain text and a Secret holds it base64-encoded,
 // which encoding/json already undoes for []byte — two shapes, so two decodes.
 func (s *K8sSource) readAnchor(ctx context.Context, api *k8sAPI, a MeshAnchor) ([]anchorPEM, error) {
+	// Chosen from a closed set rather than interpolated, so a Kind that never
+	// went through ValidateMeshAnchors — a K8sSource built directly rather than
+	// from a config file — cannot steer the request at another API path.
+	var resource string
+	switch a.Kind {
+	case anchorConfigMaps, anchorSecrets:
+		resource = a.Kind
+	default:
+		return nil, fmt.Errorf("unknown anchor kind %q", a.Kind)
+	}
 	path := "/api/v1/namespaces/" + url.PathEscape(a.Namespace) + "/" +
-		a.Kind + "/" + url.PathEscape(a.Name)
+		resource + "/" + url.PathEscape(a.Name)
 
 	data := map[string][]byte{}
 	if a.Kind == anchorConfigMaps {

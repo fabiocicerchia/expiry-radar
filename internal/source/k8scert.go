@@ -56,7 +56,9 @@ type certificateItem struct {
 // For the rest, the Certificate's contribution is the renewal evidence applied
 // by annotateRenewal, not a second row at the same date.
 func (s *K8sSource) certificates(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
-	err := listEach(ctx, api, s.paths("/apis/cert-manager.io/v1", "certificates"), func(c certificateItem) {
+	// The one optional API group here: a cluster without cert-manager installed
+	// is a cluster with an answer, not a cluster with a problem.
+	err := listEachIfPresent(ctx, api, s.paths("/apis/cert-manager.io/v1", "certificates"), func(c certificateItem) {
 		ref := certRef{
 			Name:       c.Metadata.Name,
 			Namespace:  c.Metadata.Namespace,

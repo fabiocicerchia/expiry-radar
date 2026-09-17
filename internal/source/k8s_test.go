@@ -46,8 +46,36 @@ func fakeK8s(routes map[string]string, deny map[string]int) *httptest.Server {
 				return
 			}
 		}
+		// An unrouted list endpoint is an API group that exists with nothing in
+		// it, which is what a real cluster does. Only a named object that is
+		// not there 404s — otherwise every test would be asserting against a
+		// cluster that appears not to have a Kubernetes API at all.
+		for _, r := range listResources {
+			if strings.HasSuffix(path, "/"+r) {
+				_, _ = w.Write([]byte(`{"items":[]}`))
+				return
+			}
+		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+// The list endpoints this source knows about. Anything else is a named get.
+var listResources = []string{
+	"ingresses", "secrets", "certificates", "apiservices",
+	"validatingwebhookconfigurations", "mutatingwebhookconfigurations",
+}
+
+// k8sAll turns on every collector. Most tests are about how one collector
+// behaves rather than about which are enabled by default, and the opt-ins would
+// otherwise silently skip the thing under test.
+func k8sAll(server string) *K8sSource {
+	return &K8sSource{Server: server, CertManager: true, TrustAnchors: true, MeshSigningSecrets: true}
+}
+
+func withClock(s *K8sSource, t time.Time) *K8sSource {
+	s.now = func() time.Time { return t }
+	return s
 }
 
 // routeMatches anchors on the end of the path: "secrets" is the list endpoint,
@@ -107,7 +135,7 @@ func TestOneDeniedResourceKeepsTheOthersFindings(t *testing.T) {
 	})
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err == nil {
 		t.Fatal("a denied resource must still be reported as an error")
 	}
@@ -129,7 +157,8 @@ func TestADeniedNamespaceKeepsTheOtherNamespacesSecrets(t *testing.T) {
 	})
 	defer srv.Close()
 
-	s := &K8sSource{Server: srv.URL, Namespaces: []string{"prod", "staging"}}
+	s := k8sAll(srv.URL)
+	s.Namespaces = []string{"prod", "staging"}
 	items, err := s.Collect(context.Background())
 	if err == nil {
 		t.Fatal("the denied namespace should still surface as an error")
@@ -217,7 +246,7 @@ func TestAHealthyCertManagerCertificateMarksItsSecretManaged(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -245,7 +274,7 @@ func TestAStuckCertManagerRenewalIsNotMarkedManaged(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -263,8 +292,7 @@ func TestACertificateWithNoIssuedSecretIsStillReported(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
-		Collect(context.Background())
+	items, err := withClock(k8sAll(srv.URL), now).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -289,7 +317,7 @@ func TestTheSameWebhookCAInTwoConfigurationsIsReportedOnce(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -313,7 +341,7 @@ func TestAWebhookWithNoCABundleIsSkipped(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -338,7 +366,7 @@ func TestALocalAPIServiceIsSkipped(t *testing.T) {
 	srv := fakeK8s(map[string]string{"apiservices": string(body)}, nil)
 	defer srv.Close()
 
-	items, cErr := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, cErr := k8sAll(srv.URL).Collect(context.Background())
 	if cErr != nil {
 		t.Fatalf("collect: %v", cErr)
 	}
@@ -357,7 +385,7 @@ func TestAMissingMeshAnchorIsNotAnError(t *testing.T) {
 	srv := fakeK8s(nil, nil) // everything 404s: no Linkerd, no Istio
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("a cluster with no service mesh is not a cluster with a problem: %v", err)
 	}
@@ -378,7 +406,7 @@ func TestAMeshTrustAnchorIsReadFromItsConfigMap(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, cErr := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, cErr := k8sAll(srv.URL).Collect(context.Background())
 	if cErr != nil {
 		t.Fatalf("collect: %v", cErr)
 	}
@@ -401,7 +429,9 @@ func TestClusterScopedResourcesDoNotGoThroughTheNamespacePaths(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, _ = (&K8sSource{Server: srv.URL, Namespaces: []string{"prod"}}).Collect(context.Background())
+	s := k8sAll(srv.URL)
+	s.Namespaces = []string{"prod"}
+	_, _ = s.Collect(context.Background())
 	for _, p := range seen {
 		if strings.Contains(p, "webhookconfigurations") && strings.Contains(p, "namespaces/") {
 			t.Errorf("a cluster-scoped resource was requested under a namespace: %s", p)
@@ -442,8 +472,7 @@ func TestACertificateWhoseSecretIsUnreadableIsStillReported(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
-		Collect(context.Background())
+	items, err := withClock(k8sAll(srv.URL), now).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -471,8 +500,9 @@ func TestSkippingSecretsDoesNotMakeEveryCertificateLookUnissued(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL, SkipSecrets: true, now: func() time.Time { return now }}).
-		Collect(context.Background())
+	s := withClock(k8sAll(srv.URL), now)
+	s.SkipSecrets = true
+	items, err := s.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -503,7 +533,8 @@ func TestUnissuedIsOnlyClaimedForANamespaceWeActuallyRead(t *testing.T) {
 	})
 	defer srv.Close()
 
-	s := &K8sSource{Server: srv.URL, Namespaces: []string{"prod", "staging"}, now: func() time.Time { return now }}
+	s := withClock(k8sAll(srv.URL), now)
+	s.Namespaces = []string{"prod", "staging"}
 	items, _ := s.Collect(context.Background())
 
 	prod, ok := itemNamed(items, "prod/shop-tls")
@@ -540,8 +571,7 @@ func TestUnissuedCertificatesComeOutInAStableOrder(t *testing.T) {
 	defer srv.Close()
 
 	for i := range 5 {
-		items, cErr := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
-			Collect(context.Background())
+		items, cErr := withClock(k8sAll(srv.URL), now).Collect(context.Background())
 		if cErr != nil {
 			t.Fatalf("collect: %v", cErr)
 		}
@@ -569,7 +599,7 @@ func TestBothIstioCACertsAreReportedWithTheirOwnRoles(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -595,7 +625,7 @@ func TestAnAnchorWhoseKeyIsMissingWarnsRatherThanDisappearing(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	_, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	_, err := k8sAll(srv.URL).Collect(context.Background())
 	if err == nil {
 		t.Fatal("a configured anchor that is present but unreadable must not be silently dropped")
 	}
@@ -616,7 +646,7 @@ func TestTwoCAsWithTheSameIssuerCNAndSerialAreBothReported(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -642,7 +672,7 @@ func TestACASharedByAWebhookAndAnAPIServiceIsReportedOnce(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, cErr := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, cErr := k8sAll(srv.URL).Collect(context.Background())
 	if cErr != nil {
 		t.Fatalf("collect: %v", cErr)
 	}
@@ -664,7 +694,7 @@ func TestACorruptLeafIsSkippedRatherThanReportedWithTheChainsExpiry(t *testing.T
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -684,7 +714,7 @@ func TestATrustAnchorCarriesNoHostsForRankingToAmplify(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -705,7 +735,7 @@ func TestACAKnownToTwoCollectorsKeepsWhatBothKnew(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -740,8 +770,7 @@ func TestADeletedSecretCannotBeCalledAHealthyRenewal(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
-		Collect(context.Background())
+	items, err := withClock(k8sAll(srv.URL), now).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -767,7 +796,7 @@ func TestEachCertificateInACABundleGetsItsOwnName(t *testing.T) {
 	}, nil)
 	defer srv.Close()
 
-	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	items, err := k8sAll(srv.URL).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
@@ -796,8 +825,7 @@ func TestSkippingSecretsAlsoSkipsTheIngressList(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := (&K8sSource{Server: srv.URL, SkipSecrets: true, SkipCertManager: true,
-		SkipWebhooks: true, SkipAPIServices: true, SkipMesh: true}).Collect(context.Background())
+	_, err := (&K8sSource{Server: srv.URL, SkipSecrets: true}).Collect(context.Background())
 	if err != nil {
 		t.Fatalf("everything is skipped, so there is nothing to fail: %v", err)
 	}
@@ -805,5 +833,174 @@ func TestSkippingSecretsAlsoSkipsTheIngressList(t *testing.T) {
 		if strings.Contains(p, "ingresses") {
 			t.Errorf("fetched %s with secrets skipped", p)
 		}
+	}
+}
+
+// recordingK8s answers every list endpoint empty and records what was asked
+// for, so a test can assert on requests that were never made.
+func recordingK8s() (*httptest.Server, *[]string) {
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Path)
+		for _, res := range listResources {
+			if strings.HasSuffix(r.URL.Path, "/"+res) {
+				_, _ = w.Write([]byte(`{"items":[]}`))
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	return srv, &seen
+}
+
+func requested(seen []string, substr string) bool {
+	for _, p := range seen {
+		if strings.Contains(p, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+// Reading a Secret means reading whatever else is in it. None of the objects
+// this source reaches for without being asked may be one that holds a key.
+func TestNoDefaultMeshAnchorCanHoldAPrivateKey(t *testing.T) {
+	for _, a := range (&K8sSource{}).anchors() {
+		if a.Kind != anchorConfigMaps {
+			t.Errorf("%s/%s is a %s by default; a ConfigMap cannot carry a signing key and a Secret can",
+				a.Namespace, a.Name, a.Kind)
+		}
+	}
+}
+
+func TestMeshSigningSecretsAreOptIn(t *testing.T) {
+	srv, seen := recordingK8s()
+	defer srv.Close()
+
+	s := &K8sSource{Server: srv.URL, TrustAnchors: true}
+	if _, err := s.Collect(context.Background()); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	for _, name := range []string{"cacerts", "istio-ca-secret", "linkerd-identity-issuer"} {
+		if requested(*seen, name) {
+			t.Errorf("read %s without meshSigningSecrets — that object holds a CA private key", name)
+		}
+	}
+
+	srv2, seen2 := recordingK8s()
+	defer srv2.Close()
+	s2 := &K8sSource{Server: srv2.URL, TrustAnchors: true, MeshSigningSecrets: true}
+	if _, err := s2.Collect(context.Background()); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if !requested(*seen2, "cacerts") {
+		t.Error("meshSigningSecrets was set and cacerts was still not read")
+	}
+}
+
+func TestTheIstioRootIsReadFromThePublicConfigMap(t *testing.T) {
+	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(200*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"configmaps/istio-ca-root-cert": configMapBody(t, map[string]string{"root-cert.pem": string(rootPEM)}),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL, TrustAnchors: true}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("want the Istio root from the ConfigMap, got %+v", items)
+	}
+	if items[0].Labels["mesh"] != "istio" || items[0].Labels["role"] != "trust-anchor" {
+		t.Errorf("mesh/role = %q / %q", items[0].Labels["mesh"], items[0].Labels["role"])
+	}
+}
+
+// The failure this whole tool exists to prevent: a run that reports nothing and
+// exits clean because the requests went somewhere unintended.
+func TestA404OnTheSecretsListIsNotACleanEstate(t *testing.T) {
+	// Everything 404s — a k8s.server carrying a path prefix behaves like this.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err == nil {
+		t.Fatal("an empty report and a nil error is indistinguishable from a healthy estate")
+	}
+	if len(items) != 0 {
+		t.Fatalf("nothing should have been collected: %+v", items)
+	}
+	if !strings.Contains(err.Error(), "secrets") {
+		t.Errorf("the error should name what could not be read, got %v", err)
+	}
+}
+
+// The one place a 404 really is an answer.
+func TestAMissingCertManagerCRDIsStillNotAnError(t *testing.T) {
+	certPEM, _ := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"secrets": secretList(t, "prod", "shop-tls", certPEM),
+	}, map[string]int{
+		"cert-manager.io": http.StatusNotFound,
+	})
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL, CertManager: true}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("a cluster without cert-manager installed is not a cluster with a problem: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("the secrets should still be reported: %+v", items)
+	}
+}
+
+// An upgrade must not turn a run that exited 0 into one that exits 3 because of
+// permissions the operator was never asked for.
+func TestTheCollectorsNeedingNewPermissionsAreOffByDefault(t *testing.T) {
+	srv, seen := recordingK8s()
+	defer srv.Close()
+
+	if _, err := (&K8sSource{Server: srv.URL}).Collect(context.Background()); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	for _, path := range []string{"cert-manager.io", "webhookconfigurations", "apiservices", "configmaps"} {
+		if requested(*seen, path) {
+			t.Errorf("requested %s without being asked to — that needs a permission the previous release did not", path)
+		}
+	}
+	if !requested(*seen, "secrets") || !requested(*seen, "ingresses") {
+		t.Error("the collectors that always ran should still run")
+	}
+}
+
+func TestAnUnknownAnchorKindIsAnErrorNotASilentMiss(t *testing.T) {
+	srv, _ := recordingK8s()
+	defer srv.Close()
+
+	s := &K8sSource{Server: srv.URL, TrustAnchors: true, MeshAnchors: []MeshAnchor{{
+		Mesh: "custom", Kind: "../../../apis/apps/v1/deployments", Namespace: "x", Name: "y",
+		Keys: []MeshAnchorKey{{"ca.pem", roleTrustAnchor}},
+	}}}
+	_, err := s.Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "unknown anchor kind") {
+		t.Fatalf("a kind that never went through validation must not reach the request path, got %v", err)
+	}
+}
+
+func TestAMeshKeyHoldingNoCertificateWarns(t *testing.T) {
+	srv := fakeK8s(map[string]string{
+		"configmaps/linkerd-identity-trust-roots": configMapBody(t,
+			map[string]string{"ca-bundle.crt": "this is not a certificate"}),
+	}, nil)
+	defer srv.Close()
+
+	_, err := (&K8sSource{Server: srv.URL, TrustAnchors: true}).Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "holds no certificate") {
+		t.Fatalf("a trust root that parses to nothing must not vanish silently, got %v", err)
 	}
 }
