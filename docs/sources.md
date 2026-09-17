@@ -47,10 +47,22 @@ CA makes the API server stop admitting anything; an expired aggregation-layer
 bundle takes out metrics-server and everything served through it; an expired
 mesh root fails every mTLS handshake at once.
 
-A CA pinned into a dozen webhooks is reported once, deduplicated by issuer and
-serial, with `used-by` listing the objects that rely on it. A webhook with an
-empty `caBundle` (CA injection) and an `APIService` served locally by the API
-server have nothing to expire and are skipped.
+A CA pinned into a dozen webhooks is reported once, and so is one shared between
+a webhook and an `APIService` — deduplication is by the certificate itself, not
+by a name or a serial that two hand-made CAs can share, and `used-by` lists
+every object relying on it across all three collectors. A webhook with an empty
+`caBundle` (CA injection) and an `APIService` served locally by the API server
+have nothing to expire and are skipped.
+
+Mesh anchors are fetched by name, and each key is reported separately with its
+own role, because they are separate certificates on separate clocks: Istio's
+`cacerts` holds the root under `root-cert.pem` and the intermediate under
+`ca-cert.pem`, and Linkerd's issuer (a year by default, twenty-four hours under
+cert-manager) is not its trust root (years). An anchor object that is absent
+means the mesh is not installed and is passed over in silence; one that is
+present with none of its keys is a configured anchor going unwatched, and says
+so. Anything listed under `meshAnchors` is read **in addition to** the built-in
+Linkerd and Istio locations, never instead of them.
 
 ### cert-manager
 
@@ -63,9 +75,20 @@ secret `renewal=managed`, and ranking takes **0.25 off** the blast radius: a
 deadline something else is demonstrably meeting is not a deadline you have to
 act on. Automation that is failing gets no penalty and no bonus — a stuck
 renewal floats up because everything around it moved down, not because the tool
-guessed at how likely it is to break. A `Certificate` whose secret does not
-exist at all is reported on its own, since the thing that was supposed to be
-there is not.
+guessed at how likely it is to break.
+
+A `Certificate` is also reported on its own account when its secret is not
+simply there and readable, and the `secret-state` label says which case it is:
+
+| `secret-state` | Meaning |
+| --- | --- |
+| *(absent)* | the secret is reported with its own date; this Certificate only contributed renewal evidence |
+| `unreadable` | the secret exists but no certificate could be parsed from it, so the CR is now the only readable source |
+| `missing` | the secrets **were** read and it is not there — the deadline is now, because the thing that was supposed to exist does not |
+| *(no label, own date)* | secrets were skipped or denied for that namespace, so nothing is claimed about the secret at all |
+
+That last row is the point: "not issued" is a claim, and it is only made after
+actually looking.
 
 ### Not covered: kubeadm control-plane certificates
 

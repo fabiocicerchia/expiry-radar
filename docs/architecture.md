@@ -93,11 +93,12 @@ tokens, so `device-registry` is not "dev" and `reproduction-service` is not
 | `secret` | 0.45 | |
 | `vault_lease` | 0.40 | |
 
-A trust anchor sits at 0.95 rather than lower because, unlike a leaf, it has no
-hosts, no ingress and no traffic — it can never climb above its base on label
-evidence, so that number is its ceiling and not its starting point. It has to
-clear a public production leaf (0.50 + 0.20 + 0.20) for the ordering to mean
-what the kind says.
+A trust anchor sits at 0.95 because it has to clear a public production leaf
+(0.50 + 0.20 + 0.20) for the ordering to mean what the kind says. It carries no
+hosts, no ingress class and no traffic, so the exposure, coverage and traffic
+adjustments never apply to one — but environment inference still reads its name,
+so a production-named anchor reaches 1.00 and a staging one falls to 0.65. 0.95
+is the middle of its range, not a ceiling.
 
 Two adjustments are evidence about whether the deadline is *real* rather than
 about how much it would hurt, and both subtract: `in-use=false` takes off 0.35,
