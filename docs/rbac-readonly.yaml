@@ -56,9 +56,13 @@ roleRef:
 # server and the aggregation layer validate against, and the service mesh roots.
 # Those are cluster-scoped objects, so there is no namespaced equivalent.
 #
-# None of the trust-anchor rules can read a private key: a caBundle is the
-# public half, and the mesh rule is `get` on four objects by name rather than
-# `list` across every secret in the cluster.
+# The webhook and APIService rules cannot read a private key: a caBundle is the
+# public half of a CA and nothing else.
+#
+# The mesh Secret rule is not in that category. It is split into its own block
+# below, with the reason, so it is not granted by accident alongside the others.
+# An earlier version of this file claimed the whole set was key-free, which was
+# wrong.
 # apiVersion: rbac.authorization.k8s.io/v1
 # kind: ClusterRole
 # metadata:
@@ -79,11 +83,43 @@ roleRef:
 #   - apiGroups: ["apiregistration.k8s.io"]
 #     resources: ["apiservices"]
 #     verbs: ["list"]
-#   # Service mesh trust anchors, by name. Narrow on purpose.
+#   # The Linkerd trust root. A ConfigMap, so it holds the root certificate
+#   # and nothing else — as safe as the rules above.
 #   - apiGroups: [""]
 #     resources: ["configmaps"]
 #     resourceNames: ["linkerd-identity-trust-roots"]
 #     verbs: ["get"]
+---
+# THE MESH SIGNING SECRETS — read this before granting it.
+#
+# Kubernetes cannot return part of a Secret, so `get` on these returns the whole
+# object, including the private key stored beside the certificate:
+#
+#   linkerd-identity-issuer   tls.key / key.pem   Linkerd identity issuer key
+#   cacerts                   ca-key.pem          Istio intermediate CA key
+#   istio-ca-secret           ca-key.pem          Istio root CA key
+#
+# Those are cluster-wide mTLS signing keys. Anyone who can read one can mint a
+# workload identity for any service in the mesh, which makes this grant worth
+# more than everything else in this file put together.
+#
+# expiry-radar parses only the certificate and never writes the key anywhere,
+# but that is not the point — the grant is what a reviewer is approving, so it
+# belongs on its own rather than buried among harmless read rules.
+#
+# What it buys: the Linkerd issuer lapses in a year by default and in
+# twenty-four hours under cert-manager, which makes it the mesh certificate most
+# likely to expire unnoticed, and the Istio entries are the only way to see that
+# mesh's CAs at all.
+#
+# Known limitation as of today: `skipMesh` is all-or-nothing, so declining this
+# grant and silencing the resulting 403s also gives up the Linkerd trust root
+# above. Splitting the two is tracked as follow-up work.
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: expiry-radar-mesh-signing-secrets
+# rules:
 #   - apiGroups: [""]
 #     resources: ["secrets"]
 #     resourceNames: ["linkerd-identity-issuer", "cacerts", "istio-ca-secret"]

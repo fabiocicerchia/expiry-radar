@@ -11,7 +11,7 @@
 | `k8s:cert-manager` | cert-manager `Certificate` CRs — whether renewal is working | `list` on `cert-manager.io` |
 | `k8s:webhook` | admission webhook CA bundles | ClusterRole, `list` |
 | `k8s:apiservice` | aggregation-layer `APIService` CA bundles | ClusterRole, `list` |
-| `k8s:mesh` | Linkerd and Istio trust anchors and issuers | ClusterRole, `get` by name |
+| `k8s:mesh` | Linkerd and Istio trust anchors and issuers | ClusterRole, `get` by name — **reads Secrets holding CA private keys**, see [`rbac-readonly.yaml`](rbac-readonly.yaml) |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `manual` | what you recorded yourself, because nothing can discover it | none |

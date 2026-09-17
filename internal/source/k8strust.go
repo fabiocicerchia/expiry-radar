@@ -180,8 +180,14 @@ func ValidateMeshAnchors(anchors []MeshAnchor) error {
 }
 
 // meshAnchors fetches each well-known anchor by name rather than listing
-// secrets cluster-wide: `get` on four named objects is a permission a security
-// team will grant, and `list secrets` across every namespace is not.
+// secrets cluster-wide, which keeps the RBAC ask to four named objects instead
+// of every secret in the cluster.
+//
+// Narrower is not the same as harmless. Kubernetes cannot return part of a
+// Secret, so `get` on linkerd-identity-issuer, cacerts or istio-ca-secret
+// returns the CA private key beside the certificate — cluster-wide mTLS signing
+// keys. Only the certificate is ever parsed and the key is never written
+// anywhere, but the grant is real and docs/rbac-readonly.yaml spells it out.
 //
 // A missing object means that mesh is not installed, which is an answer. Only a
 // denial or a broken request is worth warning about.
