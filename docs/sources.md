@@ -50,7 +50,12 @@ mesh root fails every mTLS handshake at once.
 A CA pinned into a dozen webhooks is reported once, and so is one shared between
 a webhook and an `APIService` — deduplication is by the certificate itself, not
 by a name or a serial that two hand-made CAs can share, and `used-by` lists
-every object relying on it across all three collectors. A webhook with an empty
+every object relying on it across all three collectors. A CA that more than one
+collector finds keeps what all of them knew: the sidecar-injector webhook and
+`istio-system/cacerts` pin the same root, and the resulting row carries the
+namespace and the `mesh`/`role`/`key` labels even though the webhook was read
+first. Where a `caBundle` holds a chain, each member is reported under its own
+name, since two rows on different dates cannot share one. A webhook with an empty
 `caBundle` (CA injection) and an `APIService` served locally by the API server
 have nothing to expire and are skipped.
 
@@ -83,8 +88,8 @@ simply there and readable, and the `secret-state` label says which case it is:
 | `secret-state` | Meaning |
 | --- | --- |
 | *(absent)* | the secret is reported with its own date; this Certificate only contributed renewal evidence |
-| `unreadable` | the secret exists but no certificate could be parsed from it, so the CR is now the only readable source |
-| `missing` | the secrets **were** read and it is not there — the deadline is now, because the thing that was supposed to exist does not |
+| `unreadable` | the secret exists but no certificate could be parsed from it, so the CR is now the only readable source. Neither renewal claim is supported, so no `renewal` label |
+| `missing` | the secrets **were** read and it is not there — the deadline is now, and `renewal=stuck`, because failing to produce the secret *is* the failure however Ready the CR reports itself |
 | *(no label, own date)* | secrets were skipped or denied for that namespace, so nothing is claimed about the secret at all |
 
 That last row is the point: "not issued" is a claim, and it is only made after
