@@ -7,7 +7,11 @@
 | `tls:endpoint` | leaf certificates from a live handshake | none |
 | `tls:chain` | every intermediate CA presented, deduplicated across hosts | none |
 | `domain:rdap` | registrar expiry over RDAP (the protocol that replaced WHOIS) | none |
-| `k8s` | TLS secrets, with ingress class/hosts for context | service account, two `list` verbs |
+| `k8s:secret` | TLS secrets, with ingress class/hosts for context | service account, `list` |
+| `k8s:cert-manager` | cert-manager `Certificate` CRs — whether renewal is working | `list` on `cert-manager.io` |
+| `k8s:webhook` | admission webhook CA bundles | ClusterRole, `list` |
+| `k8s:apiservice` | aggregation-layer `APIService` CA bundles | ClusterRole, `list` |
+| `k8s:mesh` | Linkerd and Istio trust anchors and issuers | ClusterRole, `get` by name |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `manual` | what you recorded yourself, because nothing can discover it | none |
@@ -22,9 +26,57 @@ so `maxKeyAgeDays` (default 90) turns key age into the rotation deadline the
 rest of the tool can rank. That is the secret-rotation calendar, merged in.
 
 The Kubernetes source talks to the API server with `net/http` rather than
-pulling in client-go: two GETs against two stable endpoints do not justify that
-dependency tree. For laptop use, run `kubectl proxy` and point `k8s.server` at
-`http://127.0.0.1:8001`.
+pulling in client-go: a handful of GETs against stable, versioned endpoints do
+not justify that dependency tree. For laptop use, run `kubectl proxy` and point
+`k8s.server` at `http://127.0.0.1:8001`.
+
+Each resource class is collected independently, so one denied permission costs
+that class and nothing else: a cluster that will not show you
+`validatingwebhookconfigurations` still reports its TLS secrets, and one
+forbidden namespace does not lose the others. Each class also has its own skip
+(`skipSecrets`, `skipCertManager`, `skipWebhooks`, `skipAPIServices`,
+`skipMesh`), and a skipped class is not the same as a denied one or an empty
+one — the run stays quiet about a permission you have decided not to grant.
+
+### Trust anchors
+
+The webhook, `APIService` and mesh collectors all report `trust_anchor`s: the CA
+bundles the cluster validates *itself* against. Nobody watches these, and the
+failure does not look like a certificate problem. An expired admission webhook
+CA makes the API server stop admitting anything; an expired aggregation-layer
+bundle takes out metrics-server and everything served through it; an expired
+mesh root fails every mTLS handshake at once.
+
+A CA pinned into a dozen webhooks is reported once, deduplicated by issuer and
+serial, with `used-by` listing the objects that rely on it. A webhook with an
+empty `caBundle` (CA injection) and an `APIService` served locally by the API
+server have nothing to expire and are skipped.
+
+### cert-manager
+
+The `Certificate` CR is not a second date for a certificate the secret already
+reported — it is whether the renewal that was supposed to make that date a
+non-event is working.
+
+So a `Certificate` that is `Ready` with its renewal still ahead of it labels its
+secret `renewal=managed`, and ranking takes **0.25 off** the blast radius: a
+deadline something else is demonstrably meeting is not a deadline you have to
+act on. Automation that is failing gets no penalty and no bonus — a stuck
+renewal floats up because everything around it moved down, not because the tool
+guessed at how likely it is to break. A `Certificate` whose secret does not
+exist at all is reported on its own, since the thing that was supposed to be
+there is not.
+
+### Not covered: kubeadm control-plane certificates
+
+`admin.conf`, the kubelet client certificate and the etcd peer certificates
+expire a year after `kubeadm init` and are a real outage. They are also in
+`/etc/kubernetes/pki` on the nodes rather than behind the API, so reading them
+needs an agent on every node — a different product shape, and a privilege level
+this tool has promised not to need. Said plainly here rather than half-covered.
+
+The API server's own serving certificate *is* reachable: point a `tls` endpoint
+at `:6443`.
 
 ## Recorded, or discovered
 
@@ -56,11 +108,12 @@ token. That is what `manual` is for.
 
 `expires` takes `YYYY-MM-DD` or a full RFC 3339 timestamp; a bare day means its
 start in UTC, which errs towards warning early. `kind` is one of `tls_cert`,
-`intermediate_ca`, `secret`, `iam_access_key`, `vault_lease`, `domain`.
+`intermediate_ca`, `secret`, `iam_access_key`, `vault_lease`, `domain`,
+`trust_anchor`.
 
 **`kind` is not a label.** It picks the base blast radius, so it decides where
-the item lands in the ranking — a `domain` starts at 0.85, a `vault_lease` at
-0.40. A misspelt kind is rejected at load rather than quietly ranked on a
+the item lands in the ranking — a `trust_anchor` starts at 0.95, a `domain` at
+0.85, a `vault_lease` at 0.40. A misspelt kind is rejected at load rather than quietly ranked on a
 middling default, because a plausible wrong number is worse than an error.
 
 Beyond that a manual item is treated exactly like a discovered one: `namespace`

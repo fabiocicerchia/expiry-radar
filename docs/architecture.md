@@ -76,12 +76,35 @@ stays at 1 once expired. It is a **weighted sum, not a product**, on purpose: a
 product ranks everything beyond the horizon at exactly zero and throws away the
 ordering that makes the tool worth running.
 
-Blast radius starts from the kind (a domain or an intermediate CA outranks a
-leaf certificate, because it takes out everything below it) and is then moved by
-whatever evidence exists: internet-facing, production vs non-production
-namespace, wildcard or multi-SAN coverage, reported traffic, and whether an ACM
-certificate is in use at all. Environment detection matches whole tokens, so
-`device-registry` is not "dev" and `reproduction-service` is not "prod".
+Blast radius starts from the kind (a trust anchor, a domain or an intermediate
+CA outranks a leaf certificate, because it takes out everything below it) and is
+then moved by whatever evidence exists: internet-facing, production vs
+non-production namespace, wildcard or multi-SAN coverage, reported traffic, and
+whether an ACM certificate is in use at all. Environment detection matches whole
+tokens, so `device-registry` is not "dev" and `reproduction-service` is not
+"prod".
+
+| Kind | Base | Why |
+| --- | --- | --- |
+| `trust_anchor` | 0.95 | the control plane validates against it; nothing behind it fails gracefully |
+| `domain` | 0.85 | the whole estate, including mail |
+| `intermediate_ca` | 0.80 | every leaf it signed, at once |
+| `tls_cert`, `iam_access_key` | 0.50 | |
+| `secret` | 0.45 | |
+| `vault_lease` | 0.40 | |
+
+A trust anchor sits at 0.95 rather than lower because, unlike a leaf, it has no
+hosts, no ingress and no traffic — it can never climb above its base on label
+evidence, so that number is its ceiling and not its starting point. It has to
+clear a public production leaf (0.50 + 0.20 + 0.20) for the ordering to mean
+what the kind says.
+
+Two adjustments are evidence about whether the deadline is *real* rather than
+about how much it would hurt, and both subtract: `in-use=false` takes off 0.35,
+and `renewal=managed` — a cert-manager `Certificate` that is Ready with its
+renewal still ahead of it — takes off 0.25. Renewal that is failing gets no
+adjustment at all, so a stuck one rises by everything around it moving down
+rather than by guessing at how likely it is to break.
 
 Two things override inference, in order: an `expiry-radar/blast-radius` label on
 the resource, then an operator `overrides` glob in the config. Inference exists

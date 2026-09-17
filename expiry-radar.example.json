@@ -14,7 +14,10 @@
     "server": "",
     "namespaces": ["prod", "payments"],
     "caFile": "",
-    "insecure": false
+    "insecure": false,
+    "skipWebhooks": true,
+    "skipAPIServices": true,
+    "skipMesh": true
   },
   "vault": {
     "enabled": false,

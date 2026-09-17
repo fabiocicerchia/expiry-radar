@@ -1,4 +1,10 @@
-# Least privilege for the Kubernetes source: two list verbs, nothing else.
+# Least privilege for the Kubernetes source.
+#
+# The namespaced Role below is the whole of what the TLS-secret and cert-manager
+# collectors need. The trust-anchor collectors read cluster-scoped objects and
+# therefore need the ClusterRole at the bottom; if you do not want to grant it,
+# set `skipWebhooks`, `skipAPIServices` and `skipMesh` in the config rather than
+# leaving the run to warn about a permission nobody intends to give.
 #
 # secretsmanager-style caveat: `list` on secrets returns their contents, so this
 # ServiceAccount can read every TLS private key in the namespaces it covers.
@@ -23,6 +29,11 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["list"]
+  # cert-manager Certificates carry no key material: this rule says whether
+  # renewal is working, which is the failure the secret above cannot show.
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -38,7 +49,16 @@ roleRef:
   kind: Role
   name: expiry-radar-readonly
 ---
-# Cluster-wide variant. Only if you need every namespace inventoried at once.
+# Cluster-scoped variant.
+#
+# The first three rules are the cluster-wide inventory: only if you need every
+# namespace at once. The rest are the trust anchors — the CA bundles the API
+# server and the aggregation layer validate against, and the service mesh roots.
+# Those are cluster-scoped objects, so there is no namespaced equivalent.
+#
+# None of the trust-anchor rules can read a private key: a caBundle is the
+# public half, and the mesh rule is `get` on four objects by name rather than
+# `list` across every secret in the cluster.
 # apiVersion: rbac.authorization.k8s.io/v1
 # kind: ClusterRole
 # metadata:
@@ -50,3 +70,21 @@ roleRef:
 #   - apiGroups: [""]
 #     resources: ["secrets"]
 #     verbs: ["list"]
+#   - apiGroups: ["cert-manager.io"]
+#     resources: ["certificates"]
+#     verbs: ["list"]
+#   - apiGroups: ["admissionregistration.k8s.io"]
+#     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+#     verbs: ["list"]
+#   - apiGroups: ["apiregistration.k8s.io"]
+#     resources: ["apiservices"]
+#     verbs: ["list"]
+#   # Service mesh trust anchors, by name. Narrow on purpose.
+#   - apiGroups: [""]
+#     resources: ["configmaps"]
+#     resourceNames: ["linkerd-identity-trust-roots"]
+#     verbs: ["get"]
+#   - apiGroups: [""]
+#     resources: ["secrets"]
+#     resourceNames: ["linkerd-identity-issuer", "cacerts", "istio-ca-secret"]
+#     verbs: ["get"]
