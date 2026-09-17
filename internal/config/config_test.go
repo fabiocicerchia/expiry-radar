@@ -38,6 +38,20 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 		{"manual item with no date", `{"manual": [{"name": "a", "kind": "domain"}]}`, "no expires date"},
 		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`,
 			"unknown kind"},
+		// A mesh anchor with a misspelt kind falls through to the Secret branch
+		// and 404s into silence, so it watches nothing and says nothing.
+		{"mesh anchor with a bad kind",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "linkerd", "kind": "configmap",` +
+				` "namespace": "linkerd", "name": "roots", "keys": [{"key": "ca.crt", "role": "issuer"}]}]}}`,
+			`want "secrets" or "configmaps"`},
+		{"mesh anchor with no keys",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
+				` "namespace": "istio-system", "name": "cacerts", "keys": []}]}}`,
+			"at least one key"},
+		{"mesh anchor key with an unknown role",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
+				` "namespace": "istio-system", "name": "cacerts", "keys": [{"key": "ca.pem", "role": "root"}]}]}}`,
+			`want "trust-anchor" or "issuer"`},
 		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`,
 			"neither"},
 	} {
@@ -170,5 +184,37 @@ func TestManualItemsAreRankedLikeAnythingElse(t *testing.T) {
 	}
 	if scored[1].Why != "override sandbox*" {
 		t.Errorf("the override should be the stated reason, got %q", scored[1].Why)
+	}
+}
+
+// Naming one extra anchor must not silently stop Linkerd and Istio being
+// watched — the same reason -endpoints and -domains add to the config rather
+// than replacing it.
+func TestConfiguredMeshAnchorsDoNotDisableTheBuiltInOnes(t *testing.T) {
+	p := write(t, `{"k8s": {"enabled": true, "meshAnchors": [
+		{"mesh": "custom", "kind": "secrets", "namespace": "mesh", "name": "our-ca",
+		 "keys": [{"key": "ca.pem", "role": "trust-anchor"}]}]}}`)
+	f, err := Load(p)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	srcs := f.Sources()
+	if len(srcs) != 1 {
+		t.Fatalf("want the k8s source, got %d", len(srcs))
+	}
+	k8s, ok := srcs[0].(*source.K8sSource)
+	if !ok {
+		t.Fatalf("want a *source.K8sSource, got %T", srcs[0])
+	}
+
+	var meshes []string
+	for _, a := range k8s.Anchors() {
+		meshes = append(meshes, a.Mesh)
+	}
+	joined := strings.Join(meshes, ",")
+	for _, want := range []string{"linkerd", "istio", "custom"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("%q is not watched; anchors are %s", want, joined)
+		}
 	}
 }

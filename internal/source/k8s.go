@@ -97,7 +97,12 @@ func (s *K8sSource) Collect(ctx context.Context) ([]Item, error) {
 		// where there are no partial findings to keep.
 		return nil, err
 	}
-	st := &k8sState{certs: map[string]certRef{}, secretKeys: map[string]bool{}}
+	st := &k8sState{
+		certs:    map[string]certRef{},
+		secrets:  map[string]secretState{},
+		secretNS: map[string]bool{},
+		anchors:  newCAAccumulator(),
+	}
 	st.refs, st.ingressErr = s.ingressRefs(ctx, api)
 
 	items, _, err := collectResources(s.resources(ctx, api, st))
@@ -115,29 +120,39 @@ type k8sState struct {
 	refs       map[string]ingressRef
 	ingressErr error
 	certs      map[string]certRef // keyed ns/secretName
-	secretKeys map[string]bool    // keyed ns/secretName
+	// secrets holds only the secrets we actually saw, and whether we could read
+	// a certificate out of each. Absence from this map means one of two very
+	// different things, which is what secretNS/secretsAllNS disambiguate: the
+	// secret is not there, or we never looked.
+	secrets      map[string]secretState // keyed ns/secretName
+	secretNS     map[string]bool        // namespaces whose secret list we read
+	secretsAllNS bool                   // the cluster-wide secret list succeeded
+	// anchors is shared by all three trust-anchor collectors, so a CA that a
+	// webhook and an APIService both pin is one finding rather than two.
+	anchors *caAccumulator
+}
+
+// secretState is what we managed to get out of a TLS secret. "Unreadable" is
+// not "absent": something is there, it is just not something we can date.
+type secretState int
+
+const (
+	secretParsed secretState = iota + 1
+	secretUnreadable
+)
+
+// readSecretsIn says whether the secret list covering this namespace was
+// actually read. Nothing may infer that a secret is missing without it.
+func (st *k8sState) readSecretsIn(namespace string) bool {
+	return st.secretsAllNS || st.secretNS[namespace]
 }
 
 // k8sResource is one class of thing this source reads, named so a failure can
-// say which. Split out of Collect so the degradation rule — one denied
-// permission must not lose the other resources' findings — is testable without
-// a cluster, exactly as collectServices does it for AWS.
-type k8sResource struct {
-	Name    string
-	Skipped bool
-	Collect func() ([]Item, error)
-}
+// say which. The loop is collectUnits in source.go, shared with the AWS source.
+type k8sResource = collectUnit
 
-// resourceResult is what one resource class returned. A resource that returned
-// nothing is not the same as one that was denied, and not the same as one that
-// was skipped: collapsing the three would let a cluster with no cert-manager
-// read as a cluster whose cert-manager adapter works.
-type resourceResult struct {
-	Name    string
-	Skipped bool
-	Items   int
-	Err     error
-}
+// resourceResult is what one resource class returned.
+type resourceResult = unitResult
 
 func (s *K8sSource) resources(ctx context.Context, api *k8sAPI, st *k8sState) []k8sResource {
 	return []k8sResource{
@@ -148,38 +163,14 @@ func (s *K8sSource) resources(ctx context.Context, api *k8sAPI, st *k8sState) []
 		{"ingresses", false, func() ([]Item, error) { return nil, st.ingressErr }},
 		{"secrets", s.SkipSecrets, func() ([]Item, error) { return s.tlsSecrets(ctx, api, st) }},
 		{"certificates", s.SkipCertManager, func() ([]Item, error) { return s.certificates(ctx, api, st) }},
-		{"webhooks", s.SkipWebhooks, func() ([]Item, error) { return s.webhookCAs(ctx, api) }},
-		{"apiservices", s.SkipAPIServices, func() ([]Item, error) { return s.apiServiceCAs(ctx, api) }},
-		{"mesh", s.SkipMesh, func() ([]Item, error) { return s.meshAnchors(ctx, api) }},
+		{"webhooks", s.SkipWebhooks, func() ([]Item, error) { return s.webhookCAs(ctx, api, st) }},
+		{"apiservices", s.SkipAPIServices, func() ([]Item, error) { return s.apiServiceCAs(ctx, api, st) }},
+		{"mesh", s.SkipMesh, func() ([]Item, error) { return s.meshAnchors(ctx, api, st) }},
 	}
 }
 
 func collectResources(rs []k8sResource) ([]Item, []resourceResult, error) {
-	var items []Item
-	var warnings []string
-	results := make([]resourceResult, 0, len(rs))
-	for _, r := range rs {
-		if r.Skipped {
-			results = append(results, resourceResult{Name: r.Name, Skipped: true})
-			continue
-		}
-		got, err := r.Collect()
-		if err != nil {
-			// One denied resource class must not lose the others' findings. The
-			// partial items are returned alongside the error, so a caller that
-			// ignores the error is not silently throwing away what worked.
-			warnings = append(warnings, r.Name+": "+err.Error())
-			results = append(results, resourceResult{Name: r.Name, Items: len(got), Err: err})
-			items = append(items, got...)
-			continue
-		}
-		results = append(results, resourceResult{Name: r.Name, Items: len(got)})
-		items = append(items, got...)
-	}
-	if len(warnings) > 0 {
-		return items, results, fmt.Errorf("%s", strings.Join(warnings, "; "))
-	}
-	return items, results, nil
+	return collectUnits(rs)
 }
 
 // k8sAPI is the authenticated read side of the API server: one client, one base
@@ -312,19 +303,39 @@ type secretItem struct {
 
 func (s *K8sSource) tlsSecrets(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	var items []Item
-	err := listEach(ctx, api,
-		s.paths("/api/v1", "secrets?fieldSelector=type%3Dkubernetes.io%2Ftls"),
-		func(sec secretItem) {
+	var warnings []string
+
+	for _, sc := range s.scopes("/api/v1", "secrets?fieldSelector=type%3Dkubernetes.io%2Ftls") {
+		var list struct {
+			Items []secretItem `json:"items"`
+		}
+		if err := api.get(ctx, sc.Path, &list); err != nil {
+			if !errors.Is(err, errNotFound) {
+				warnings = append(warnings, err.Error())
+			}
+			continue
+		}
+		// Only now may anything conclude that a secret in this namespace is
+		// missing rather than merely unread.
+		if sc.Namespace == "" {
+			st.secretsAllNS = true
+		} else {
+			st.secretNS[sc.Namespace] = true
+		}
+
+		for _, sec := range list.Items {
 			key := sec.Metadata.Namespace + "/" + sec.Metadata.Name
-			// Record the secret even when its contents are unusable: the
-			// cert-manager collector uses this to tell "not issued yet" from
-			// "issued, and reported over there".
-			st.secretKeys[key] = true
 
 			cert, err := firstCert(sec.Data["tls.crt"])
 			if err != nil {
-				return // a malformed secret is a different problem; do not stop the scan
+				// A malformed secret is a different problem and must not stop
+				// the scan — but it is still a secret that exists, and saying
+				// so is what stops the cert-manager collector calling it
+				// never-issued.
+				st.secrets[key] = secretUnreadable
+				continue
 			}
+			st.secrets[key] = secretParsed
 			ref := st.refs[key]
 
 			labels := map[string]string{}
@@ -344,8 +355,9 @@ func (s *K8sSource) tlsSecrets(ctx context.Context, api *k8sAPI, st *k8sState) (
 				Namespace: sec.Metadata.Namespace,
 				Labels:    labels,
 			})
-		})
-	return items, err
+		}
+	}
+	return items, joinErrs(warnings)
 }
 
 func hostsOf(ref ingressRef, cert *x509.Certificate) []string {
@@ -355,16 +367,39 @@ func hostsOf(ref ingressRef, cert *x509.Certificate) []string {
 	return cert.DNSNames
 }
 
-// paths expands the configured namespaces into API paths. Cluster-wide listing
+// k8sScope is one list request and the namespace it covers. An empty Namespace
+// means the request covers every namespace at once.
+type k8sScope struct {
+	Path      string
+	Namespace string
+}
+
+// scopes expands the configured namespaces into API paths. Cluster-wide listing
 // needs a ClusterRole; per-namespace listing works with a plain Role, which is
 // the posture most security teams will actually approve.
-func (s *K8sSource) paths(apiRoot, resource string) []string {
+//
+// The namespace travels with the path because a collector has to know which
+// namespaces it actually managed to read before it can say anything is missing
+// from one.
+func (s *K8sSource) scopes(apiRoot, resource string) []k8sScope {
 	if len(s.Namespaces) == 0 {
-		return []string{apiRoot + "/" + resource}
+		return []k8sScope{{Path: apiRoot + "/" + resource}}
 	}
-	out := make([]string, 0, len(s.Namespaces))
+	out := make([]k8sScope, 0, len(s.Namespaces))
 	for _, ns := range s.Namespaces {
-		out = append(out, apiRoot+"/namespaces/"+url.PathEscape(ns)+"/"+resource)
+		out = append(out, k8sScope{
+			Path:      apiRoot + "/namespaces/" + url.PathEscape(ns) + "/" + resource,
+			Namespace: ns,
+		})
+	}
+	return out
+}
+
+func (s *K8sSource) paths(apiRoot, resource string) []string {
+	sc := s.scopes(apiRoot, resource)
+	out := make([]string, 0, len(sc))
+	for _, c := range sc {
+		out = append(out, c.Path)
 	}
 	return out
 }
@@ -416,16 +451,24 @@ func (s *K8sSource) client() (*k8sAPI, error) {
 	}, nil
 }
 
+// firstCert parses the leaf: the first CERTIFICATE block, and its parse error
+// if it has one. Deliberately strict, and deliberately not allCerts()[0] — a
+// secret whose leaf is corrupt but whose chain is intact must be skipped, not
+// reported with an intermediate's expiry standing in for the leaf's.
 func firstCert(pemBytes []byte) (*x509.Certificate, error) {
-	certs := allCerts(pemBytes)
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no CERTIFICATE block")
+	for block, rest := pem.Decode(pemBytes); block != nil; block, rest = pem.Decode(rest) {
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		return x509.ParseCertificate(block.Bytes)
 	}
-	return certs[0], nil
+	return nil, fmt.Errorf("no CERTIFICATE block")
 }
 
-// allCerts parses every certificate in a PEM blob. A CA bundle is a chain, and
-// reporting only the first member hides the one that expires first.
+// allCerts parses every certificate in a PEM blob, skipping any it cannot read.
+// A CA bundle is a chain, and reporting only the first member hides the one
+// that expires first. Lenient because one unreadable member of a bundle should
+// not cost the rest — the opposite of what firstCert needs.
 func allCerts(pemBytes []byte) []*x509.Certificate {
 	var out []*x509.Certificate
 	for block, rest := pem.Decode(pemBytes); block != nil; block, rest = pem.Decode(rest) {

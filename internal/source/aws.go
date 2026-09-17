@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -68,15 +67,14 @@ func (s *AWSSource) Collect(ctx context.Context) ([]Item, error) {
 	return items, err
 }
 
-// awsService is one of the three, named so a failure can say which. Split out
-// of Collect so the degradation rule — one denied permission must not lose the
-// other two services' findings — is testable without an AWS account, which is
-// the one property of this source nobody could check before.
-type awsService struct {
-	Name    string
-	Skipped bool
-	Collect func() ([]Item, error)
-}
+// awsService is one of the three, named so a failure can say which. The
+// collection loop itself is collectUnits in source.go — shared with the
+// Kubernetes source so the degradation rule has one implementation, not two
+// that can drift.
+type awsService = collectUnit
+
+// serviceResult is what one service returned, for `verify`.
+type serviceResult = unitResult
 
 func (s *AWSSource) services(ctx context.Context, cfg aws.Config, account string) []awsService {
 	return []awsService{
@@ -86,44 +84,8 @@ func (s *AWSSource) services(ctx context.Context, cfg aws.Config, account string
 	}
 }
 
-// serviceResult is what one service returned, for `verify`. A service that
-// returned nothing is not the same as one that was denied, and not the same as
-// one that was skipped — and a report that collapsed the three would let an
-// account with no certificates read as an account whose ACM adapter works.
-type serviceResult struct {
-	Name    string
-	Skipped bool
-	Items   int
-	Err     error
-}
-
 func collectServices(svcs []awsService) ([]Item, []serviceResult, error) {
-	var items []Item
-	var warnings []string
-	results := make([]serviceResult, 0, len(svcs))
-	for _, svc := range svcs {
-		if svc.Skipped {
-			results = append(results, serviceResult{Name: svc.Name, Skipped: true})
-			continue
-		}
-		got, err := svc.Collect()
-		if err != nil {
-			// One denied permission must not lose the other two services'
-			// findings. The partial items are still returned alongside the
-			// error, so a caller that ignores the error is not silently
-			// throwing away the two that worked.
-			warnings = append(warnings, svc.Name+": "+err.Error())
-			results = append(results, serviceResult{Name: svc.Name, Items: len(got), Err: err})
-			items = append(items, got...)
-			continue
-		}
-		results = append(results, serviceResult{Name: svc.Name, Items: len(got)})
-		items = append(items, got...)
-	}
-	if len(warnings) > 0 {
-		return items, results, fmt.Errorf("%s", strings.Join(warnings, "; "))
-	}
-	return items, results, nil
+	return collectUnits(svcs)
 }
 
 func (s *AWSSource) acm(ctx context.Context, cfg aws.Config, account string) ([]Item, error) {

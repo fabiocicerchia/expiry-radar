@@ -48,7 +48,8 @@ type K8s struct {
 	SkipWebhooks    bool `json:"skipWebhooks"`
 	SkipAPIServices bool `json:"skipAPIServices"`
 	SkipMesh        bool `json:"skipMesh"`
-	// MeshAnchors overrides the well-known Linkerd and Istio locations.
+	// MeshAnchors are read in addition to the built-in Linkerd and Istio
+	// locations, not instead of them.
 	MeshAnchors []source.MeshAnchor `json:"meshAnchors"`
 }
 
@@ -100,6 +101,14 @@ func Load(path string) (*File, error) {
 	// no trace anywhere, which is the one outcome it was written to prevent.
 	if err := source.ValidateManual(f.Manual); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	// And again for the same reason: a mesh anchor with a misspelt kind falls
+	// through to the Secret branch and 404s into silence, so an unvalidated one
+	// fails by quietly watching nothing.
+	if f.K8s != nil {
+		if err := source.ValidateMeshAnchors(f.K8s.MeshAnchors); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
 	}
 	// The environment is read here, once, and validated with the rest of the
 	// config: a Vault source that cannot authenticate should fail while the

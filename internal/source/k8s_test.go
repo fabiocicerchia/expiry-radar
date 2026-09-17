@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,10 +13,12 @@ import (
 	"time"
 )
 
-// fakeK8s serves canned responses keyed by the longest matching path fragment,
-// so a named get under /secrets/ does not collide with the secrets list. Any
-// path with no route answers 404, which is what a cluster without cert-manager
-// or without a mesh actually does.
+// fakeK8s serves canned responses keyed by a path suffix, so the secrets *list*
+// at /api/v1/secrets and a named get at /api/v1/namespaces/linkerd/secrets/x
+// cannot be confused for one another — a substring match routes the named get
+// to the list body and makes the object look present but empty. Any path with
+// no route answers 404, which is what a cluster without cert-manager or without
+// a mesh actually does.
 func fakeK8s(routes map[string]string, deny map[string]int) *httptest.Server {
 	keys := make([]string, 0, len(routes))
 	for k := range routes {
@@ -32,19 +35,25 @@ func fakeK8s(routes map[string]string, deny map[string]int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		for _, d := range denied {
-			if strings.Contains(path, d) {
+			if routeMatches(path, d) {
 				w.WriteHeader(deny[d])
 				return
 			}
 		}
 		for _, k := range keys {
-			if strings.Contains(path, k) {
+			if routeMatches(path, k) {
 				_, _ = w.Write([]byte(routes[k]))
 				return
 			}
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+// routeMatches anchors on the end of the path: "secrets" is the list endpoint,
+// never a named object under it.
+func routeMatches(path, key string) bool {
+	return path == key || strings.HasSuffix(path, "/"+key)
 }
 
 func secretList(t *testing.T, namespace, name string, pemBytes []byte) string {
@@ -397,5 +406,289 @@ func TestClusterScopedResourcesDoNotGoThroughTheNamespacePaths(t *testing.T) {
 		if strings.Contains(p, "webhookconfigurations") && strings.Contains(p, "namespaces/") {
 			t.Errorf("a cluster-scoped resource was requested under a namespace: %s", p)
 		}
+	}
+}
+
+func configMapBody(t *testing.T, data map[string]string) string {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"data": data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+func secretBody(t *testing.T, data map[string][]byte) string {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"data": data})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+// A secret we cannot read is not a secret that is not there, and neither is a
+// secret we never asked for. Conflating the two made a managed certificate
+// vanish from the inventory with no error at all.
+func TestACertificateWhoseSecretIsUnreadableIsStillReported(t *testing.T) {
+	now := time.Now()
+	corrupt := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
+	notAfter := now.Add(30 * 24 * time.Hour)
+
+	srv := fakeK8s(map[string]string{
+		"secrets": secretList(t, "prod", "shop-tls", corrupt),
+		"certificates": certificateList(t, "prod", "shop", "shop-tls",
+			notAfter.Format(time.RFC3339), now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
+		Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	it, ok := itemNamed(items, "prod/shop-tls")
+	if !ok {
+		t.Fatalf("an unreadable secret must not delete the certificate from the inventory: %+v", items)
+	}
+	if it.Labels["secret-state"] != "unreadable" {
+		t.Errorf("secret-state = %q, want %q", it.Labels["secret-state"], "unreadable")
+	}
+	if !it.Expires.Equal(notAfter.Truncate(time.Second)) && it.Expires.Unix() != notAfter.Unix() {
+		t.Errorf("the deadline should come from the Certificate, got %v want %v", it.Expires, notAfter)
+	}
+}
+
+// Skipping secrets used to make every Certificate look like it had never been
+// issued, which put the whole cluster at the top of the report as expired.
+func TestSkippingSecretsDoesNotMakeEveryCertificateLookUnissued(t *testing.T) {
+	now := time.Now()
+	notAfter := now.Add(30 * 24 * time.Hour)
+
+	srv := fakeK8s(map[string]string{
+		"certificates": certificateList(t, "prod", "shop", "shop-tls",
+			notAfter.Format(time.RFC3339), now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL, SkipSecrets: true, now: func() time.Time { return now }}).
+		Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	it, ok := itemNamed(items, "prod/shop-tls")
+	if !ok {
+		t.Fatalf("want the certificate, got %+v", items)
+	}
+	if it.Labels["secret-state"] == "missing" {
+		t.Error(`claimed the secret is missing without ever having read the secrets`)
+	}
+	if it.Expires.Unix() == now.Unix() {
+		t.Error("fell back to expires=now, which only the 'we looked and it is gone' case has earned")
+	}
+}
+
+func TestUnissuedIsOnlyClaimedForANamespaceWeActuallyRead(t *testing.T) {
+	now := time.Now()
+	notAfter := now.Add(40 * 24 * time.Hour)
+
+	srv := fakeK8s(map[string]string{
+		"namespaces/prod/secrets": `{"items":[]}`,
+		"namespaces/prod/certificates": certificateList(t, "prod", "shop", "shop-tls",
+			notAfter.Format(time.RFC3339), "", "False"),
+		"namespaces/staging/certificates": certificateList(t, "staging", "dash", "dash-tls",
+			notAfter.Format(time.RFC3339), "", "False"),
+	}, map[string]int{
+		"namespaces/staging/secrets": http.StatusForbidden,
+	})
+	defer srv.Close()
+
+	s := &K8sSource{Server: srv.URL, Namespaces: []string{"prod", "staging"}, now: func() time.Time { return now }}
+	items, _ := s.Collect(context.Background())
+
+	prod, ok := itemNamed(items, "prod/shop-tls")
+	if !ok {
+		t.Fatalf("want the prod certificate: %+v", items)
+	}
+	if prod.Labels["secret-state"] != "missing" {
+		t.Errorf("prod secrets were read and the secret was absent, so it is missing; got %q",
+			prod.Labels["secret-state"])
+	}
+
+	staging, ok := itemNamed(items, "staging/dash-tls")
+	if !ok {
+		t.Fatalf("want the staging certificate: %+v", items)
+	}
+	if staging.Labels["secret-state"] == "missing" {
+		t.Error("staging secrets were denied, so nothing there can be called missing")
+	}
+}
+
+func TestUnissuedCertificatesComeOutInAStableOrder(t *testing.T) {
+	now := time.Now()
+	body, err := json.Marshal(map[string]any{"items": []map[string]any{
+		{"metadata": map[string]string{"name": "zeta", "namespace": "prod"},
+			"spec": map[string]any{"secretName": "zeta-tls"}, "status": map[string]any{}},
+		{"metadata": map[string]string{"name": "alpha", "namespace": "prod"},
+			"spec": map[string]any{"secretName": "alpha-tls"}, "status": map[string]any{}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeK8s(map[string]string{"secrets": `{"items":[]}`, "certificates": string(body)}, nil)
+	defer srv.Close()
+
+	for i := range 5 {
+		items, cErr := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
+			Collect(context.Background())
+		if cErr != nil {
+			t.Fatalf("collect: %v", cErr)
+		}
+		if len(items) != 2 {
+			t.Fatalf("want both, got %+v", items)
+		}
+		if items[0].Name != "prod/alpha-tls" || items[1].Name != "prod/zeta-tls" {
+			t.Fatalf("run %d came out in a different order: %s, %s", i, items[0].Name, items[1].Name)
+		}
+	}
+}
+
+// Istio's cacerts holds the root and the intermediate under different keys, on
+// different clocks. Reading one and labelling it "trust-anchor" reported the
+// wrong certificate under the right name.
+func TestBothIstioCACertsAreReportedWithTheirOwnRoles(t *testing.T) {
+	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(300*24*time.Hour))
+	caPEM, _ := selfSignedPEM(t, "istio-intermediate", time.Now().Add(20*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"secrets/cacerts": secretBody(t, map[string][]byte{
+			"root-cert.pem": rootPEM,
+			"ca-cert.pem":   caPEM,
+		}),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("both the root and the intermediate are findings, got %d: %+v", len(items), items)
+	}
+	roles := map[string]string{}
+	for _, it := range items {
+		roles[it.Labels["key"]] = it.Labels["role"]
+	}
+	if roles["root-cert.pem"] != "trust-anchor" {
+		t.Errorf("root-cert.pem role = %q", roles["root-cert.pem"])
+	}
+	if roles["ca-cert.pem"] != "issuer" {
+		t.Errorf("ca-cert.pem role = %q — the intermediate must not be labelled the anchor", roles["ca-cert.pem"])
+	}
+}
+
+func TestAnAnchorWhoseKeyIsMissingWarnsRatherThanDisappearing(t *testing.T) {
+	srv := fakeK8s(map[string]string{
+		// The object is there; somebody renamed the key.
+		"configmaps/linkerd-identity-trust-roots": configMapBody(t, map[string]string{"bundle.pem": "x"}),
+	}, nil)
+	defer srv.Close()
+
+	_, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err == nil {
+		t.Fatal("a configured anchor that is present but unreadable must not be silently dropped")
+	}
+	if !strings.Contains(err.Error(), "ca-bundle.crt") {
+		t.Errorf("the warning should name the keys it looked for, got %v", err)
+	}
+}
+
+func TestTwoCAsWithTheSameIssuerCNAndSerialAreBothReported(t *testing.T) {
+	// selfSigned mints every certificate with serial 1, so a same-CN pair is
+	// exactly the collision an issuer+serial key cannot tell apart.
+	a, _ := selfSignedPEM(t, "kubernetes", time.Now().Add(10*24*time.Hour))
+	b, _ := selfSignedPEM(t, "kubernetes", time.Now().Add(200*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"validatingwebhookconfigurations": webhookConfigList(t, "one", a),
+		"mutatingwebhookconfigurations":   webhookConfigList(t, "two", b),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("two different CAs are two findings, got %d: %+v", len(items), items)
+	}
+}
+
+func TestACASharedByAWebhookAndAnAPIServiceIsReportedOnce(t *testing.T) {
+	caPEM, _ := selfSignedPEM(t, "front-proxy-ca", time.Now().Add(15*24*time.Hour))
+	apis, err := json.Marshal(map[string]any{"items": []map[string]any{{
+		"metadata": map[string]string{"name": "v1beta1.metrics.k8s.io"},
+		"spec": map[string]any{"caBundle": caPEM,
+			"service": map[string]string{"name": "metrics-server", "namespace": "kube-system"}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeK8s(map[string]string{
+		"validatingwebhookconfigurations": webhookConfigList(t, "aggregator", caPEM),
+		"apiservices":                     string(apis),
+	}, nil)
+	defer srv.Close()
+
+	items, cErr := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if cErr != nil {
+		t.Fatalf("collect: %v", cErr)
+	}
+	if len(items) != 1 {
+		t.Fatalf("one CA across two resource classes is one finding, got %d: %+v", len(items), items)
+	}
+	if used := items[0].Labels["used-by"]; !strings.Contains(used, "aggregator") ||
+		!strings.Contains(used, "v1beta1.metrics.k8s.io") {
+		t.Errorf("both objects should be named as relying on it, got %q", used)
+	}
+}
+
+func TestACorruptLeafIsSkippedRatherThanReportedWithTheChainsExpiry(t *testing.T) {
+	chainPEM, _ := selfSignedPEM(t, "intermediate", time.Now().Add(300*24*time.Hour))
+	corrupt := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
+
+	srv := fakeK8s(map[string]string{
+		"secrets": secretList(t, "prod", "shop-tls", append(corrupt, chainPEM...)),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("an unreadable leaf must not be reported with an intermediate's date standing in: %+v", items)
+	}
+}
+
+// Ranking amplifies hosts — wildcards and multi-SAN coverage both add to blast
+// radius. A CA's SANs are not hosts it fronts, so handing them over would earn
+// a trust anchor a bonus meant for a leaf that actually serves those names.
+func TestATrustAnchorCarriesNoHostsForRankingToAmplify(t *testing.T) {
+	caPEM, _ := selfSignedPEM(t, "wildcard-ca", time.Now().Add(10*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"validatingwebhookconfigurations": webhookConfigList(t, "wc", caPEM),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if got := items[0].Labels[LabelHosts]; got != "" {
+		t.Errorf("hosts = %q, want none", got)
 	}
 }

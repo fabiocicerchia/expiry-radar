@@ -2,8 +2,11 @@ package source
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -53,8 +56,9 @@ type apiServiceItem struct {
 // cluster-scoped, so they bypass paths() — a namespaced Role cannot list them,
 // and the resulting 403 is a warning the operator can silence with
 // skipWebhooks rather than a failure that loses the namespaced findings.
-func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI) ([]Item, error) {
-	acc := newCAAccumulator()
+func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
+	acc := st.anchors
+	mark := acc.mark()
 	var errs []string
 	for _, kind := range []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations"} {
 		err := listEach(ctx, api, []string{admissionAPI + "/" + kind}, func(w webhookConfigItem) {
@@ -71,11 +75,12 @@ func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI) ([]Item, error)
 			errs = append(errs, err.Error())
 		}
 	}
-	return acc.items(), joinErrs(errs)
+	return acc.since(mark), joinErrs(errs)
 }
 
-func (s *K8sSource) apiServiceCAs(ctx context.Context, api *k8sAPI) ([]Item, error) {
-	acc := newCAAccumulator()
+func (s *K8sSource) apiServiceCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
+	acc := st.anchors
+	mark := acc.mark()
 	err := listEach(ctx, api, []string{apiregistrationV1 + "/apiservices"}, func(a apiServiceItem) {
 		if a.Spec.Service == nil {
 			return // local, served by the API server itself
@@ -85,36 +90,99 @@ func (s *K8sSource) apiServiceCAs(ctx context.Context, api *k8sAPI) ([]Item, err
 				map[string]string{"service": a.Spec.Service.Namespace + "/" + a.Spec.Service.Name})
 		}
 	})
-	return acc.items(), err
+	return acc.since(mark), err
+}
+
+// MeshAnchorKey is one PEM key inside an anchor object, and what that key
+// actually holds. The role is per key, not per object: Istio's `cacerts` holds
+// the intermediate under ca-cert.pem and the root under root-cert.pem, and
+// labelling both "trust-anchor" would be a lie about one of them.
+type MeshAnchorKey struct {
+	Key  string `json:"key"`
+	Role string `json:"role"` // "trust-anchor" or "issuer"
 }
 
 // MeshAnchor locates one service-mesh trust anchor. The defaults cover a stock
-// Linkerd and Istio; an install that moved them can say so in the config rather
-// than wait for a code change.
+// Linkerd and Istio; an install that moved them can add its own in the config
+// rather than wait for a code change.
 type MeshAnchor struct {
-	Mesh      string   `json:"mesh"`
-	Kind      string   `json:"kind"` // "secrets" or "configmaps"
-	Namespace string   `json:"namespace"`
-	Name      string   `json:"name"`
-	Keys      []string `json:"keys"`
-	Role      string   `json:"role"` // "trust-anchor" or "issuer"
+	Mesh      string          `json:"mesh"`
+	Kind      string          `json:"kind"` // "secrets" or "configmaps"
+	Namespace string          `json:"namespace"`
+	Name      string          `json:"name"`
+	Keys      []MeshAnchorKey `json:"keys"`
 }
+
+// Anchor kinds and key roles, as the config may spell them.
+const (
+	anchorSecrets    = "secrets"
+	anchorConfigMaps = "configmaps"
+	roleTrustAnchor  = "trust-anchor"
+	roleIssuer       = "issuer"
+)
 
 // Both Linkerd entries are here on purpose and for different reasons: the trust
 // root runs for years, while the issuer runs a year by default and twenty-four
 // hours under cert-manager. The issuer is the one that actually bites.
 var defaultMeshAnchors = []MeshAnchor{
-	{"linkerd", "configmaps", "linkerd", "linkerd-identity-trust-roots", []string{"ca-bundle.crt"}, "trust-anchor"},
-	{"linkerd", "secrets", "linkerd", "linkerd-identity-issuer", []string{"crt.pem"}, "issuer"},
-	{"istio", "secrets", "istio-system", "cacerts", []string{"ca-cert.pem", "root-cert.pem"}, "trust-anchor"},
-	{"istio", "secrets", "istio-system", "istio-ca-secret", []string{"ca-cert.pem"}, "trust-anchor"},
+	{"linkerd", anchorConfigMaps, "linkerd", "linkerd-identity-trust-roots",
+		[]MeshAnchorKey{{"ca-bundle.crt", roleTrustAnchor}}},
+	{"linkerd", anchorSecrets, "linkerd", "linkerd-identity-issuer",
+		[]MeshAnchorKey{{"crt.pem", roleIssuer}}},
+	{"istio", anchorSecrets, "istio-system", "cacerts",
+		[]MeshAnchorKey{{"root-cert.pem", roleTrustAnchor}, {"ca-cert.pem", roleIssuer}}},
+	{"istio", anchorSecrets, "istio-system", "istio-ca-secret",
+		[]MeshAnchorKey{{"ca-cert.pem", roleTrustAnchor}}},
 }
 
+// Anchors is exported so a caller can confirm what will actually be watched;
+// the config package's test uses it to prove the built-ins survive.
+func (s *K8sSource) Anchors() []MeshAnchor { return s.anchors() }
+
+// anchors appends the configured anchors to the built-in ones rather than
+// replacing them, the same way -endpoints and -domains add to the config
+// instead of overriding it. Silently dropping Linkerd and Istio support because
+// somebody named one extra object is not a trade anybody would choose.
 func (s *K8sSource) anchors() []MeshAnchor {
-	if len(s.MeshAnchors) > 0 {
-		return s.MeshAnchors
+	if len(s.MeshAnchors) == 0 {
+		return defaultMeshAnchors
 	}
-	return defaultMeshAnchors
+	out := make([]MeshAnchor, 0, len(defaultMeshAnchors)+len(s.MeshAnchors))
+	out = append(out, defaultMeshAnchors...)
+	return append(out, s.MeshAnchors...)
+}
+
+// ValidateMeshAnchors rejects an anchor that could never match, rather than
+// letting it 404 into silence: a misspelt kind would otherwise fall through to
+// the Secret branch and simply never report anything.
+func ValidateMeshAnchors(anchors []MeshAnchor) error {
+	for i, a := range anchors {
+		where := fmt.Sprintf("meshAnchors[%d]", i)
+		switch {
+		case a.Mesh == "":
+			return fmt.Errorf("%s: mesh is required", where)
+		case a.Namespace == "":
+			return fmt.Errorf("%s (%s): namespace is required", where, a.Mesh)
+		case a.Name == "":
+			return fmt.Errorf("%s (%s): name is required", where, a.Mesh)
+		case a.Kind != anchorSecrets && a.Kind != anchorConfigMaps:
+			return fmt.Errorf("%s (%s/%s): kind is %q, want %q or %q",
+				where, a.Namespace, a.Name, a.Kind, anchorSecrets, anchorConfigMaps)
+		case len(a.Keys) == 0:
+			return fmt.Errorf("%s (%s/%s): at least one key is required",
+				where, a.Namespace, a.Name)
+		}
+		for _, k := range a.Keys {
+			if k.Key == "" {
+				return fmt.Errorf("%s (%s/%s): a key name is required", where, a.Namespace, a.Name)
+			}
+			if k.Role != roleTrustAnchor && k.Role != roleIssuer {
+				return fmt.Errorf("%s (%s/%s): key %q has role %q, want %q or %q",
+					where, a.Namespace, a.Name, k.Key, k.Role, roleTrustAnchor, roleIssuer)
+			}
+		}
+	}
+	return nil
 }
 
 // meshAnchors fetches each well-known anchor by name rather than listing
@@ -123,70 +191,109 @@ func (s *K8sSource) anchors() []MeshAnchor {
 //
 // A missing object means that mesh is not installed, which is an answer. Only a
 // denial or a broken request is worth warning about.
-func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI) ([]Item, error) {
-	acc := newCAAccumulator()
+func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
+	acc := st.anchors
+	mark := acc.mark()
 	var errs []string
+
 	for _, a := range s.anchors() {
-		pem, err := s.readAnchor(ctx, api, a)
+		found, err := s.readAnchor(ctx, api, a)
 		if errors.Is(err, errNotFound) {
-			continue
+			continue // this mesh is not installed here
 		}
 		if err != nil {
 			errs = append(errs, a.Mesh+"/"+a.Name+": "+err.Error())
 			continue
 		}
-		for _, c := range allCerts(pem) {
-			acc.add(c, "k8s:mesh", a.Mesh+"/"+a.Name, a.Namespace, map[string]string{
-				"mesh": a.Mesh,
-				"role": a.Role,
-			})
+		// The object is here but none of the keys we know about are. That is a
+		// configured anchor going unwatched, not an absent mesh, so it must not
+		// disappear the way a missing object does.
+		if len(found) == 0 {
+			errs = append(errs, fmt.Sprintf("%s/%s: none of its keys are present (%s)",
+				a.Mesh, a.Name, strings.Join(keyNames(a), ", ")))
+			continue
+		}
+		for _, f := range found {
+			for _, c := range allCerts(f.pem) {
+				acc.add(c, "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace, map[string]string{
+					"mesh": a.Mesh,
+					"role": f.role,
+					"key":  f.key,
+				})
+			}
 		}
 	}
-	return acc.items(), joinErrs(errs)
+	return acc.since(mark), joinErrs(errs)
 }
 
-// readAnchor returns the first key that is present. A ConfigMap holds PEM as
-// plain text and a Secret holds it base64-encoded, which encoding/json already
-// undoes for []byte — two shapes, so two decodes.
-func (s *K8sSource) readAnchor(ctx context.Context, api *k8sAPI, a MeshAnchor) ([]byte, error) {
+func keyNames(a MeshAnchor) []string {
+	out := make([]string, 0, len(a.Keys))
+	for _, k := range a.Keys {
+		out = append(out, k.Key)
+	}
+	return out
+}
+
+type anchorPEM struct {
+	key  string
+	role string
+	pem  []byte
+}
+
+// readAnchor returns every key that is present, not just the first. Istio's
+// cacerts carries the root and the intermediate under different keys, and they
+// expire on different clocks — reading one and calling it the trust anchor was
+// reporting the wrong certificate under the right name.
+//
+// A ConfigMap holds PEM as plain text and a Secret holds it base64-encoded,
+// which encoding/json already undoes for []byte — two shapes, so two decodes.
+func (s *K8sSource) readAnchor(ctx context.Context, api *k8sAPI, a MeshAnchor) ([]anchorPEM, error) {
 	path := "/api/v1/namespaces/" + url.PathEscape(a.Namespace) + "/" +
 		a.Kind + "/" + url.PathEscape(a.Name)
 
-	if a.Kind == "configmaps" {
+	data := map[string][]byte{}
+	if a.Kind == anchorConfigMaps {
 		var cm struct {
 			Data map[string]string `json:"data"`
 		}
 		if err := api.get(ctx, path, &cm); err != nil {
 			return nil, err
 		}
-		for _, k := range a.Keys {
-			if v := cm.Data[k]; v != "" {
-				return []byte(v), nil
-			}
+		for k, v := range cm.Data {
+			data[k] = []byte(v)
 		}
-		return nil, errNotFound
+	} else {
+		var sec struct {
+			Data map[string][]byte `json:"data"`
+		}
+		if err := api.get(ctx, path, &sec); err != nil {
+			return nil, err
+		}
+		data = sec.Data
 	}
 
-	var sec struct {
-		Data map[string][]byte `json:"data"`
-	}
-	if err := api.get(ctx, path, &sec); err != nil {
-		return nil, err
-	}
+	var out []anchorPEM
 	for _, k := range a.Keys {
-		if v := sec.Data[k]; len(v) > 0 {
-			return v, nil
+		if v := data[k.Key]; len(v) > 0 {
+			out = append(out, anchorPEM{key: k.Key, role: k.Role, pem: v})
 		}
 	}
-	return nil, errNotFound
+	return out, nil
 }
 
-// caAccumulator dedupes CA certificates across the objects that reference them.
+// caAccumulator dedupes CA certificates across every object that references
+// them, across all three trust-anchor collectors.
 //
 // The same bundle is routinely pinned into a dozen webhooks and several
 // configurations — cert-manager's own is the usual example — and reporting it a
-// dozen times buries everything else. Keyed by issuer and serial, the same way
-// the TLS chain collector dedupes intermediates.
+// dozen times buries everything else. A CA shared between a webhook and an
+// APIService is likewise one finding, not two.
+//
+// Keyed by a hash of the certificate itself. Issuer plus serial is the textbook
+// X.509 identity but collides between two hand-made CAs that both left the CN
+// empty and both started at serial 1, and mergeIntermediates in tls.go keys on
+// the subject CN, which collides more easily still. The bytes cannot collide
+// and need no argument.
 type caAccumulator struct {
 	order []string
 	byKey map[string]*Item
@@ -197,7 +304,8 @@ func newCAAccumulator() *caAccumulator {
 }
 
 func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, extra map[string]string) {
-	key := c.Issuer.CommonName + "/" + c.SerialNumber.String()
+	sum := sha256.Sum256(c.Raw)
+	key := hex.EncodeToString(sum[:])
 	if existing, ok := a.byKey[key]; ok {
 		// Already reported; record that this object relies on it too.
 		used := appendUnique(splitList(existing.Labels["used-by"]), owner)
@@ -208,7 +316,9 @@ func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, e
 	labels := map[string]string{}
 	labels = label(labels, LabelIssuer, c.Issuer.CommonName)
 	labels = label(labels, LabelSerial, c.SerialNumber.String())
-	labels = label(labels, LabelHosts, strings.Join(c.DNSNames, ","))
+	// Deliberately no LabelHosts: a CA's SANs are not hosts it fronts, and
+	// feeding them to ranking would earn a trust anchor the wildcard and
+	// multi-SAN bonuses meant for a leaf that actually serves those names.
 	labels = label(labels, "subject", c.Subject.CommonName)
 	labels["used-by"] = owner
 	for k, v := range extra {
@@ -227,13 +337,19 @@ func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, e
 	a.order = append(a.order, key)
 }
 
-func (a *caAccumulator) items() []Item {
-	out := make([]Item, 0, len(a.order))
-	for _, k := range a.order {
+// since returns the items added after mark. Each collector reports only what it
+// newly created, so a denied resource class still loses only its own findings
+// and the seam attributes every item to the class that found it — while a CA
+// two classes share is still reported once, by whichever got there first.
+func (a *caAccumulator) since(mark int) []Item {
+	out := make([]Item, 0, len(a.order)-mark)
+	for _, k := range a.order[mark:] {
 		out = append(out, *a.byKey[k])
 	}
 	return out
 }
+
+func (a *caAccumulator) mark() int { return len(a.order) }
 
 func splitList(s string) []string {
 	if s == "" {

@@ -5,6 +5,8 @@ package source
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 )
 
@@ -90,6 +92,55 @@ func CollectAll(ctx context.Context, sources []Source) ([]Item, []error) {
 		}
 	}
 	return items, errs
+}
+
+// collectUnit is one independently-collected unit of work inside a source: an
+// AWS service, a Kubernetes resource class. Splitting a source into units is
+// what makes the degradation rule — one denied permission must not lose the
+// other units' findings — testable without an account or a cluster, which is
+// the one property of these sources nobody could check before.
+type collectUnit struct {
+	Name    string
+	Skipped bool
+	Collect func() ([]Item, error)
+}
+
+// unitResult is what one unit returned. A unit that returned nothing is not the
+// same as one that was denied, and not the same as one that was skipped:
+// collapsing the three would let an account with no certificates read as an
+// account whose ACM adapter works.
+type unitResult struct {
+	Name    string
+	Skipped bool
+	Items   int
+	Err     error
+}
+
+func collectUnits(units []collectUnit) ([]Item, []unitResult, error) {
+	var items []Item
+	var warnings []string
+	results := make([]unitResult, 0, len(units))
+	for _, u := range units {
+		if u.Skipped {
+			results = append(results, unitResult{Name: u.Name, Skipped: true})
+			continue
+		}
+		got, err := u.Collect()
+		if err != nil {
+			// The partial items are returned alongside the error, so a caller
+			// that ignores the error is not silently throwing away what worked.
+			warnings = append(warnings, u.Name+": "+err.Error())
+			results = append(results, unitResult{Name: u.Name, Items: len(got), Err: err})
+			items = append(items, got...)
+			continue
+		}
+		results = append(results, unitResult{Name: u.Name, Items: len(got)})
+		items = append(items, got...)
+	}
+	if len(warnings) > 0 {
+		return items, results, errors.New(strings.Join(warnings, "; "))
+	}
+	return items, results, nil
 }
 
 type sourceError struct {

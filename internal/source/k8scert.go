@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 )
@@ -75,30 +76,69 @@ func (s *K8sSource) certificates(ctx context.Context, api *k8sAPI, st *k8sState)
 		}
 		st.certs[c.Metadata.Namespace+"/"+ref.SecretName] = ref
 	})
+	// Sorted, not map order: two items at the same deadline must not swap places
+	// between runs of the same unchanged cluster.
+	keys := make([]string, 0, len(st.certs))
+	for key := range st.certs {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	now := s.clock()
 	var items []Item
-	for key, ref := range st.certs {
-		if st.secretKeys[key] {
-			continue // the secret exists and is already reported with its own date
+	for _, key := range keys {
+		if it, ok := certificateItemFor(key, st, now); ok {
+			items = append(items, it)
 		}
-		items = append(items, unissuedItem(key, ref, now))
 	}
 	return items, err
 }
 
-// unissuedItem reports a Certificate with no secret behind it. Its deadline is
-// whatever cert-manager last managed to issue; with nothing issued at all the
-// deadline is now, because the thing that was supposed to exist does not.
-func unissuedItem(key string, ref certRef, now time.Time) Item {
+// certificateItemFor decides what, if anything, a Certificate is worth
+// reporting on its own account. The four cases are genuinely different, and
+// collapsing them is what made this collector claim things it had not checked.
+func certificateItemFor(key string, st *k8sState, now time.Time) (Item, bool) {
+	ref := st.certs[key]
+	switch st.secrets[key] {
+	case secretParsed:
+		// The secret is reported with its own date; this Certificate's
+		// contribution is the renewal evidence annotateRenewal folds in.
+		return Item{}, false
+
+	case secretUnreadable:
+		// Something is there but we cannot date it, so the Certificate is now
+		// the only readable source of truth for this certificate.
+		if ref.NotAfter.IsZero() {
+			return Item{}, false
+		}
+		return certManagerItem(key, ref, ref.NotAfter, now, "unreadable"), true
+	}
+
+	if !st.readSecretsIn(ref.Namespace) {
+		// We never read secrets here, so we have not earned the word "missing".
+		// Report the Certificate on its own date and claim nothing else.
+		if ref.NotAfter.IsZero() {
+			return Item{}, false
+		}
+		return certManagerItem(key, ref, ref.NotAfter, now, ""), true
+	}
+
+	// We looked, and it is not there. Nothing issued at all means the deadline
+	// is now, because the thing that was supposed to exist does not.
 	expires := ref.NotAfter
 	if expires.IsZero() {
 		expires = now
 	}
+	return certManagerItem(key, ref, expires, now, "missing"), true
+}
+
+func certManagerItem(key string, ref certRef, expires, now time.Time, secretState string) Item {
 	labels := map[string]string{}
 	labels = label(labels, LabelHosts, strings.Join(ref.DNSNames, ","))
 	labels = label(labels, LabelIssuer, ref.Issuer)
 	labels = label(labels, "cert-manager", ref.Name)
 	labels = label(labels, "secret", ref.SecretName)
+	labels = label(labels, "secret-state", secretState)
 	labels = label(labels, LabelRenewal, renewalState(ref, now))
 	return Item{
 		Kind:      KindTLSCert,
