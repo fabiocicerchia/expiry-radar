@@ -115,6 +115,12 @@ func Load(path string) (*File, error) {
 		// nothing, because the mesh collector it feeds is behind trustAnchors.
 		// Granting read access to CA private keys and silently getting no
 		// findings for it is the worst of both.
+		// Same rule, same reason: the mesh collector these feed is behind
+		// trustAnchors, so without it the anchors are configured and never read.
+		if len(f.K8s.MeshAnchors) > 0 && !f.K8s.TrustAnchors {
+			return nil, fmt.Errorf(
+				"%s: k8s.meshAnchors needs k8s.trustAnchors, or the anchors are never read", path)
+		}
 		if f.K8s.MeshSigningSecrets && !f.K8s.TrustAnchors {
 			return nil, fmt.Errorf(
 				"%s: k8s.meshSigningSecrets needs k8s.trustAnchors, or it reads private keys for nothing", path)

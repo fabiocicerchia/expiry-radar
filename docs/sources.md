@@ -48,10 +48,11 @@ would take a run that exited 0 and make it exit 3 on upgrade:
 | `trustAnchors: true` | webhook and `APIService` CA bundles, mesh trust roots | a ClusterRole; all three are cluster-scoped |
 | `meshSigningSecrets: true` | the mesh objects that hold the signing key too | `get` on Secrets containing **CA private keys** — see [`rbac-readonly.yaml`](rbac-readonly.yaml) |
 
-`skipSecrets: true` turns the default collector off. `meshSigningSecrets`
-without `trustAnchors` is rejected at load rather than quietly collecting
-nothing: granting read access to private keys and getting no findings for it is
-the worst of both.
+`skipSecrets: true` turns the default collector off. Both `meshSigningSecrets`
+and `meshAnchors` are rejected at load without `trustAnchors`, rather than
+quietly collecting nothing — the mesh collector they feed is behind that flag,
+and granting read access to private keys and getting no findings for it is the
+worst of both.
 
 ### Trust anchors
 

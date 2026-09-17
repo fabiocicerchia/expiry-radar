@@ -142,20 +142,23 @@ const (
 
 // renewalFor reconciles what cert-manager claims with what we can see.
 //
-// "managed" earns a 0.25 de-rank, so it may only be claimed when nothing
-// contradicts it. A Certificate can report Ready with its renewal comfortably
-// ahead while the secret it was supposed to produce has been deleted — taking
-// blast radius off that is the exact inversion addRenewal exists to prevent.
-// A secret we could not parse supports neither claim, so it gets no label.
+// The two directions are not symmetric, and that is the whole of it. A negative
+// claim rests on cert-manager's own status — Ready=False, or a renewal date
+// already gone by — and needs no secret to support it. "managed" earns a 0.25
+// de-rank, so it needs a secret we actually read and parsed, and this function
+// is only ever reached when we did not: the secret is missing, unreadable, or
+// was never looked at. A Certificate reporting Ready with its renewal
+// comfortably ahead while the secret it was supposed to produce is gone is
+// exactly the inversion addRenewal exists to prevent.
 func renewalFor(ref certRef, now time.Time, secretState string) string {
-	switch secretState {
-	case secretMissingLabel:
+	if secretState == secretMissingLabel {
 		// The automation did not produce the secret. That is the failure.
 		return RenewalStuck
-	case secretUnreadableLabel:
-		return ""
 	}
-	return renewalState(ref, now)
+	if s := renewalState(ref, now); s != RenewalManaged {
+		return s
+	}
+	return ""
 }
 
 func certManagerItem(key string, ref certRef, expires, now time.Time, secretState string) Item {

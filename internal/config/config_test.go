@@ -48,6 +48,11 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
 				` "namespace": "istio-system", "name": "cacerts", "keys": []}]}}`,
 			"at least one key"},
+		// Anchors the mesh collector will never be asked to read.
+		{"mesh anchors without trust anchors",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "m", "kind": "secrets",` +
+				` "namespace": "n", "name": "o", "keys": [{"key": "k", "role": "issuer"}]}]}}`,
+			"needs k8s.trustAnchors"},
 		// Granting read access to CA private keys and getting no findings for
 		// it is the worst of both.
 		{"mesh signing secrets without trust anchors",
@@ -196,7 +201,7 @@ func TestManualItemsAreRankedLikeAnythingElse(t *testing.T) {
 // watched — the same reason -endpoints and -domains add to the config rather
 // than replacing it.
 func TestConfiguredMeshAnchorsDoNotDisableTheBuiltInOnes(t *testing.T) {
-	p := write(t, `{"k8s": {"enabled": true, "meshAnchors": [
+	p := write(t, `{"k8s": {"enabled": true, "trustAnchors": true, "meshAnchors": [
 		{"mesh": "custom", "kind": "secrets", "namespace": "mesh", "name": "our-ca",
 		 "keys": [{"key": "ca.pem", "role": "trust-anchor"}]}]}}`)
 	f, err := Load(p)

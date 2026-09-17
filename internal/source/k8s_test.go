@@ -1004,3 +1004,92 @@ func TestAMeshKeyHoldingNoCertificateWarns(t *testing.T) {
 		t.Fatalf("a trust root that parses to nothing must not vanish silently, got %v", err)
 	}
 }
+
+// certManagerItem is only ever reached when the secret was not parsed, so the
+// de-rank it can hand out is a de-rank on a certificate nobody verified exists.
+func TestAnUnreadSecretCannotEarnTheManagedDeRank(t *testing.T) {
+	now := time.Now()
+	srv := fakeK8s(map[string]string{
+		"certificates": certificateList(t, "prod", "shop", "shop-tls",
+			now.Add(30*24*time.Hour).Format(time.RFC3339),
+			now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
+	}, nil)
+	defer srv.Close()
+
+	s := withClock(&K8sSource{Server: srv.URL, CertManager: true, SkipSecrets: true}, now)
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	it, ok := itemNamed(items, "prod/shop-tls")
+	if !ok {
+		t.Fatalf("want the certificate: %+v", items)
+	}
+	if it.Labels[LabelRenewal] == RenewalManaged {
+		t.Error("claimed a healthy renewal, and took 0.25 off for it, without ever reading the secret")
+	}
+}
+
+func TestAnUnparseableWebhookCABundleWarns(t *testing.T) {
+	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
+		"metadata": map[string]string{"name": "broken"},
+		"webhooks": []map[string]any{{
+			"name": "w.example.com",
+			// Non-empty and not PEM: raw DER, or a double-base64'd bundle.
+			"clientConfig": map[string]any{"caBundle": []byte("not a certificate")},
+		}},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeK8s(map[string]string{"validatingwebhookconfigurations": string(body)}, nil)
+	defer srv.Close()
+
+	items, cErr := (&K8sSource{Server: srv.URL, TrustAnchors: true}).Collect(context.Background())
+	if cErr == nil || !strings.Contains(cErr.Error(), "holds no certificate") {
+		t.Fatalf("a CA bundle that parses to nothing must not vanish silently, got %v", cErr)
+	}
+	if len(items) != 0 {
+		t.Errorf("nothing parseable, so nothing to report: %+v", items)
+	}
+}
+
+func TestAnUnparseableAPIServiceCABundleWarns(t *testing.T) {
+	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
+		"metadata": map[string]string{"name": "v1beta1.metrics.k8s.io"},
+		"spec": map[string]any{
+			"caBundle": []byte("not a certificate"),
+			"service":  map[string]string{"name": "metrics-server", "namespace": "kube-system"},
+		},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeK8s(map[string]string{"apiservices": string(body)}, nil)
+	defer srv.Close()
+
+	_, cErr := (&K8sSource{Server: srv.URL, TrustAnchors: true}).Collect(context.Background())
+	if cErr == nil || !strings.Contains(cErr.Error(), "holds no certificate") {
+		t.Fatalf("the APIService collector should warn like the other two, got %v", cErr)
+	}
+}
+
+// Anchors() returning an entry proves nothing: what matters is whether Collect
+// ever asks the cluster for it.
+func TestAConfiguredMeshAnchorIsActuallyRequested(t *testing.T) {
+	srv, seen := recordingK8s()
+	defer srv.Close()
+
+	s := &K8sSource{Server: srv.URL, TrustAnchors: true, MeshAnchors: []MeshAnchor{{
+		Mesh: "custom", Kind: anchorConfigMaps, Namespace: "mesh", Name: "our-ca",
+		Keys: []MeshAnchorKey{{"ca.pem", roleTrustAnchor}},
+	}}}
+	if _, err := s.Collect(context.Background()); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if !requested(*seen, "our-ca") {
+		t.Errorf("the configured anchor was never requested; asked for %v", *seen)
+	}
+}

@@ -64,9 +64,9 @@ func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) (
 		err := listEach(ctx, api, []string{admissionAPI + "/" + kind}, func(w webhookConfigItem) {
 			owner := strings.TrimSuffix(kind, "s") + "/" + w.Metadata.Name
 			for _, h := range w.Webhooks {
-				// An empty caBundle means CA injection, or a webhook served
-				// through a CA the cluster already trusts. Nothing to expire.
-				acc.addBundle(allCerts(h.ClientConfig.CABundle), "k8s:webhook", owner, "", nil)
+				if e := acc.addCABundle(h.ClientConfig.CABundle, "k8s:webhook", owner, "", nil); e != nil {
+					errs = append(errs, e.Error())
+				}
 			}
 		})
 		if err != nil {
@@ -78,14 +78,20 @@ func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) (
 
 func (s *K8sSource) apiServiceCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	acc := st.anchors
+	var errs []string
 	err := listEach(ctx, api, []string{apiregistrationV1 + "/apiservices"}, func(a apiServiceItem) {
 		if a.Spec.Service == nil {
 			return // local, served by the API server itself
 		}
-		acc.addBundle(allCerts(a.Spec.CABundle), "k8s:apiservice", "apiservice/"+a.Metadata.Name, "",
-			map[string]string{"service": a.Spec.Service.Namespace + "/" + a.Spec.Service.Name})
+		if e := acc.addCABundle(a.Spec.CABundle, "k8s:apiservice", "apiservice/"+a.Metadata.Name, "",
+			map[string]string{"service": a.Spec.Service.Namespace + "/" + a.Spec.Service.Name}); e != nil {
+			errs = append(errs, e.Error())
+		}
 	})
-	return nil, err
+	if err != nil {
+		errs = append(errs, err.Error())
+	}
+	return nil, joinErrs(errs)
 }
 
 // MeshAnchorKey is one PEM key inside an anchor object, and what that key
@@ -235,17 +241,10 @@ func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI, st *k8sState) 
 			continue
 		}
 		for _, f := range found {
-			certs := allCerts(f.pem)
-			if len(certs) == 0 {
-				// Present, and holding something that is not a certificate. The
-				// len(found)==0 guard does not cover this, and with no warning
-				// the trust root just drops out of the inventory.
-				errs = append(errs, fmt.Sprintf("%s/%s: %s holds no certificate",
-					a.Mesh, a.Name, f.key))
-				continue
+			if e := acc.addCABundle(f.pem, "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace,
+				map[string]string{"mesh": a.Mesh, "role": f.role, "key": f.key}); e != nil {
+				errs = append(errs, e.Error())
 			}
-			acc.addBundle(certs, "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace,
-				map[string]string{"mesh": a.Mesh, "role": f.role, "key": f.key})
 		}
 	}
 	return nil, joinErrs(errs)
@@ -336,6 +335,23 @@ type caAccumulator struct {
 
 func newCAAccumulator() *caAccumulator {
 	return &caAccumulator{byKey: map[string]*Item{}}
+}
+
+// addCABundle records a bundle and says so when it is present but holds nothing
+// parseable — raw DER, double-base64, a truncated copy. An anchor that drops
+// out of the inventory unannounced is the same failure as one never read, and
+// this is the only place all three collectors can share the rule.
+func (a *caAccumulator) addCABundle(pemBytes []byte, src, owner, namespace string,
+	extra map[string]string) error {
+	if len(pemBytes) == 0 {
+		return nil // CA injection, or served through a CA the cluster already trusts
+	}
+	certs := allCerts(pemBytes)
+	if len(certs) == 0 {
+		return fmt.Errorf("%s: holds no certificate", owner)
+	}
+	a.addBundle(certs, src, owner, namespace, extra)
+	return nil
 }
 
 // addBundle records every certificate in one PEM blob. The blob is a chain as
