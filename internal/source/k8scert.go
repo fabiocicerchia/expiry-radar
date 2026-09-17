@@ -111,7 +111,7 @@ func certificateItemFor(key string, st *k8sState, now time.Time) (Item, bool) {
 		if ref.NotAfter.IsZero() {
 			return Item{}, false
 		}
-		return certManagerItem(key, ref, ref.NotAfter, now, "unreadable"), true
+		return certManagerItem(key, ref, ref.NotAfter, now, secretUnreadableLabel), true
 	}
 
 	if !st.readSecretsIn(ref.Namespace) {
@@ -120,7 +120,7 @@ func certificateItemFor(key string, st *k8sState, now time.Time) (Item, bool) {
 		if ref.NotAfter.IsZero() {
 			return Item{}, false
 		}
-		return certManagerItem(key, ref, ref.NotAfter, now, ""), true
+		return certManagerItem(key, ref, ref.NotAfter, now, ""), true // secrets unread: claim nothing
 	}
 
 	// We looked, and it is not there. Nothing issued at all means the deadline
@@ -129,7 +129,31 @@ func certificateItemFor(key string, st *k8sState, now time.Time) (Item, bool) {
 	if expires.IsZero() {
 		expires = now
 	}
-	return certManagerItem(key, ref, expires, now, "missing"), true
+	return certManagerItem(key, ref, expires, now, secretMissingLabel), true
+}
+
+// Values for the secret-state label.
+const (
+	secretUnreadableLabel = "unreadable"
+	secretMissingLabel    = "missing"
+)
+
+// renewalFor reconciles what cert-manager claims with what we can see.
+//
+// "managed" earns a 0.25 de-rank, so it may only be claimed when nothing
+// contradicts it. A Certificate can report Ready with its renewal comfortably
+// ahead while the secret it was supposed to produce has been deleted — taking
+// blast radius off that is the exact inversion addRenewal exists to prevent.
+// A secret we could not parse supports neither claim, so it gets no label.
+func renewalFor(ref certRef, now time.Time, secretState string) string {
+	switch secretState {
+	case secretMissingLabel:
+		// The automation did not produce the secret. That is the failure.
+		return RenewalStuck
+	case secretUnreadableLabel:
+		return ""
+	}
+	return renewalState(ref, now)
 }
 
 func certManagerItem(key string, ref certRef, expires, now time.Time, secretState string) Item {
@@ -139,7 +163,7 @@ func certManagerItem(key string, ref certRef, expires, now time.Time, secretStat
 	labels = label(labels, "cert-manager", ref.Name)
 	labels = label(labels, "secret", ref.SecretName)
 	labels = label(labels, "secret-state", secretState)
-	labels = label(labels, LabelRenewal, renewalState(ref, now))
+	labels = label(labels, LabelRenewal, renewalFor(ref, now, secretState))
 	return Item{
 		Kind:      KindTLSCert,
 		Name:      key,

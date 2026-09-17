@@ -58,7 +58,6 @@ type apiServiceItem struct {
 // skipWebhooks rather than a failure that loses the namespaced findings.
 func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	acc := st.anchors
-	mark := acc.mark()
 	var errs []string
 	for _, kind := range []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations"} {
 		err := listEach(ctx, api, []string{admissionAPI + "/" + kind}, func(w webhookConfigItem) {
@@ -66,31 +65,26 @@ func (s *K8sSource) webhookCAs(ctx context.Context, api *k8sAPI, st *k8sState) (
 			for _, h := range w.Webhooks {
 				// An empty caBundle means CA injection, or a webhook served
 				// through a CA the cluster already trusts. Nothing to expire.
-				for _, c := range allCerts(h.ClientConfig.CABundle) {
-					acc.add(c, "k8s:webhook", owner, "", nil)
-				}
+				acc.addBundle(allCerts(h.ClientConfig.CABundle), "k8s:webhook", owner, "", nil)
 			}
 		})
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
 	}
-	return acc.since(mark), joinErrs(errs)
+	return nil, joinErrs(errs)
 }
 
 func (s *K8sSource) apiServiceCAs(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	acc := st.anchors
-	mark := acc.mark()
 	err := listEach(ctx, api, []string{apiregistrationV1 + "/apiservices"}, func(a apiServiceItem) {
 		if a.Spec.Service == nil {
 			return // local, served by the API server itself
 		}
-		for _, c := range allCerts(a.Spec.CABundle) {
-			acc.add(c, "k8s:apiservice", "apiservice/"+a.Metadata.Name, "",
-				map[string]string{"service": a.Spec.Service.Namespace + "/" + a.Spec.Service.Name})
-		}
+		acc.addBundle(allCerts(a.Spec.CABundle), "k8s:apiservice", "apiservice/"+a.Metadata.Name, "",
+			map[string]string{"service": a.Spec.Service.Namespace + "/" + a.Spec.Service.Name})
 	})
-	return acc.since(mark), err
+	return nil, err
 }
 
 // MeshAnchorKey is one PEM key inside an anchor object, and what that key
@@ -193,7 +187,6 @@ func ValidateMeshAnchors(anchors []MeshAnchor) error {
 // denial or a broken request is worth warning about.
 func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI, st *k8sState) ([]Item, error) {
 	acc := st.anchors
-	mark := acc.mark()
 	var errs []string
 
 	for _, a := range s.anchors() {
@@ -214,16 +207,11 @@ func (s *K8sSource) meshAnchors(ctx context.Context, api *k8sAPI, st *k8sState) 
 			continue
 		}
 		for _, f := range found {
-			for _, c := range allCerts(f.pem) {
-				acc.add(c, "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace, map[string]string{
-					"mesh": a.Mesh,
-					"role": f.role,
-					"key":  f.key,
-				})
-			}
+			acc.addBundle(allCerts(f.pem), "k8s:mesh", a.Mesh+"/"+a.Name+"#"+f.key, a.Namespace,
+				map[string]string{"mesh": a.Mesh, "role": f.role, "key": f.key})
 		}
 	}
-	return acc.since(mark), joinErrs(errs)
+	return nil, joinErrs(errs)
 }
 
 func keyNames(a MeshAnchor) []string {
@@ -303,13 +291,48 @@ func newCAAccumulator() *caAccumulator {
 	return &caAccumulator{byKey: map[string]*Item{}}
 }
 
-func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, extra map[string]string) {
+// addBundle records every certificate in one PEM blob. The blob is a chain as
+// often as not, and each member needs its own row and its own name — two rows
+// called the same thing with different dates is not a report anybody can act
+// on, and iCal collapses them outright when the dates agree.
+func (a *caAccumulator) addBundle(certs []*x509.Certificate, src, owner, namespace string, extra map[string]string) {
+	for _, c := range certs {
+		name := owner
+		if len(certs) > 1 {
+			name = owner + "#" + distinguish(c)
+		}
+		a.add(c, src, name, owner, namespace, extra)
+	}
+}
+
+// distinguish names one member of a chain. The subject is what an operator
+// recognises; the serial is the fallback for a CA that left it empty.
+func distinguish(c *x509.Certificate) string {
+	if cn := c.Subject.CommonName; cn != "" {
+		return cn
+	}
+	return c.SerialNumber.String()
+}
+
+func (a *caAccumulator) add(c *x509.Certificate, src, name, owner, namespace string, extra map[string]string) {
 	sum := sha256.Sum256(c.Raw)
 	key := hex.EncodeToString(sum[:])
 	if existing, ok := a.byKey[key]; ok {
-		// Already reported; record that this object relies on it too.
+		// Already reported — but by a collector that may have known less about
+		// it. On a stock Istio cluster the sidecar-injector webhook pins the
+		// same root as istio-system/cacerts, and webhooks runs first, so
+		// without this the item keeps an empty namespace and none of the
+		// mesh/role/key labels the mesh collector would have given it.
 		used := appendUnique(splitList(existing.Labels["used-by"]), owner)
 		existing.Labels["used-by"] = strings.Join(used, ",")
+		if existing.Namespace == "" {
+			existing.Namespace = namespace
+		}
+		for k, v := range extra {
+			if existing.Labels[k] == "" {
+				existing.Labels = label(existing.Labels, k, v)
+			}
+		}
 		return
 	}
 
@@ -327,7 +350,7 @@ func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, e
 
 	it := &Item{
 		Kind:      KindTrustAnchor,
-		Name:      owner,
+		Name:      name,
 		Expires:   c.NotAfter,
 		Source:    src,
 		Namespace: namespace,
@@ -337,19 +360,20 @@ func (a *caAccumulator) add(c *x509.Certificate, src, owner, namespace string, e
 	a.order = append(a.order, key)
 }
 
-// since returns the items added after mark. Each collector reports only what it
-// newly created, so a denied resource class still loses only its own findings
-// and the seam attributes every item to the class that found it — while a CA
-// two classes share is still reported once, by whichever got there first.
-func (a *caAccumulator) since(mark int) []Item {
-	out := make([]Item, 0, len(a.order)-mark)
-	for _, k := range a.order[mark:] {
+// items returns everything the three collectors found, in discovery order.
+//
+// Collect drains this once, after every class has run, rather than each class
+// returning its own slice: a class that merges into an item an earlier class
+// created would otherwise be writing to a map entry whose copy had already been
+// handed back. A denied class still loses only its own findings, because a
+// class that fails simply adds nothing here.
+func (a *caAccumulator) items() []Item {
+	out := make([]Item, 0, len(a.order))
+	for _, k := range a.order {
 		out = append(out, *a.byKey[k])
 	}
 	return out
 }
-
-func (a *caAccumulator) mark() int { return len(a.order) }
 
 func splitList(s string) []string {
 	if s == "" {

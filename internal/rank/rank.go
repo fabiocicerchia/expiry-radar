@@ -47,12 +47,13 @@ const (
 
 // Base blast radius per kind, before any label evidence.
 var baseByKind = map[source.Kind]float64{
-	// A trust anchor has no hosts, no ingress and no traffic, so unlike a leaf
-	// certificate it can never climb above its base on label evidence — 0.95 is
-	// its ceiling, not its starting point. It sits above a public production
-	// leaf (0.50 + 0.20 + 0.20) because an expired admission-webhook CA or mesh
-	// root is not one service down, it is the control plane refusing to admit
-	// and every mTLS handshake failing at once. An operator override still wins.
+	// A trust anchor sits above a public production leaf (0.50 + 0.20 + 0.20)
+	// because an expired admission-webhook CA or mesh root is not one service
+	// down: it is the control plane refusing to admit, and every mTLS handshake
+	// failing at once. It carries no hosts, no ingress class and no traffic, so
+	// the exposure, coverage and traffic evidence never applies to one — but
+	// environment inference still reads its namespace and name, so the real
+	// range is 0.65 to 1.00 and 0.95 is the middle of it, not a ceiling.
 	source.KindTrustAnchor:  0.95,
 	source.KindDomain:       0.85, // the whole estate, including mail
 	source.KindIntermediate: 0.80, // every leaf it signed, at once

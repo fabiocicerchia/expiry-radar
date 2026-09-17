@@ -58,8 +58,8 @@ type K8sSource struct {
 	SkipAPIServices bool
 	SkipMesh        bool
 
-	// MeshAnchors overrides the well-known Linkerd and Istio locations for a
-	// non-default install. Empty uses defaultMeshAnchors.
+	// MeshAnchors are read in addition to the built-in Linkerd and Istio
+	// locations, never instead of them — see anchors().
 	MeshAnchors []MeshAnchor
 
 	// now exists so the renewal check has a fixed clock in tests.
@@ -103,9 +103,17 @@ func (s *K8sSource) Collect(ctx context.Context) ([]Item, error) {
 		secretNS: map[string]bool{},
 		anchors:  newCAAccumulator(),
 	}
-	st.refs, st.ingressErr = s.ingressRefs(ctx, api)
+	// The ingress list exists only to give a secret its hosts, class and public
+	// flag, so there is nothing to fetch — and no 403 worth warning about —
+	// when secrets are not being collected at all.
+	if !s.SkipSecrets {
+		st.refs, st.ingressErr = s.ingressRefs(ctx, api)
+	}
 
 	items, _, err := collectResources(s.resources(ctx, api, st))
+	// Drained once, after every trust-anchor class has run, so a CA that two
+	// classes both pin carries what both of them knew about it.
+	items = append(items, st.anchors.items()...)
 	// Renewal evidence is applied after the fact rather than during collection:
 	// the secrets and the Certificates that manage them are separate reads, and
 	// neither should have to run first for the other to be useful.
@@ -160,7 +168,7 @@ func (s *K8sSource) resources(ctx context.Context, api *k8sAPI, st *k8sState) []
 		// hosts, class and public flag a secret is ranked by. Reporting its
 		// failure through the same channel keeps one error path instead of a
 		// special case, and losing it costs ranking evidence, not findings.
-		{"ingresses", false, func() ([]Item, error) { return nil, st.ingressErr }},
+		{"ingresses", s.SkipSecrets, func() ([]Item, error) { return nil, st.ingressErr }},
 		{"secrets", s.SkipSecrets, func() ([]Item, error) { return s.tlsSecrets(ctx, api, st) }},
 		{"certificates", s.SkipCertManager, func() ([]Item, error) { return s.certificates(ctx, api, st) }},
 		{"webhooks", s.SkipWebhooks, func() ([]Item, error) { return s.webhookCAs(ctx, api, st) }},

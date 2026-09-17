@@ -692,3 +692,118 @@ func TestATrustAnchorCarriesNoHostsForRankingToAmplify(t *testing.T) {
 		t.Errorf("hosts = %q, want none", got)
 	}
 }
+
+// On a stock Istio cluster the sidecar-injector webhook pins the same root as
+// istio-system/cacerts, and webhooks is collected first. The item must end up
+// with what the mesh collector knew, not just what the webhook did.
+func TestACAKnownToTwoCollectorsKeepsWhatBothKnew(t *testing.T) {
+	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(100*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"validatingwebhookconfigurations": webhookConfigList(t, "istio-sidecar-injector", rootPEM),
+		"secrets/cacerts":                 secretBody(t, map[string][]byte{"root-cert.pem": rootPEM}),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("one CA is one finding, got %d: %+v", len(items), items)
+	}
+	got := items[0]
+	if got.Namespace != "istio-system" {
+		t.Errorf("namespace = %q, want istio-system — grouping and namespace overrides need it", got.Namespace)
+	}
+	for k, want := range map[string]string{"mesh": "istio", "role": "trust-anchor", "key": "root-cert.pem"} {
+		if got.Labels[k] != want {
+			t.Errorf("label %s = %q, want %q", k, got.Labels[k], want)
+		}
+	}
+	if used := got.Labels["used-by"]; !strings.Contains(used, "istio-sidecar-injector") ||
+		!strings.Contains(used, "cacerts") {
+		t.Errorf("used-by = %q, want both objects", used)
+	}
+}
+
+// cert-manager reporting Ready is a claim, not a fact. If the secret it was
+// supposed to produce is gone, that claim is contradicted — and de-ranking on
+// it inverts exactly what the renewal adjustment exists to do.
+func TestADeletedSecretCannotBeCalledAHealthyRenewal(t *testing.T) {
+	now := time.Now()
+	srv := fakeK8s(map[string]string{
+		"secrets": `{"items":[]}`,
+		"certificates": certificateList(t, "prod", "shop", "shop-tls",
+			now.Add(30*24*time.Hour).Format(time.RFC3339),
+			now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL, now: func() time.Time { return now }}).
+		Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	it, ok := itemNamed(items, "prod/shop-tls")
+	if !ok {
+		t.Fatalf("want the certificate: %+v", items)
+	}
+	if it.Labels[LabelRenewal] == RenewalManaged {
+		t.Error("the secret is gone; calling that a healthy renewal takes 0.25 off the wrong item")
+	}
+	if it.Labels[LabelRenewal] != RenewalStuck {
+		t.Errorf("renewal = %q, want %q — failing to produce the secret is the failure",
+			it.Labels[LabelRenewal], RenewalStuck)
+	}
+}
+
+func TestEachCertificateInACABundleGetsItsOwnName(t *testing.T) {
+	rootPEM, _ := selfSignedPEM(t, "bundle-root", time.Now().Add(300*24*time.Hour))
+	intPEM, _ := selfSignedPEM(t, "bundle-intermediate", time.Now().Add(20*24*time.Hour))
+
+	srv := fakeK8s(map[string]string{
+		"validatingwebhookconfigurations": webhookConfigList(t, "wc", append(rootPEM, intPEM...)),
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&K8sSource{Server: srv.URL}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("a chain bundle is two findings, got %d: %+v", len(items), items)
+	}
+	if items[0].Name == items[1].Name {
+		t.Fatalf("two rows on different dates share the display name %q", items[0].Name)
+	}
+	joined := items[0].Name + " " + items[1].Name
+	for _, want := range []string{"bundle-root", "bundle-intermediate"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("names should identify the member, got %q", joined)
+		}
+	}
+}
+
+// The ingress list only supplies ranking context for secrets. Fetching it with
+// secrets skipped is a wasted call and, worse, a 403 warning the operator has
+// no way to silence — which is the whole point of the skip flags.
+func TestSkippingSecretsAlsoSkipsTheIngressList(t *testing.T) {
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Path)
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	_, err := (&K8sSource{Server: srv.URL, SkipSecrets: true, SkipCertManager: true,
+		SkipWebhooks: true, SkipAPIServices: true, SkipMesh: true}).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("everything is skipped, so there is nothing to fail: %v", err)
+	}
+	for _, p := range seen {
+		if strings.Contains(p, "ingresses") {
+			t.Errorf("fetched %s with secrets skipped", p)
+		}
+	}
+}

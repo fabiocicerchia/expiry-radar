@@ -309,3 +309,22 @@ func TestAStuckRenewalKeepsItsFullBlastRadius(t *testing.T) {
 			got[0].BlastRadius, got[1].BlastRadius)
 	}
 }
+
+// 0.95 is the middle of a trust anchor's range, not its ceiling: exposure,
+// coverage and traffic never apply to one, but environment inference reads its
+// namespace and name like anything else.
+func TestATrustAnchorIsStillMovedByEnvironment(t *testing.T) {
+	prod := item(source.KindTrustAnchor, "prod/admission-ca", 20, nil)
+	staging := item(source.KindTrustAnchor, "staging/admission-ca", 20, nil)
+
+	got := Rank([]source.Item{staging, prod}, nil, now)
+	if got[0].Item.Name != "prod/admission-ca" {
+		t.Fatalf("production should lead; got %s", got[0].Item.Name)
+	}
+	if got[0].BlastRadius <= 0.95 {
+		t.Errorf("a production anchor should exceed the base, got %v", got[0].BlastRadius)
+	}
+	if got[1].BlastRadius >= 0.95 {
+		t.Errorf("a staging anchor should fall below the base, got %v", got[1].BlastRadius)
+	}
+}
