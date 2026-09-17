@@ -33,10 +33,25 @@ not justify that dependency tree. For laptop use, run `kubectl proxy` and point
 Each resource class is collected independently, so one denied permission costs
 that class and nothing else: a cluster that will not show you
 `validatingwebhookconfigurations` still reports its TLS secrets, and one
-forbidden namespace does not lose the others. Each class also has its own skip
-(`skipSecrets`, `skipCertManager`, `skipWebhooks`, `skipAPIServices`,
-`skipMesh`), and a skipped class is not the same as a denied one or an empty
-one — the run stays quiet about a permission you have decided not to grant.
+forbidden namespace does not lose the others. A skipped class is not the same as
+a denied one or an empty one — the run stays quiet about a permission you have
+decided not to grant.
+
+**Everything beyond the TLS secrets is opt-in**, because each of these needs a
+permission earlier releases never asked for, and turning them on by default
+would take a run that exited 0 and make it exit 3 on upgrade:
+
+| Config | Turns on | Needs |
+| --- | --- | --- |
+| *(default)* | TLS secrets and the ingresses that give them context | `list` on secrets and ingresses — what this source always needed |
+| `certManager: true` | cert-manager `Certificate` CRs | `list` on `cert-manager.io` |
+| `trustAnchors: true` | webhook and `APIService` CA bundles, mesh trust roots | a ClusterRole; all three are cluster-scoped |
+| `meshSigningSecrets: true` | the mesh objects that hold the signing key too | `get` on Secrets containing **CA private keys** — see [`rbac-readonly.yaml`](rbac-readonly.yaml) |
+
+`skipSecrets: true` turns the default collector off. `meshSigningSecrets`
+without `trustAnchors` is rejected at load rather than quietly collecting
+nothing: granting read access to private keys and getting no findings for it is
+the worst of both.
 
 ### Trust anchors
 
@@ -59,11 +74,23 @@ name, since two rows on different dates cannot share one. A webhook with an empt
 `caBundle` (CA injection) and an `APIService` served locally by the API server
 have nothing to expire and are skipped.
 
-Mesh anchors are fetched by name, and each key is reported separately with its
-own role, because they are separate certificates on separate clocks: Istio's
-`cacerts` holds the root under `root-cert.pem` and the intermediate under
-`ca-cert.pem`, and Linkerd's issuer (a year by default, twenty-four hours under
-cert-manager) is not its trust root (years). An anchor object that is absent
+Mesh anchors are fetched by name. **The defaults are ConfigMaps only** —
+Linkerd's `linkerd-identity-trust-roots` and Istio's `istio-ca-root-cert` — and
+that is deliberate: a ConfigMap holds the certificate and nothing else, so
+reading one cannot expose a key. Istio distributes `istio-ca-root-cert` to every
+namespace and it carries the same root as `istio-ca-secret`, without the private
+key beside it.
+
+`meshSigningSecrets: true` adds `linkerd-identity-issuer`, `cacerts` and
+`istio-ca-secret`, each of which returns a CA private key along with the
+certificate. What it buys is worth stating: the Linkerd issuer lapses in a year
+by default and in twenty-four hours under cert-manager, which makes it the mesh
+certificate most likely to expire unnoticed, and no ConfigMap exposes it. What
+it costs is on the tin — read [`rbac-readonly.yaml`](rbac-readonly.yaml) first.
+
+Each key is reported separately with its own role, because they are separate
+certificates on separate clocks: Istio's `cacerts` holds the root under
+`root-cert.pem` and the intermediate under `ca-cert.pem`. An anchor object that is absent
 means the mesh is not installed and is passed over in silence; one that is
 present with none of its keys is a configured anchor going unwatched, and says
 so. Anything listed under `meshAnchors` is read **in addition to** the built-in

@@ -15,9 +15,9 @@
     "namespaces": ["prod", "payments"],
     "caFile": "",
     "insecure": false,
-    "skipWebhooks": true,
-    "skipAPIServices": true,
-    "skipMesh": true
+    "certManager": true,
+    "trustAnchors": false,
+    "meshSigningSecrets": false
   },
   "vault": {
     "enabled": false,

@@ -3,8 +3,9 @@
 # The namespaced Role below is the whole of what the TLS-secret and cert-manager
 # collectors need. The trust-anchor collectors read cluster-scoped objects and
 # therefore need the ClusterRole at the bottom; if you do not want to grant it,
-# set `skipWebhooks`, `skipAPIServices` and `skipMesh` in the config rather than
-# leaving the run to warn about a permission nobody intends to give.
+# it is not needed unless you set `trustAnchors: true`, which is off by default
+# precisely so that an upgrade does not start warning about a permission nobody
+# intends to give.
 #
 # secretsmanager-style caveat: `list` on secrets returns their contents, so this
 # ServiceAccount can read every TLS private key in the namespaces it covers.
@@ -83,11 +84,11 @@ roleRef:
 #   - apiGroups: ["apiregistration.k8s.io"]
 #     resources: ["apiservices"]
 #     verbs: ["list"]
-#   # The Linkerd trust root. A ConfigMap, so it holds the root certificate
-#   # and nothing else — as safe as the rules above.
+#   # The mesh trust roots. ConfigMaps, so they hold the root certificate and
+#   # nothing else — as safe as the rules above.
 #   - apiGroups: [""]
 #     resources: ["configmaps"]
-#     resourceNames: ["linkerd-identity-trust-roots"]
+#     resourceNames: ["linkerd-identity-trust-roots", "istio-ca-root-cert"]
 #     verbs: ["get"]
 ---
 # THE MESH SIGNING SECRETS — read this before granting it.
@@ -112,9 +113,10 @@ roleRef:
 # likely to expire unnoticed, and the Istio entries are the only way to see that
 # mesh's CAs at all.
 #
-# Known limitation as of today: `skipMesh` is all-or-nothing, so declining this
-# grant and silencing the resulting 403s also gives up the Linkerd trust root
-# above. Splitting the two is tracked as follow-up work.
+# Declining it costs only the issuer: the trust roots above are read from
+# ConfigMaps under `trustAnchors` and do not need this grant. Pair it with
+# `meshSigningSecrets: true` in the config; without that the objects are never
+# requested at all.
 # apiVersion: rbac.authorization.k8s.io/v1
 # kind: ClusterRole
 # metadata:
