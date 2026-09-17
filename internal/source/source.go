@@ -20,6 +20,12 @@ const (
 	KindIAMKey       Kind = "iam_access_key"
 	KindVaultLease   Kind = "vault_lease"
 	KindDomain       Kind = "domain"
+	// KindTrustAnchor is what everything else validates against: an admission
+	// webhook CA, a service-mesh root, a federation signing certificate. It is
+	// not an intermediate — nothing behind it fails gracefully. When one lapses
+	// the control plane stops admitting, or every mTLS handshake in the cluster
+	// stops, at once.
+	KindTrustAnchor Kind = "trust_anchor"
 )
 
 // Item is one expiring thing, normalised across sources.
@@ -43,6 +49,21 @@ const (
 	LabelIssuer       = "issuer"
 	LabelSerial       = "serial"
 	LabelBlastRadius  = "expiry-radar/blast-radius"
+	// LabelInUse is "false" when the provider says nothing references this.
+	LabelInUse = "in-use"
+	// LabelEnvironment names the environment when the provider knows it, rather
+	// than leaving ranking to infer one from the namespace and name.
+	LabelEnvironment = "environment"
+	// LabelRenewal says whether something else is already renewing this:
+	// RenewalManaged when automation is demonstrably healthy, RenewalStuck when
+	// it exists and is failing. Absent means nobody is renewing it but a person.
+	LabelRenewal = "renewal"
+)
+
+// Values for LabelRenewal.
+const (
+	RenewalManaged = "managed"
+	RenewalStuck   = "stuck"
 )
 
 // Source is a read-only inventory provider.

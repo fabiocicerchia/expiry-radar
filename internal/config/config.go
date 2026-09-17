@@ -38,6 +38,18 @@ type K8s struct {
 	CAFile     string   `json:"caFile"`
 	Namespaces []string `json:"namespaces"`
 	Insecure   bool     `json:"insecure"`
+	// The skips say which resource classes not to read at all. Webhook,
+	// APIService and mesh anchors are cluster-scoped: an operator who set
+	// Namespaces has a plain Role and will be denied them, so these exist to
+	// turn a recurring warning about a permission nobody intends to grant back
+	// into silence.
+	SkipSecrets     bool `json:"skipSecrets"`
+	SkipCertManager bool `json:"skipCertManager"`
+	SkipWebhooks    bool `json:"skipWebhooks"`
+	SkipAPIServices bool `json:"skipAPIServices"`
+	SkipMesh        bool `json:"skipMesh"`
+	// MeshAnchors overrides the well-known Linkerd and Istio locations.
+	MeshAnchors []source.MeshAnchor `json:"meshAnchors"`
 }
 
 // Vault points the Vault source at a server and the PKI mounts to read.
@@ -122,10 +134,16 @@ func (f *File) Sources() []source.Source {
 	}
 	if f.K8s != nil && f.K8s.Enabled {
 		out = append(out, &source.K8sSource{
-			Server:     f.K8s.Server,
-			CAFile:     f.K8s.CAFile,
-			Namespaces: f.K8s.Namespaces,
-			Insecure:   f.K8s.Insecure,
+			Server:          f.K8s.Server,
+			CAFile:          f.K8s.CAFile,
+			Namespaces:      f.K8s.Namespaces,
+			Insecure:        f.K8s.Insecure,
+			SkipSecrets:     f.K8s.SkipSecrets,
+			SkipCertManager: f.K8s.SkipCertManager,
+			SkipWebhooks:    f.K8s.SkipWebhooks,
+			SkipAPIServices: f.K8s.SkipAPIServices,
+			SkipMesh:        f.K8s.SkipMesh,
+			MeshAnchors:     f.K8s.MeshAnchors,
 		})
 	}
 	if f.Vault != nil && f.Vault.Enabled {
