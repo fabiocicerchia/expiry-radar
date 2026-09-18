@@ -47,6 +47,14 @@ const (
 
 // Base blast radius per kind, before any label evidence.
 var baseByKind = map[source.Kind]float64{
+	// A trust anchor sits above a public production leaf (0.50 + 0.20 + 0.20)
+	// because an expired admission-webhook CA or mesh root is not one service
+	// down: it is the control plane refusing to admit, and every mTLS handshake
+	// failing at once. It carries no hosts, no ingress class and no traffic, so
+	// the exposure, coverage and traffic evidence never applies to one — but
+	// environment inference still reads its namespace and name, so the real
+	// range is 0.65 to 1.00 and 0.95 is the middle of it, not a ceiling.
+	source.KindTrustAnchor:  0.95,
 	source.KindDomain:       0.85, // the whole estate, including mail
 	source.KindIntermediate: 0.80, // every leaf it signed, at once
 	source.KindTLSCert:      0.50,
@@ -131,9 +139,11 @@ func blastRadius(it source.Item, overrides []Override) (float64, string) {
 
 	b.addTraffic(it)
 
-	if it.Labels["in-use"] == "false" {
+	if it.Labels[source.LabelInUse] == "false" {
 		b.adjust(-0.35, "not in use")
 	}
+
+	b.addRenewal(it)
 
 	return clamp01(b.score), b.why(it.Kind)
 }
@@ -157,6 +167,21 @@ func (b *blastScore) addTraffic(it source.Item) {
 	// log10-scaled and capped: 10 rps adds 0.1, 1k rps adds 0.3, and past that
 	// "very busy" is the same answer.
 	b.adjust(math.Min(0.30, math.Log10(rps)*0.10), "traffic "+trimFloat(rps)+" rps")
+}
+
+// A deadline something else is already meeting is not the same deadline. Where
+// a source can see that renewal is automated and healthy — a cert-manager
+// Certificate that is Ready with its renewal still ahead of it — the date on
+// the certificate is a date nobody has to act on, and it should stop crowding
+// out the ones that do. The saving is deliberately one-sided: automation that
+// is failing gets no penalty and no bonus, so a stuck renewal floats up by
+// everything around it moving down rather than by guessing how likely it is to
+// break. Same shape as "not in use": evidence about whether the deadline is
+// real, not about how much it would hurt.
+func (b *blastScore) addRenewal(it source.Item) {
+	if it.Labels[source.LabelRenewal] == source.RenewalManaged {
+		b.adjust(-0.25, "renewal is automated and healthy")
+	}
 }
 
 // blastScore accumulates a blast radius and the evidence that moved it. The
@@ -236,7 +261,7 @@ const (
 // right far more often than it is wrong. Non-production wins ties: mistaking
 // prod for staging is an outage, the other way round is a wasted alert.
 func environment(it source.Item) env {
-	haystack := strings.ToLower(it.Namespace + " " + it.Name + " " + it.Labels["environment"] + " " + it.Labels["env"])
+	haystack := strings.ToLower(it.Namespace + " " + it.Name + " " + it.Labels[source.LabelEnvironment] + " " + it.Labels["env"])
 	for _, s := range []string{"staging", "sandbox", "preprod", "pre-prod", "qa", "uat", "canary", "dev", "test", "demo"} {
 		if containsToken(haystack, s) {
 			return envNonProd

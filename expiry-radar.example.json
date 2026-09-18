@@ -14,7 +14,10 @@
     "server": "",
     "namespaces": ["prod", "payments"],
     "caFile": "",
-    "insecure": false
+    "insecure": false,
+    "certManager": true,
+    "trustAnchors": false,
+    "meshSigningSecrets": false
   },
   "vault": {
     "enabled": false,

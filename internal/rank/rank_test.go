@@ -250,3 +250,81 @@ func TestScoresStayInRangeAtBothExtremes(t *testing.T) {
 		}
 	}
 }
+
+// An expired admission-webhook CA stops the API server admitting anything, and
+// an expired mesh root stops every mTLS handshake at once. Neither degrades the
+// way a leaf certificate does, so neither may rank like one.
+func TestATrustAnchorOutranksALeafAtTheSameDeadline(t *testing.T) {
+	items := []source.Item{
+		item(source.KindTLSCert, "prod/shop-tls", 20, map[string]string{source.LabelPublic: "true"}),
+		item(source.KindTrustAnchor, "validatingwebhookconfiguration/cert-manager", 20, nil),
+	}
+	got := Rank(items, nil, now)
+
+	if got[0].Item.Kind != source.KindTrustAnchor {
+		t.Fatalf("the trust anchor must come first at the same deadline; got %s", got[0].Item.Name)
+	}
+	if got[0].BlastRadius <= got[1].BlastRadius {
+		t.Errorf("blast radius did not separate them: %v vs %v", got[0].BlastRadius, got[1].BlastRadius)
+	}
+}
+
+// A deadline something else is already meeting is not the same deadline. The
+// point of reading cert-manager is that the certificates it is demonstrably
+// renewing stop crowding out the ones nobody is renewing.
+func TestAHealthilyRenewedCertificateRanksBelowAnUnmanagedOne(t *testing.T) {
+	labels := func(extra map[string]string) map[string]string {
+		m := map[string]string{source.LabelPublic: "true"}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+	items := []source.Item{
+		item(source.KindTLSCert, "prod/managed", 20,
+			labels(map[string]string{source.LabelRenewal: source.RenewalManaged})),
+		item(source.KindTLSCert, "prod/by-hand", 20, labels(nil)),
+	}
+	got := Rank(items, nil, now)
+
+	if got[0].Item.Name != "prod/by-hand" {
+		t.Fatalf("the certificate nobody is renewing must come first; got %s", got[0].Item.Name)
+	}
+	if !strings.Contains(got[1].Why, "renewal") {
+		t.Errorf("the de-rank must explain itself, got %q", got[1].Why)
+	}
+}
+
+// Automation that is failing gets no penalty and no bonus: a stuck renewal
+// floats up because everything around it moved down, not because we guessed at
+// how likely it is to break.
+func TestAStuckRenewalKeepsItsFullBlastRadius(t *testing.T) {
+	stuck := item(source.KindTLSCert, "prod/stuck", 20,
+		map[string]string{source.LabelPublic: "true", source.LabelRenewal: source.RenewalStuck})
+	plain := item(source.KindTLSCert, "prod/by-hand", 20, map[string]string{source.LabelPublic: "true"})
+
+	got := Rank([]source.Item{stuck, plain}, nil, now)
+	if got[0].BlastRadius != got[1].BlastRadius {
+		t.Errorf("a stuck renewal must score exactly as an unmanaged one: %v vs %v",
+			got[0].BlastRadius, got[1].BlastRadius)
+	}
+}
+
+// 0.95 is the middle of a trust anchor's range, not its ceiling: exposure,
+// coverage and traffic never apply to one, but environment inference reads its
+// namespace and name like anything else.
+func TestATrustAnchorIsStillMovedByEnvironment(t *testing.T) {
+	prod := item(source.KindTrustAnchor, "prod/admission-ca", 20, nil)
+	staging := item(source.KindTrustAnchor, "staging/admission-ca", 20, nil)
+
+	got := Rank([]source.Item{staging, prod}, nil, now)
+	if got[0].Item.Name != "prod/admission-ca" {
+		t.Fatalf("production should lead; got %s", got[0].Item.Name)
+	}
+	if got[0].BlastRadius <= 0.95 {
+		t.Errorf("a production anchor should exceed the base, got %v", got[0].BlastRadius)
+	}
+	if got[1].BlastRadius >= 0.95 {
+		t.Errorf("a staging anchor should fall below the base, got %v", got[1].BlastRadius)
+	}
+}

@@ -38,6 +38,21 @@ type K8s struct {
 	CAFile     string   `json:"caFile"`
 	Namespaces []string `json:"namespaces"`
 	Insecure   bool     `json:"insecure"`
+	// SkipSecrets turns off the TLS-secret collector, which is what this source
+	// has always read and what an existing deployment already has permission
+	// for.
+	SkipSecrets bool `json:"skipSecrets"`
+	// The rest are opt-in: each needs a permission the previous release did not
+	// ask for, and turning them on by default would take a run that exited 0
+	// and make it exit 3 on upgrade.
+	CertManager  bool `json:"certManager"`  // list on cert-manager.io
+	TrustAnchors bool `json:"trustAnchors"` // ClusterRole: webhooks, apiservices, mesh roots
+	// MeshSigningSecrets also reads Secrets holding cluster-wide mTLS CA
+	// private keys. Read docs/rbac-readonly.yaml before setting it.
+	MeshSigningSecrets bool `json:"meshSigningSecrets"`
+	// MeshAnchors are read in addition to the built-in Linkerd and Istio
+	// locations, not instead of them.
+	MeshAnchors []source.MeshAnchor `json:"meshAnchors"`
 }
 
 // Vault points the Vault source at a server and the PKI mounts to read.
@@ -89,6 +104,28 @@ func Load(path string) (*File, error) {
 	if err := source.ValidateManual(f.Manual); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	// And again for the same reason: a mesh anchor with a misspelt kind falls
+	// through to the Secret branch and 404s into silence, so an unvalidated one
+	// fails by quietly watching nothing.
+	if f.K8s != nil {
+		if err := source.ValidateMeshAnchors(f.K8s.MeshAnchors); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+		// Rejected rather than ignored: meshSigningSecrets on its own collects
+		// nothing, because the mesh collector it feeds is behind trustAnchors.
+		// Granting read access to CA private keys and silently getting no
+		// findings for it is the worst of both.
+		// Same rule, same reason: the mesh collector these feed is behind
+		// trustAnchors, so without it the anchors are configured and never read.
+		if len(f.K8s.MeshAnchors) > 0 && !f.K8s.TrustAnchors {
+			return nil, fmt.Errorf(
+				"%s: k8s.meshAnchors needs k8s.trustAnchors, or the anchors are never read", path)
+		}
+		if f.K8s.MeshSigningSecrets && !f.K8s.TrustAnchors {
+			return nil, fmt.Errorf(
+				"%s: k8s.meshSigningSecrets needs k8s.trustAnchors, or it reads private keys for nothing", path)
+		}
+	}
 	// The environment is read here, once, and validated with the rest of the
 	// config: a Vault source that cannot authenticate should fail while the
 	// operator is still looking at the command, not on the first collect.
@@ -122,10 +159,15 @@ func (f *File) Sources() []source.Source {
 	}
 	if f.K8s != nil && f.K8s.Enabled {
 		out = append(out, &source.K8sSource{
-			Server:     f.K8s.Server,
-			CAFile:     f.K8s.CAFile,
-			Namespaces: f.K8s.Namespaces,
-			Insecure:   f.K8s.Insecure,
+			Server:             f.K8s.Server,
+			CAFile:             f.K8s.CAFile,
+			Namespaces:         f.K8s.Namespaces,
+			Insecure:           f.K8s.Insecure,
+			SkipSecrets:        f.K8s.SkipSecrets,
+			CertManager:        f.K8s.CertManager,
+			TrustAnchors:       f.K8s.TrustAnchors,
+			MeshSigningSecrets: f.K8s.MeshSigningSecrets,
+			MeshAnchors:        f.K8s.MeshAnchors,
 		})
 	}
 	if f.Vault != nil && f.Vault.Enabled {

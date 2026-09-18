@@ -20,8 +20,11 @@ class and namespace, and overridable.
 ## Features
 
 - One inventory of everything that expires — TLS certificates, intermediate
-  CAs, secrets, IAM keys, Vault leases and domains — instead of one script per
-  kind.
+  CAs, secrets, IAM keys, Vault leases, domains and cluster trust anchors —
+  instead of one script per kind.
+- Covers the ones nobody watches: admission webhook and aggregation-layer CA
+  bundles, service mesh trust anchors, and whether cert-manager is actually
+  renewing what it claims to.
 - **Ranked by blast radius**, inferred from traffic, ingress class and
   namespace, so the cert on the payment path outranks the one on a staging
   dashboard. Overridable where the inference is wrong.

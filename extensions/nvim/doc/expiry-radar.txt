@@ -298,7 +298,8 @@ That is what `manual` is for: >json
 <
 `expires` takes YYYY-MM-DD or a full RFC 3339 timestamp; a bare day means its
 start in UTC, which errs towards warning early. `kind` is one of `tls_cert`,
-`intermediate_ca`, `secret`, `iam_access_key`, `vault_lease`, `domain`, and it
+`intermediate_ca`, `secret`, `iam_access_key`, `vault_lease`, `domain`,
+`trust_anchor`, and it
 picks the base blast radius rather than being a label — a misspelt one is
 rejected at load rather than ranked on a middling default.
 

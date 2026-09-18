@@ -14,6 +14,7 @@ var Kinds = []Kind{
 	KindIAMKey,
 	KindVaultLease,
 	KindDomain,
+	KindTrustAnchor,
 }
 
 // ManualItem is something that expires that no source can discover: a domain at

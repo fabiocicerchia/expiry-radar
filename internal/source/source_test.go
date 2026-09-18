@@ -225,12 +225,12 @@ func TestK8sSourceTakesExpiryFromTheSecretAndContextFromTheIngress(t *testing.T)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case strings.Contains(r.URL.Path, "ingresses"):
+		case strings.HasSuffix(r.URL.Path, "/ingresses"):
 			_, _ = w.Write([]byte(`{"items":[{
 				"metadata":{"name":"shop","namespace":"prod"},
 				"spec":{"ingressClassName":"nginx-public","tls":[{"hosts":["shop.example.com"],"secretName":"shop-tls"}]}
 			}]}`))
-		case strings.Contains(r.URL.Path, "secrets"):
+		case strings.HasSuffix(r.URL.Path, "/secrets"):
 			body, _ := json.Marshal(map[string]any{"items": []map[string]any{{
 				"metadata": map[string]string{"name": "shop-tls", "namespace": "prod"},
 				"type":     "kubernetes.io/tls",
