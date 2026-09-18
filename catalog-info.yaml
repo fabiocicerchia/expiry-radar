@@ -1,0 +1,23 @@
+# Backstage catalog entry, read by paved's scorecard plugin.
+#
+# Every check paved scores is derived from this file alone — no cluster
+# access, no CI credentials. What is absent here is absent from the score.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: expiry-radar
+  description: >-
+      One inventory of everything that expires — TLS certs, intermediate CAs, secrets, IAM keys, domains —
+      ranked by blast radius, so the cert on the payment path outranks the one on a staging dashboard.
+  annotations:
+    github.com/project-slug: fabiocicerchia/expiry-radar
+    backstage.io/source-location: url:https://github.com/fabiocicerchia/expiry-radar/
+    backstage.io/techdocs-ref: dir:.
+  links:
+    - url: https://github.com/fabiocicerchia/expiry-radar
+      title: Source
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/kodebeat
+  system: oss-tools
