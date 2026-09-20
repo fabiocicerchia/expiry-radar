@@ -38,6 +38,35 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 		{"manual item with no date", `{"manual": [{"name": "a", "kind": "domain"}]}`, "no expires date"},
 		{"manual item with an unknown kind", `{"manual": [{"name": "a", "kind": "cert", "expires": "2027-03-01"}]}`,
 			"unknown kind"},
+		// A mesh anchor with a misspelt kind falls through to the Secret branch
+		// and 404s into silence, so it watches nothing and says nothing.
+		{"mesh anchor with a bad kind",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "linkerd", "kind": "configmap",` +
+				` "namespace": "linkerd", "name": "roots", "keys": [{"key": "ca.crt", "role": "issuer"}]}]}}`,
+			`want "secrets" or "configmaps"`},
+		{"mesh anchor with no keys",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
+				` "namespace": "istio-system", "name": "cacerts", "keys": []}]}}`,
+			"at least one key"},
+		// Collect hard-fails without these, so the failure belongs at load
+		// (exit 2) rather than at collect time (exit 3).
+		{"namecheap without apiUser",
+			`{"namecheap": {"enabled": true, "userName": "u", "clientIp": "1.2.3.4"}}`,
+			"apiUser and namecheap.userName are both required"},
+		// Anchors the mesh collector will never be asked to read.
+		{"mesh anchors without trust anchors",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "m", "kind": "secrets",` +
+				` "namespace": "n", "name": "o", "keys": [{"key": "k", "role": "issuer"}]}]}}`,
+			"needs k8s.trustAnchors"},
+		// Granting read access to CA private keys and getting no findings for
+		// it is the worst of both.
+		{"mesh signing secrets without trust anchors",
+			`{"k8s": {"enabled": true, "meshSigningSecrets": true}}`,
+			"needs k8s.trustAnchors"},
+		{"mesh anchor key with an unknown role",
+			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
+				` "namespace": "istio-system", "name": "cacerts", "keys": [{"key": "ca.pem", "role": "root"}]}]}}`,
+			`want "trust-anchor" or "issuer"`},
 		{"manual item with an unreadable date", `{"manual": [{"name": "a", "kind": "domain", "expires": "next march"}]}`,
 			"neither"},
 	} {
@@ -170,5 +199,111 @@ func TestManualItemsAreRankedLikeAnythingElse(t *testing.T) {
 	}
 	if scored[1].Why != "override sandbox*" {
 		t.Errorf("the override should be the stated reason, got %q", scored[1].Why)
+	}
+}
+
+// Naming one extra anchor must not silently stop Linkerd and Istio being
+// watched — the same reason -endpoints and -domains add to the config rather
+// than replacing it.
+func TestConfiguredMeshAnchorsDoNotDisableTheBuiltInOnes(t *testing.T) {
+	p := write(t, `{"k8s": {"enabled": true, "trustAnchors": true, "meshAnchors": [
+		{"mesh": "custom", "kind": "secrets", "namespace": "mesh", "name": "our-ca",
+		 "keys": [{"key": "ca.pem", "role": "trust-anchor"}]}]}}`)
+	f, err := Load(p)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	srcs := f.Sources()
+	if len(srcs) != 1 {
+		t.Fatalf("want the k8s source, got %d", len(srcs))
+	}
+	k8s, ok := srcs[0].(*source.K8sSource)
+	if !ok {
+		t.Fatalf("want a *source.K8sSource, got %T", srcs[0])
+	}
+
+	var meshes []string
+	for _, a := range k8s.Anchors() {
+		meshes = append(meshes, a.Mesh)
+	}
+	joined := strings.Join(meshes, ",")
+	for _, want := range []string{"linkerd", "istio", "custom"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("%q is not watched; anchors are %s", want, joined)
+		}
+	}
+}
+
+// Every provider the config knows about must actually be constructed. A source
+// that parses but is never built is the quietest possible failure.
+func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
+	for _, env := range []string{
+		"CLOUDFLARE_API_TOKEN", "GITLAB_TOKEN", "GITHUB_TOKEN", "DIGITALOCEAN_TOKEN",
+		"SCW_SECRET_KEY", "NAMECHEAP_API_KEY", "ANTHROPIC_ADMIN_KEY", "OPENAI_ADMIN_KEY",
+		"DOCKERHUB_TOKEN", "VAULT_TOKEN", "VAULT_ADDR",
+		"AZURE_CLIENT_SECRET", "OKTA_API_TOKEN", "FASTLY_API_TOKEN", "HCLOUD_TOKEN",
+		"HARBOR_PASSWORD", "JFROG_ACCESS_TOKEN",
+		"DNSIMPLE_TOKEN", "GANDI_API_KEY", "PORKBUN_API_KEY", "PORKBUN_SECRET_KEY",
+		"GODADDY_API_KEY", "GODADDY_API_SECRET",
+	} {
+		t.Setenv(env, "test-value")
+	}
+
+	p := write(t, `{
+		"endpoints": [{"host": "a.example.com"}],
+		"domains": ["example.com"],
+		"manual": [{"name": "m", "kind": "domain", "expires": "2030-01-01"}],
+		"k8s": {"enabled": true, "server": "http://127.0.0.1:8001"},
+		"vault": {"enabled": true, "pkiMounts": ["pki"]},
+		"aws": {"enabled": true, "region": "eu-west-1"},
+		"cloudflare": {"enabled": true, "accountId": "acct"},
+		"gitlab": {"enabled": true, "projects": ["acme/x"]},
+		"github": {"enabled": true, "orgs": ["acme"]},
+		"gcp": {"enabled": true, "projects": ["acme-prod"]},
+		"azure": {"enabled": true, "tenantId": "t", "clientId": "c"},
+		"okta": {"enabled": true, "orgUrl": "https://acme.okta.com"},
+		"fastly": {"enabled": true},
+		"apple": {"enabled": true, "issuerId": "i", "keyId": "k", "privateKeyFile": "/dev/null"},
+		"hetzner": {"enabled": true},
+		"harbor": {"enabled": true, "baseUrl": "https://registry.example.com", "username": "admin"},
+		"jfrog": {"enabled": true, "baseUrl": "https://acme.jfrog.io"},
+		"federation": [{"name": "corp", "url": "https://idp.example/metadata"}],
+		"digitalocean": {"enabled": true},
+		"scaleway": {"enabled": true, "organizationId": "org"},
+		"namecheap": {"enabled": true, "apiUser": "u", "userName": "u", "clientIp": "1.2.3.4"},
+		"registrars": [
+			{"name": "dnsimple", "account": "1"},
+			{"name": "gandi"},
+			{"name": "porkbun"},
+			{"name": "godaddy"}
+		],
+		"rotation": [
+			{"name": "anthropic", "maxKeyAgeDays": 90},
+			{"name": "openai", "maxKeyAgeDays": 90},
+			{"name": "dockerhub", "maxKeyAgeDays": 180}
+		]
+	}`)
+	f, err := Load(p)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, s := range f.Sources() {
+		got[s.Name()] = true
+	}
+	want := []string{
+		"tls:endpoint", "domain:rdap", "manual", "k8s", "vault", "aws",
+		"cloudflare", "gitlab", "github", "gcp", "digitalocean", "scaleway",
+		"namecheap", "rotation", "azure", "okta", "federation",
+		"fastly", "hetzner", "harbor", "jfrog", "registrar", "apple",
+	}
+	for _, w := range want {
+		if !got[w] {
+			t.Errorf("%s is configured but never constructed", w)
+		}
+	}
+	if len(f.Sources()) != len(want) {
+		t.Errorf("built %d sources, expected %d: %v", len(f.Sources()), len(want), got)
 	}
 }

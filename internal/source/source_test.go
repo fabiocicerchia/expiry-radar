@@ -221,16 +221,16 @@ func whoisStub(t *testing.T, replies map[string]string) string {
 }
 
 func TestK8sSourceTakesExpiryFromTheSecretAndContextFromTheIngress(t *testing.T) {
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case strings.Contains(r.URL.Path, "ingresses"):
+		case strings.HasSuffix(r.URL.Path, "/ingresses"):
 			_, _ = w.Write([]byte(`{"items":[{
 				"metadata":{"name":"shop","namespace":"prod"},
 				"spec":{"ingressClassName":"nginx-public","tls":[{"hosts":["shop.example.com"],"secretName":"shop-tls"}]}
 			}]}`))
-		case strings.Contains(r.URL.Path, "secrets"):
+		case strings.HasSuffix(r.URL.Path, "/secrets"):
 			body, _ := json.Marshal(map[string]any{"items": []map[string]any{{
 				"metadata": map[string]string{"name": "shop-tls", "namespace": "prod"},
 				"type":     "kubernetes.io/tls",
@@ -319,8 +319,8 @@ func tlsConfigFor(t *testing.T, cert *x509.Certificate, key ed25519.PrivateKey) 
 	return &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{cert.Raw}, PrivateKey: key}}}
 }
 
-func selfSignedPEM(t *testing.T, cn string, notAfter time.Time) ([]byte, ed25519.PrivateKey) {
+func selfSignedPEM(t *testing.T, cn string, notAfter time.Time) []byte {
 	t.Helper()
-	cert, key := selfSigned(t, cn, notAfter)
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), key
+	cert, _ := selfSigned(t, cn, notAfter)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 }

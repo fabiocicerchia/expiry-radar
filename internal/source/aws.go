@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -34,11 +33,19 @@ type AWSSource struct {
 	SkipACM    bool
 	SkipIAM    bool
 	SkipSecret bool
+	// The services below need IAM permissions the first three do not, so each
+	// has its own skip. They are on by default because they are read-only
+	// Describe/List calls against services the account already pays for, and
+	// the whole point of them is the things nobody remembered to look at.
+	SkipRDS      bool
+	SkipPCA      bool
+	SkipIAMCerts bool
+	SkipDomains  bool
 }
 
 const defaultMaxKeyAge = 90 * 24 * time.Hour
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in an item's Source field and in -only.
 func (s *AWSSource) Name() string { return "aws" }
 
 // Collect reads ACM certificates, IAM access keys past the rotation age, and Secrets Manager entries.
@@ -68,62 +75,29 @@ func (s *AWSSource) Collect(ctx context.Context) ([]Item, error) {
 	return items, err
 }
 
-// awsService is one of the three, named so a failure can say which. Split out
-// of Collect so the degradation rule — one denied permission must not lose the
-// other two services' findings — is testable without an AWS account, which is
-// the one property of this source nobody could check before.
-type awsService struct {
-	Name    string
-	Skipped bool
-	Collect func() ([]Item, error)
-}
+// awsService is one of the three, named so a failure can say which. The
+// collection loop itself is collectUnits in source.go — shared with the
+// Kubernetes source so the degradation rule has one implementation, not two
+// that can drift.
+type awsService = collectUnit
+
+// serviceResult is what one service returned, for `verify`.
+type serviceResult = unitResult
 
 func (s *AWSSource) services(ctx context.Context, cfg aws.Config, account string) []awsService {
 	return []awsService{
 		{"acm", s.SkipACM, func() ([]Item, error) { return s.acm(ctx, cfg, account) }},
 		{"iam", s.SkipIAM, func() ([]Item, error) { return s.iam(ctx, cfg, account) }},
 		{"secretsmanager", s.SkipSecret, func() ([]Item, error) { return s.secrets(ctx, cfg, account) }},
+		{"rds", s.SkipRDS, func() ([]Item, error) { return s.rdsCertificates(ctx, cfg, account) }},
+		{"acm-pca", s.SkipPCA, func() ([]Item, error) { return s.privateCAs(ctx, cfg, account) }},
+		{"iam-certs", s.SkipIAMCerts, func() ([]Item, error) { return s.iamCertificates(ctx, cfg, account) }},
+		{"route53domains", s.SkipDomains, func() ([]Item, error) { return s.route53Domains(ctx, cfg) }},
 	}
-}
-
-// serviceResult is what one service returned, for `verify`. A service that
-// returned nothing is not the same as one that was denied, and not the same as
-// one that was skipped — and a report that collapsed the three would let an
-// account with no certificates read as an account whose ACM adapter works.
-type serviceResult struct {
-	Name    string
-	Skipped bool
-	Items   int
-	Err     error
 }
 
 func collectServices(svcs []awsService) ([]Item, []serviceResult, error) {
-	var items []Item
-	var warnings []string
-	results := make([]serviceResult, 0, len(svcs))
-	for _, svc := range svcs {
-		if svc.Skipped {
-			results = append(results, serviceResult{Name: svc.Name, Skipped: true})
-			continue
-		}
-		got, err := svc.Collect()
-		if err != nil {
-			// One denied permission must not lose the other two services'
-			// findings. The partial items are still returned alongside the
-			// error, so a caller that ignores the error is not silently
-			// throwing away the two that worked.
-			warnings = append(warnings, svc.Name+": "+err.Error())
-			results = append(results, serviceResult{Name: svc.Name, Items: len(got), Err: err})
-			items = append(items, got...)
-			continue
-		}
-		results = append(results, serviceResult{Name: svc.Name, Items: len(got)})
-		items = append(items, got...)
-	}
-	if len(warnings) > 0 {
-		return items, results, fmt.Errorf("%s", strings.Join(warnings, "; "))
-	}
-	return items, results, nil
+	return collectUnits(svcs)
 }
 
 func (s *AWSSource) acm(ctx context.Context, cfg aws.Config, account string) ([]Item, error) {

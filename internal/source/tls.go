@@ -27,7 +27,7 @@ type TLSSource struct {
 	Timeout   time.Duration
 }
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in an item's Source field and in -only.
 func (s *TLSSource) Name() string { return "tls:endpoint" }
 
 const tlsProbeConcurrency = 8

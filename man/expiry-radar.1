@@ -45,6 +45,13 @@ Only report items at or above this priority.
 .BI \-out " FILE"
 Write to a file instead of standard output.
 .TP
+.BI \-only " NAMES"
+Comma-separated source names to run, instead of every configured source. Names
+are matched exactly, so the two carrying a colon are written in full:
+.BR tls:endpoint ", " domain:rdap "."
+A name that no configured source answers to is an error, not an empty run, and
+the message lists what the config did build.
+.TP
 .BI \-timeout " DURATION"
 Overall collection timeout (default 2m).
 .TP
@@ -68,6 +75,90 @@ Usage error, bad config, or the report could not be written.
 .TP
 .B 3
 Results were produced, but at least one source failed.
+.SH ENVIRONMENT
+Credentials are never read from the configuration file. Each source that needs
+one takes it from the environment at startup, so nothing secret is written to
+disk beside the config. A source is only constructed when the config enables
+it, so only the variables for the sources in use are read.
+.TP
+.B VAULT_ADDR
+Vault address, when
+.I vault.addr
+is not set in the config.
+.TP
+.B VAULT_TOKEN
+Vault token. Needs read and list.
+.TP
+.B CLOUDFLARE_API_TOKEN
+Cloudflare API token, read-scoped.
+.TP
+.B GITLAB_TOKEN
+GitLab personal access token with
+.BR read_api .
+.TP
+.B GITHUB_TOKEN
+GitHub token. See the project documentation for what GitHub cannot report.
+.TP
+.B AZURE_CLIENT_SECRET
+Client secret for the Entra ID application registration.
+.TP
+.B GOOGLE_APPLICATION_CREDENTIALS
+Path to a Google Cloud service-account key file.
+.TP
+.B OKTA_API_TOKEN
+Okta API token.
+.TP
+.B FASTLY_API_TOKEN
+Fastly API token.
+.TP
+.B HCLOUD_TOKEN
+Hetzner Cloud API token.
+.TP
+.B SCW_SECRET_KEY
+Scaleway secret key.
+.TP
+.B DIGITALOCEAN_TOKEN
+DigitalOcean personal access token.
+.TP
+.B NAMECHEAP_API_KEY
+Namecheap API key. The Namecheap API also requires a static allowlisted client
+IP address.
+.TP
+.B DNSIMPLE_TOKEN
+DNSimple API token.
+.TP
+.B GANDI_API_KEY
+Gandi API key.
+.TP
+.BR PORKBUN_API_KEY ", " PORKBUN_SECRET_KEY
+Porkbun API key and secret.
+.TP
+.BR GODADDY_API_KEY ", " GODADDY_API_SECRET
+GoDaddy API key and secret. GoDaddy gates API access on holding ten or more
+domains.
+.TP
+.B HARBOR_PASSWORD
+Harbor password, for the user named in the config.
+.TP
+.B JFROG_ACCESS_TOKEN
+JFrog Artifactory access token.
+.TP
+.B APP_STORE_CONNECT_KEY_FILE
+Path to the App Store Connect
+.I .p8
+private key, when
+.I apple.privateKeyFile
+is not set in the config.
+.TP
+.BR ANTHROPIC_ADMIN_KEY ", " OPENAI_ADMIN_KEY ", " DOCKERHUB_TOKEN
+Admin keys for the rotation-policy inventory. These providers state no expiry,
+so the deadline reported for them is the configured policy age, not a date the
+provider gave.
+.PP
+AWS uses the standard AWS credential chain and reads no variable of its own.
+The
+.BR tls:endpoint ", " domain:rdap ", " federation " and " manual
+sources need no credential at all.
 .SH FILES
 .TP
 .I expiry-radar.json

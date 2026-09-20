@@ -1,6 +1,8 @@
 # Examples
 
-Runnable, self-contained examples. Each subfolder (or file) should run with a
-single command and show one clear use case.
+Runnable, self-contained examples. Each runs with a single command.
 
-- `basic/` — minimal end-to-end example.
+- [`basic/`](basic/) — no credentials at all: TLS endpoints and RDAP domains.
+  Start here; it works on a fresh checkout.
+- [`multi-provider/`](multi-provider/) — several providers in one config, and
+  the environment variable each one needs.

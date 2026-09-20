@@ -36,7 +36,9 @@ const (
 // over WHOIS.
 var errNoRDAP = errors.New("no RDAP service for this TLD")
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in -only. An item's Source field is finer
+// grained than the name: a domain answered over WHOIS rather than RDAP
+// carries "domain:whois".
 func (s *DomainSource) Name() string { return "domain:rdap" }
 
 // Collect reads domain registration expiry, over RDAP with a WHOIS fallback.

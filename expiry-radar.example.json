@@ -1,26 +1,169 @@
 {
   "endpoints": [
-    { "host": "shop.example.com", "labels": { "traffic": "2400", "public": "true" } },
-    { "host": "admin.internal.example.com:8443", "labels": { "ingress.class": "nginx-internal" } }
+    {
+      "host": "shop.example.com",
+      "labels": {
+        "traffic": "2400",
+        "public": "true"
+      }
+    },
+    {
+      "host": "admin.internal.example.com:8443",
+      "labels": {
+        "ingress.class": "nginx-internal"
+      }
+    }
   ],
-  "domains": ["example.com", "example.net"],
+  "domains": [
+    "example.com",
+    "example.net"
+  ],
   "manual": [
-    { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01",
-      "labels": { "public": "true", "renew-at": "https://registrar.example/domains" } },
-    { "name": "code-signing", "kind": "tls_cert", "expires": "2026-11-15", "namespace": "release" }
+    {
+      "name": "acme-corp.co.uk",
+      "kind": "domain",
+      "expires": "2027-03-01",
+      "labels": {
+        "public": "true",
+        "renew-at": "https://registrar.example/domains"
+      }
+    },
+    {
+      "name": "code-signing",
+      "kind": "tls_cert",
+      "expires": "2026-11-15",
+      "namespace": "release"
+    }
   ],
   "k8s": {
     "enabled": true,
     "server": "",
-    "namespaces": ["prod", "payments"],
+    "namespaces": [
+      "prod",
+      "payments"
+    ],
     "caFile": "",
-    "insecure": false
+    "insecure": false,
+    "certManager": true,
+    "trustAnchors": false,
+    "meshSigningSecrets": false
+  },
+  "cloudflare": {
+    "enabled": false,
+    "accountId": "",
+    "zones": [],
+    "skipZones": false,
+    "skipAccount": false,
+    "skipUser": false
+  },
+  "gitlab": {
+    "enabled": false,
+    "baseUrl": "",
+    "projects": [
+      "acme/payments"
+    ],
+    "groups": [
+      "acme"
+    ],
+    "skipPersonal": false,
+    "skipProjects": false,
+    "skipGroups": false
+  },
+  "registrars": [],
+  "rotation": [],
+  "apple": {
+    "enabled": false,
+    "issuerId": "",
+    "keyId": "",
+    "privateKeyFile": "",
+    "skipCertificates": false,
+    "skipProfiles": false
+  },
+  "fastly": {
+    "enabled": false,
+    "skipCertificates": false,
+    "skipTokens": false
+  },
+  "hetzner": {
+    "enabled": false
+  },
+  "harbor": {
+    "enabled": false,
+    "baseUrl": "",
+    "username": ""
+  },
+  "jfrog": {
+    "enabled": false,
+    "baseUrl": ""
+  },
+  "azure": {
+    "enabled": false,
+    "tenantId": "",
+    "clientId": "",
+    "vaults": [],
+    "skipApplications": false,
+    "skipPrincipals": false,
+    "skipVaults": false
+  },
+  "okta": {
+    "enabled": false,
+    "orgUrl": "",
+    "skipTokens": false,
+    "skipApps": false
+  },
+  "federation": [],
+  "gcp": {
+    "enabled": false,
+    "projects": [
+      "acme-prod"
+    ],
+    "locations": [
+      "global"
+    ],
+    "maxKeyAgeDays": 90,
+    "skipCertManager": false,
+    "skipCompute": false,
+    "skipSecrets": false,
+    "skipKeys": false
+  },
+  "github": {
+    "enabled": false,
+    "baseUrl": "",
+    "orgs": [
+      "acme"
+    ],
+    "skipOrgTokens": false,
+    "skipGpgKeys": false
+  },
+  "namecheap": {
+    "enabled": false,
+    "apiUser": "",
+    "userName": "",
+    "clientIp": "",
+    "sandbox": false,
+    "skipDomains": false,
+    "skipSSL": false
+  },
+  "digitalocean": {
+    "enabled": false
+  },
+  "scaleway": {
+    "enabled": false,
+    "organizationId": "",
+    "zones": [
+      "fr-par-1"
+    ],
+    "skipDomains": false,
+    "skipLoadBalancers": false,
+    "skipKeys": false
   },
   "vault": {
     "enabled": false,
     "addr": "",
     "namespace": "",
-    "pkiMounts": ["pki_int"],
+    "pkiMounts": [
+      "pki_int"
+    ],
     "maxCerts": 500
   },
   "aws": {
@@ -33,7 +176,13 @@
     "skipSecrets": false
   },
   "overrides": [
-    { "match": "payments/*", "blastRadius": 1.0 },
-    { "match": "*sandbox*", "blastRadius": 0.05 }
+    {
+      "match": "payments/*",
+      "blastRadius": 1.0
+    },
+    {
+      "match": "*sandbox*",
+      "blastRadius": 0.05
+    }
   ]
 }

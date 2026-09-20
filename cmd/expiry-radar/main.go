@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -51,6 +53,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		failWithin  = fs.Int("fail-within", 0, "exit 1 if anything expires within N days (0 = never fail)")
 		minPriority = fs.Float64("min-priority", 0, "only report items at or above this priority")
 		out         = fs.String("out", "", "write to a file instead of stdout")
+		only        = fs.String("only", "", "comma-separated source names to run (default: every configured source)")
 		timeout     = fs.Duration("timeout", 2*time.Minute, "overall collection timeout")
 		// Not a scan. Runs the AWS adapters and reports what can be established
 		// about them from real results, plus what still needs the console open
@@ -73,6 +76,10 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		return exitUsage, err
 	}
 	sources := cfg.Sources()
+	sources, err = pick(sources, splitList(*only))
+	if err != nil {
+		return exitUsage, err
+	}
 
 	if *verifyAWS {
 		ctx, cancel := context.WithTimeout(ctx, *timeout)
@@ -110,6 +117,60 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 		return exitPartial, nil
 	}
 	return exitClean, nil
+}
+
+// pick narrows the configured sources to those named in -only, keeping the
+// configured order rather than the order they were named in: rank.Rank sorts
+// stably on a priority rounded to two places, so ties are common and input
+// order is visible in the report.
+//
+// An unknown or unconfigured name is an error, never an empty run. A -only that
+// silently matched nothing would report a clean estate for a source that was
+// never asked anything.
+func pick(sources []source.Source, names []string) ([]source.Source, error) {
+	if len(names) == 0 || len(sources) == 0 {
+		// Nothing configured at all is a different problem with a better
+		// message, and it is the caller's to report: saying this config built
+		// nothing, in a list that is then empty, helps no one.
+		return sources, nil
+	}
+	want := make(map[string]bool, len(names))
+	for _, n := range names {
+		want[n] = true
+	}
+	var out []source.Source
+	for _, s := range sources {
+		if want[s.Name()] {
+			delete(want, s.Name())
+			out = append(out, s)
+		}
+	}
+	if len(want) > 0 {
+		// Naming the sources this config actually built, not every source the
+		// binary knows: the usual mistake is naming a real source that is not
+		// enabled here, and the built list is what says so.
+		return nil, fmt.Errorf("unknown source %s in -only; this config built: %s",
+			quoteSorted(want), strings.Join(sourceNames(sources), ", "))
+	}
+	return out, nil
+}
+
+func sourceNames(sources []source.Source) []string {
+	out := make([]string, 0, len(sources))
+	for _, s := range sources {
+		out = append(out, s.Name())
+	}
+	sort.Strings(out)
+	return out
+}
+
+func quoteSorted(set map[string]bool) string {
+	out := make([]string, 0, len(set))
+	for n := range set {
+		out = append(out, strconv.Quote(n))
+	}
+	sort.Strings(out)
+	return strings.Join(out, ", ")
 }
 
 // writeReport renders to the file named by -out, or to stdout when it is empty.

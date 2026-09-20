@@ -30,6 +30,11 @@ export const ARRAY_FOR: Record<EntryKind, string> = {
 
 /** The CLI's `source.Kinds`, in the order `internal/rank` weights them. */
 export const MANUAL_KINDS: { kind: Kind; label: string; hint: string }[] = [
+  {
+    kind: "trust_anchor",
+    label: "Trust anchor",
+    hint: "a root everything else validates against — nothing behind it fails gracefully",
+  },
   { kind: "domain", label: "Domain", hint: "a registration — the whole estate, including mail" },
   { kind: "intermediate_ca", label: "Intermediate CA", hint: "every leaf it signed, at once" },
   { kind: "tls_cert", label: "TLS certificate", hint: "a code-signing or client cert, say" },
