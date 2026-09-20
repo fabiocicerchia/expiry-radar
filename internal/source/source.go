@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -75,20 +76,52 @@ type Source interface {
 	Collect(ctx context.Context) ([]Item, error)
 }
 
+// collectConcurrency bounds how many sources are in flight at once, the same
+// way tlsProbeConcurrency bounds the endpoint probes inside one of them.
+const collectConcurrency = 8
+
 // CollectAll runs every source and merges the results. One source failing must
 // not lose the others' findings — a broken AWS credential should not hide the
 // cert expiring tomorrow — so errors are returned alongside the items.
+//
+// The sources run concurrently because the caller gives the whole run a single
+// deadline. Collected one after another that deadline is a budget instead, and
+// the first source can spend it on the last one's behalf: with two dozen
+// network-bound sources, the ones at the end report nothing and the run looks
+// like a clean estate.
 func CollectAll(ctx context.Context, sources []Source) ([]Item, []error) {
+	type result struct {
+		items []Item
+		err   error
+	}
+	results := make([]result, len(sources))
+	sem := make(chan struct{}, collectConcurrency)
+	var wg sync.WaitGroup
+	for i, s := range sources {
+		wg.Add(1)
+		go func(i int, s Source) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			// Each goroutine writes only its own element, so the merge below
+			// needs no lock and the order does not depend on who finished first.
+			results[i].items, results[i].err = s.Collect(ctx)
+		}(i, s)
+	}
+	wg.Wait()
+
+	// Merged in configured order, not completion order: rank.Rank sorts stably
+	// on a priority rounded to two places, so tied rows come out in the order
+	// they were collected and two runs of one config must not disagree.
 	var items []Item
 	var errs []error
-	for _, s := range sources {
-		got, err := s.Collect(ctx)
+	for i, s := range sources {
 		// Sources deliberately return what they managed to read alongside the
 		// error, so take both: one unreachable host must not discard the certs
 		// its neighbours reported.
-		items = append(items, got...)
-		if err != nil {
-			errs = append(errs, sourceError{name: s.Name(), err: err})
+		items = append(items, results[i].items...)
+		if results[i].err != nil {
+			errs = append(errs, sourceError{name: s.Name(), err: results[i].err})
 		}
 	}
 	return items, errs
