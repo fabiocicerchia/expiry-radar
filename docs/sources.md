@@ -34,6 +34,10 @@
 | `hetzner:certificate` | Cloud load-balancer certificates | `HCLOUD_TOKEN` |
 | `harbor:robot` | robot accounts — the registry credential that does expire | `HARBOR_PASSWORD` + admin |
 | `jfrog:token` | Artifactory access tokens | `JFROG_ACCESS_TOKEN` + admin |
+| `registrar:dnsimple` | domains + auto-renew | `DNSIMPLE_TOKEN` + `account` |
+| `registrar:gandi` | domains + auto-renew | `GANDI_API_KEY` |
+| `registrar:porkbun` | domains + auto-renew | `PORKBUN_API_KEY` + `PORKBUN_SECRET_KEY` |
+| `registrar:godaddy` | domains + auto-renew | `GODADDY_API_KEY` + `GODADDY_API_SECRET` |
 | `namecheap:domain` | registered domains, with auto-renew state | `NAMECHEAP_API_KEY` + an allowlisted IP |
 | `namecheap:ssl` | resold SSL certificates | same |
 | `digitalocean:certificate` | load-balancer and app certificates | `DIGITALOCEAN_TOKEN`, read |
@@ -360,6 +364,34 @@ spells "never expires" as `-1`, which read as a Unix timestamp would land in
 
 **JFrog Artifactory** access tokens are the same story, and an
 `applied-permissions/admin` scope carries 0.85.
+
+## Registrars: one source, four adapters
+
+DNSimple, Gandi, Porkbun and GoDaddy are in a single `registrars` source rather
+than four of their own, and the reason is that the shape has now demonstrably
+held. Namecheap, Scaleway, Route 53 and Cloudflare Registrar all reduce to the
+same three facts — a name, an expiry, and whether auto-renew is on — and so do
+these four. There is nothing per-registrar left to model, so modelling it four
+more times would be the drift, not the abstraction.
+
+The value is identical everywhere and it is **not the date**: the `domains`
+source already reports registry expiry over RDAP with no credentials at all.
+What a registrar credential buys is knowing whether the renewal will actually
+happen.
+
+What genuinely differs is spelling, and it is all confined to the adapters:
+
+- **auto-renew** arrives as a bool, `"1"`/`"0"`, `"true"`, a number, or an
+  object with an `enabled` field — all four of those appear across these APIs
+  for the same flag, so one `flexBool` reads them all.
+- **Porkbun** puts credentials in a JSON POST body (its design, not a choice),
+  uses `2006-01-02 15:04:05` timestamps, and reports failure with a `200` — the
+  same trap Cloudflare and Namecheap set, and checked the same way.
+- **Gandi** authenticates with `Apikey`, not `Bearer`; **GoDaddy** packs key and
+  secret into one `sso-key` header and gates API access on holding enough
+  domains, which the denial message says.
+- **DNSimple** is account-scoped, so a missing account id is rejected at load
+  rather than producing a request that could never work.
 
 ## Namecheap
 

@@ -42,6 +42,8 @@ type File struct {
 	DigitalOcean *DigitalOcean               `json:"digitalocean"`
 	Scaleway     *Scaleway                   `json:"scaleway"`
 	Namecheap    *Namecheap                  `json:"namecheap"`
+	// Registrars inventory domain registrations; see source.RegistrarSource.
+	Registrars []source.RegistrarProvider `json:"registrars"`
 	// Rotation covers credentials with no expiry at all; see source.RotationSource.
 	Rotation  []source.RotationProvider `json:"rotation"`
 	Overrides []rank.Override           `json:"overrides"`
@@ -335,6 +337,25 @@ func Load(path string) (*File, error) {
 			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
 		}
 	}
+	// Registrars are list-shaped too, and each reads its own credentials.
+	if err := source.ValidateRegistrars(f.Registrars); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for i := range f.Registrars {
+		envs := source.RegistrarProviders[f.Registrars[i].Name]
+		f.Registrars[i].Token = os.Getenv(envs[0]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Registrars[i].Token == "" {
+			return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
+				path, f.Registrars[i].Name, envs[0])
+		}
+		if envs[1] != "" {
+			f.Registrars[i].Secret = os.Getenv(envs[1]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+			if f.Registrars[i].Secret == "" {
+				return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
+					path, f.Registrars[i].Name, envs[1])
+			}
+		}
+	}
 	// Rotation providers are list-shaped like endpoints and domains: naming one
 	// enables it. Each reads its own credential from its own variable.
 	if err := source.ValidateRotation(f.Rotation); err != nil {
@@ -589,6 +610,9 @@ func (f *File) Sources() []source.Source {
 			SkipDomains: f.Namecheap.SkipDomains,
 			SkipSSL:     f.Namecheap.SkipSSL,
 		})
+	}
+	if len(f.Registrars) > 0 {
+		out = append(out, &source.RegistrarSource{Providers: f.Registrars})
 	}
 	if len(f.Rotation) > 0 {
 		out = append(out, &source.RotationSource{Providers: f.Rotation})

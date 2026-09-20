@@ -69,6 +69,7 @@
     "skipProjects": false,
     "skipGroups": false
   },
+  "registrars": [],
   "rotation": [],
   "fastly": {
     "enabled": false,

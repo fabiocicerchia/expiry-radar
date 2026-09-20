@@ -243,6 +243,8 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"DOCKERHUB_TOKEN", "VAULT_TOKEN", "VAULT_ADDR",
 		"AZURE_CLIENT_SECRET", "OKTA_API_TOKEN", "FASTLY_API_TOKEN", "HCLOUD_TOKEN",
 		"HARBOR_PASSWORD", "JFROG_ACCESS_TOKEN",
+		"DNSIMPLE_TOKEN", "GANDI_API_KEY", "PORKBUN_API_KEY", "PORKBUN_SECRET_KEY",
+		"GODADDY_API_KEY", "GODADDY_API_SECRET",
 	} {
 		t.Setenv(env, "test-value")
 	}
@@ -268,6 +270,12 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"digitalocean": {"enabled": true},
 		"scaleway": {"enabled": true, "organizationId": "org"},
 		"namecheap": {"enabled": true, "apiUser": "u", "userName": "u", "clientIp": "1.2.3.4"},
+		"registrars": [
+			{"name": "dnsimple", "account": "1"},
+			{"name": "gandi"},
+			{"name": "porkbun"},
+			{"name": "godaddy"}
+		],
 		"rotation": [
 			{"name": "anthropic", "maxKeyAgeDays": 90},
 			{"name": "openai", "maxKeyAgeDays": 90},
@@ -287,7 +295,7 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"tls:endpoint", "domain:rdap", "manual", "k8s", "vault", "aws",
 		"cloudflare", "gitlab", "github", "gcp", "digitalocean", "scaleway",
 		"namecheap", "rotation", "azure", "okta", "federation",
-		"fastly", "hetzner", "harbor", "jfrog",
+		"fastly", "hetzner", "harbor", "jfrog", "registrar",
 	}
 	for _, w := range want {
 		if !got[w] {
