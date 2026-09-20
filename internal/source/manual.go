@@ -93,7 +93,7 @@ type ManualSource struct {
 	Items []ManualItem
 }
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in an item's Source field and in -only.
 func (s *ManualSource) Name() string { return "manual" }
 
 // Collect reads the items the config lists by hand, for things no API can enumerate.

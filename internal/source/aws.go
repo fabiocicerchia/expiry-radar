@@ -45,7 +45,7 @@ type AWSSource struct {
 
 const defaultMaxKeyAge = 90 * 24 * time.Hour
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in an item's Source field and in -only.
 func (s *AWSSource) Name() string { return "aws" }
 
 // Collect reads ACM certificates, IAM access keys past the rotation age, and Secrets Manager entries.

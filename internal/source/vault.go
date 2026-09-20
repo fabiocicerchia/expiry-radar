@@ -32,7 +32,7 @@ type VaultSource struct {
 
 const defaultMaxCerts = 500
 
-// Name identifies this source in an item's Source field and in --only.
+// Name identifies this source in an item's Source field and in -only.
 func (s *VaultSource) Name() string { return "vault" }
 
 // Collect reads certificates issued by the configured Vault PKI mounts.
