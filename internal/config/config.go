@@ -31,6 +31,7 @@ type File struct {
 	GitLab       *GitLab             `json:"gitlab"`
 	DigitalOcean *DigitalOcean       `json:"digitalocean"`
 	Scaleway     *Scaleway           `json:"scaleway"`
+	Namecheap    *Namecheap          `json:"namecheap"`
 	// Rotation covers credentials with no expiry at all; see source.RotationSource.
 	Rotation  []source.RotationProvider `json:"rotation"`
 	Overrides []rank.Override           `json:"overrides"`
@@ -147,6 +148,23 @@ type Scaleway struct {
 	SkipKeys    bool     `json:"skipKeys"`
 }
 
+// Namecheap points the Namecheap source at an account. Note clientIp: the
+// Namecheap API requires the calling machine's public IP to be allowlisted in
+// the account, which is a deployment constraint worth knowing before wiring
+// this into CI.
+type Namecheap struct {
+	Enabled  bool   `json:"enabled"`
+	APIUser  string `json:"apiUser"`
+	UserName string `json:"userName"`
+	// APIKey never comes from the file. Load fills it from $NAMECHEAP_API_KEY.
+	APIKey string `json:"-"`
+	// ClientIP must be this machine's allowlisted public IP.
+	ClientIP    string `json:"clientIp"`
+	Sandbox     bool   `json:"sandbox"`
+	SkipDomains bool   `json:"skipDomains"`
+	SkipSSL     bool   `json:"skipSSL"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -221,6 +239,16 @@ func Load(path string) (*File, error) {
 		if f.Rotation[i].Token == "" {
 			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
 				path, f.Rotation[i].Name, env)
+		}
+	}
+	if f.Namecheap != nil && f.Namecheap.Enabled {
+		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Namecheap.APIKey == "" {
+			return nil, fmt.Errorf("%s: namecheap source is enabled but $NAMECHEAP_API_KEY is not set", path)
+		}
+		if f.Namecheap.ClientIP == "" {
+			return nil, fmt.Errorf(
+				"%s: namecheap.clientIp is required — it must be this machine's public IP, allowlisted in the account", path)
 		}
 	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
@@ -307,6 +335,17 @@ func (f *File) Sources() []source.Source {
 			SkipPersonal: f.GitLab.SkipPersonal,
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
+		})
+	}
+	if f.Namecheap != nil && f.Namecheap.Enabled {
+		out = append(out, &source.NamecheapSource{
+			APIUser:     f.Namecheap.APIUser,
+			UserName:    f.Namecheap.UserName,
+			APIKey:      f.Namecheap.APIKey,
+			ClientIP:    f.Namecheap.ClientIP,
+			Sandbox:     f.Namecheap.Sandbox,
+			SkipDomains: f.Namecheap.SkipDomains,
+			SkipSSL:     f.Namecheap.SkipSSL,
 		})
 	}
 	if len(f.Rotation) > 0 {

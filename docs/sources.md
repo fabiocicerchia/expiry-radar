@@ -23,6 +23,8 @@
 | `gitlab:group-token` | group access tokens | same token, owner on the group |
 | `gitlab:deploy-token` | deploy tokens | same token |
 | `gitlab:pages` | Pages custom-domain certificates | same token |
+| `namecheap:domain` | registered domains, with auto-renew state | `NAMECHEAP_API_KEY` + an allowlisted IP |
+| `namecheap:ssl` | resold SSL certificates | same |
 | `digitalocean:certificate` | load-balancer and app certificates | `DIGITALOCEAN_TOKEN`, read |
 | `scaleway:domain` | registered domains, with auto-renew state | `SCW_SECRET_KEY` |
 | `scaleway:lb` | load-balancer certificates, per zone | same key + `zones` |
@@ -240,6 +242,26 @@ the same, `auto_renew` is the part only the registrar knows.
 Each is a separate unit behind the same seam as the original three, with its own
 skip, so an account that denies `acm-pca` still reports its RDS certificates.
 `docs/iam-readonly-policy.json` carries the six new read-only actions.
+
+## Namecheap
+
+Two things make this source unlike the others, and both are worth knowing
+before you wire it into CI.
+
+It requires **the calling machine's public IP to be allowlisted** in the
+Namecheap account. Error `1011150` means the credentials are fine and the
+machine is not — it reads like a bad API key and is not one, so the warning
+says which it is. `clientIp` is required at load for the same reason.
+
+And it answers **HTTP 200 for failures**, with `Status="ERROR"` in the body. The
+status code alone would read every error as an empty account, so the attribute
+is what decides.
+
+As with Scaleway and Route 53, the date is not why you hold the credential —
+RDAP gives you that for free. `AutoRenew` is. Dates come back as `MM/DD/YYYY`
+with no timezone and are read as the start of that day in UTC, which errs
+towards warning early; a certificate bought but never issued gets
+`in-use=false`.
 
 ## DigitalOcean and Scaleway
 

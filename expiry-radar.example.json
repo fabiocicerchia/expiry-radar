@@ -41,6 +41,15 @@
     { "name": "openai", "maxKeyAgeDays": 90 },
     { "name": "dockerhub", "maxKeyAgeDays": 180 }
   ],
+  "namecheap": {
+    "enabled": false,
+    "apiUser": "",
+    "userName": "",
+    "clientIp": "",
+    "sandbox": false,
+    "skipDomains": false,
+    "skipSSL": false
+  },
   "digitalocean": { "enabled": false },
   "scaleway": {
     "enabled": false,
