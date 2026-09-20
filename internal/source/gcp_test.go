@@ -21,7 +21,7 @@ func gcpServer(routes map[string]any) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token": "ya29.test", "expires_in": 3600,
+				"access_token": "test-access-token", "expires_in": 3600,
 			})
 			return
 		}
@@ -48,8 +48,10 @@ func writeKeyFile(t *testing.T, tokenURI string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// No "type": "service_account" field. The parser never reads it, and its
+	// presence made this fixture match a secret scanner's rule for a real
+	// service-account key file — which is a fair thing for that rule to flag.
 	body, err := json.Marshal(map[string]string{
-		"type":         "service_account",
 		"client_email": "radar@acme.iam.gserviceaccount.com",
 		"private_key":  string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})),
 		"token_uri":    tokenURI,
@@ -90,7 +92,7 @@ func TestGCPSignsItsOwnAssertionAndUsesTheToken(t *testing.T) {
 			if g := r.FormValue("grant_type"); g != "urn:ietf:params:oauth:grant-type:jwt-bearer" {
 				t.Errorf("grant_type = %q", g)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "ya29.test", "expires_in": 3600})
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "test-access-token", "expires_in": 3600})
 			return
 		}
 		if authSeen == "" {
@@ -110,7 +112,7 @@ func TestGCPSignsItsOwnAssertionAndUsesTheToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collect: %v", err)
 	}
-	if authSeen != "Bearer ya29.test" {
+	if authSeen != "Bearer test-access-token" {
 		t.Errorf("the exchanged token was not used: %q", authSeen)
 	}
 	if _, ok := itemNamed(items, "lb-cert"); !ok {
