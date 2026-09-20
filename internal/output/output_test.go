@@ -190,6 +190,13 @@ func TestHTMLReportIsSelfContainedAndFlagsTheDeadline(t *testing.T) {
 	if strings.Contains(out, "http://") || strings.Contains(out, "https://") {
 		t.Error("the report must reference no external resources")
 	}
+	// html/template rewrites a CSS comment to a bare space, which lands in the
+	// generated report as a trailing-whitespace line and trips editorconfig.
+	for i, line := range strings.Split(out, "\n") {
+		if line != strings.TrimRight(line, " \t") {
+			t.Errorf("line %d has trailing whitespace: %q", i+1, line)
+		}
+	}
 }
 
 func TestHTMLEscapesNamesFromUntrustedSources(t *testing.T) {
