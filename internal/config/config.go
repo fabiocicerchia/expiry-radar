@@ -33,6 +33,10 @@ type File struct {
 	GCP        *GCP                `json:"gcp"`
 	Azure      *Azure              `json:"azure"`
 	Okta       *Okta               `json:"okta"`
+	Fastly     *Fastly             `json:"fastly"`
+	Hetzner    *Hetzner            `json:"hetzner"`
+	Harbor     *Harbor             `json:"harbor"`
+	JFrog      *JFrog              `json:"jfrog"`
 	// Federation reads IdP metadata and needs no credential at all.
 	Federation   []source.FederationProvider `json:"federation"`
 	DigitalOcean *DigitalOcean               `json:"digitalocean"`
@@ -234,6 +238,40 @@ type Okta struct {
 	SkipApps   bool   `json:"skipApps"`
 }
 
+// Fastly points the Fastly source at an account.
+type Fastly struct {
+	Enabled bool `json:"enabled"`
+	// Token never comes from the file. Load fills it from $FASTLY_API_TOKEN.
+	Token            string `json:"-"`
+	SkipCertificates bool   `json:"skipCertificates"`
+	SkipTokens       bool   `json:"skipTokens"`
+}
+
+// Hetzner points the Hetzner Cloud source at a project.
+type Hetzner struct {
+	Enabled bool `json:"enabled"`
+	// Token never comes from the file. Load fills it from $HCLOUD_TOKEN.
+	Token string `json:"-"`
+}
+
+// Harbor points the Harbor source at a registry instance.
+type Harbor struct {
+	Enabled  bool   `json:"enabled"`
+	BaseURL  string `json:"baseUrl"`
+	Username string `json:"username"`
+	// Password never comes from the file. Load fills it from $HARBOR_PASSWORD.
+	Password string `json:"-"`
+}
+
+// JFrog points the Artifactory source at a platform.
+type JFrog struct {
+	Enabled bool   `json:"enabled"`
+	BaseURL string `json:"baseUrl"`
+	// Token never comes from the file. Load fills it from
+	// $JFROG_ACCESS_TOKEN.
+	Token string `json:"-"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -320,6 +358,36 @@ func Load(path string) (*File, error) {
 		f.Azure.ClientSecret = os.Getenv("AZURE_CLIENT_SECRET") //nolint:forbidigo // FC-GEN-055: this is the startup read
 		if f.Azure.ClientSecret == "" {
 			return nil, fmt.Errorf("%s: azure source is enabled but $AZURE_CLIENT_SECRET is not set", path)
+		}
+	}
+	if f.Fastly != nil && f.Fastly.Enabled {
+		f.Fastly.Token = os.Getenv("FASTLY_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Fastly.Token == "" {
+			return nil, fmt.Errorf("%s: fastly source is enabled but $FASTLY_API_TOKEN is not set", path)
+		}
+	}
+	if f.Hetzner != nil && f.Hetzner.Enabled {
+		f.Hetzner.Token = os.Getenv("HCLOUD_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Hetzner.Token == "" {
+			return nil, fmt.Errorf("%s: hetzner source is enabled but $HCLOUD_TOKEN is not set", path)
+		}
+	}
+	if f.Harbor != nil && f.Harbor.Enabled {
+		if f.Harbor.BaseURL == "" || f.Harbor.Username == "" {
+			return nil, fmt.Errorf("%s: harbor.baseUrl and harbor.username are both required", path)
+		}
+		f.Harbor.Password = os.Getenv("HARBOR_PASSWORD") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Harbor.Password == "" {
+			return nil, fmt.Errorf("%s: harbor source is enabled but $HARBOR_PASSWORD is not set", path)
+		}
+	}
+	if f.JFrog != nil && f.JFrog.Enabled {
+		if f.JFrog.BaseURL == "" {
+			return nil, fmt.Errorf("%s: jfrog.baseUrl is required, e.g. https://acme.jfrog.io", path)
+		}
+		f.JFrog.Token = os.Getenv("JFROG_ACCESS_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.JFrog.Token == "" {
+			return nil, fmt.Errorf("%s: jfrog source is enabled but $JFROG_ACCESS_TOKEN is not set", path)
 		}
 	}
 	if f.Okta != nil && f.Okta.Enabled {
@@ -461,6 +529,26 @@ func (f *File) Sources() []source.Source {
 			SkipPrincipals:   f.Azure.SkipPrincipals,
 			SkipVaults:       f.Azure.SkipVaults,
 		})
+	}
+	if f.Fastly != nil && f.Fastly.Enabled {
+		out = append(out, &source.FastlySource{
+			Token:            f.Fastly.Token,
+			SkipCertificates: f.Fastly.SkipCertificates,
+			SkipTokens:       f.Fastly.SkipTokens,
+		})
+	}
+	if f.Hetzner != nil && f.Hetzner.Enabled {
+		out = append(out, &source.HetznerSource{Token: f.Hetzner.Token})
+	}
+	if f.Harbor != nil && f.Harbor.Enabled {
+		out = append(out, &source.HarborSource{
+			BaseURL:  f.Harbor.BaseURL,
+			Username: f.Harbor.Username,
+			Password: f.Harbor.Password,
+		})
+	}
+	if f.JFrog != nil && f.JFrog.Enabled {
+		out = append(out, &source.JFrogSource{BaseURL: f.JFrog.BaseURL, Token: f.JFrog.Token})
 	}
 	if f.Okta != nil && f.Okta.Enabled {
 		out = append(out, &source.OktaSource{

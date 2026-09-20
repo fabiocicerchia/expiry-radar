@@ -29,6 +29,11 @@
 | `gcp:iam` | user-managed service account keys, by age | same + `maxKeyAgeDays` |
 | `github:org-token` | fine-grained PATs with org access | `GITHUB_TOKEN`, org **owner** |
 | `github:gpg` | GPG signing keys with an expiry | `GITHUB_TOKEN` |
+| `fastly:certificate` | TLS platform certificates | `FASTLY_API_TOKEN` |
+| `fastly:token` | API tokens, ranked by scope | same |
+| `hetzner:certificate` | Cloud load-balancer certificates | `HCLOUD_TOKEN` |
+| `harbor:robot` | robot accounts — the registry credential that does expire | `HARBOR_PASSWORD` + admin |
+| `jfrog:token` | Artifactory access tokens | `JFROG_ACCESS_TOKEN` + admin |
 | `namecheap:domain` | registered domains, with auto-renew state | `NAMECHEAP_API_KEY` + an allowlisted IP |
 | `namecheap:ssl` | resold SSL certificates | same |
 | `digitalocean:certificate` | load-balancer and app certificates | `DIGITALOCEAN_TOKEN`, read |
@@ -329,6 +334,32 @@ branches that require signed commits start rejecting pushes.
 
 Compare GitLab above, which exposes far more. That asymmetry is real and not
 worth papering over.
+
+## Edge and registry competitors
+
+**Fastly** covers the same ground as Cloudflare with one difference worth
+having: its API tokens are scoped, sometimes to individual services, so an
+expiry is a blast-radius question and the token says how wide. A `global` token
+carries 0.85; one pinned to named services is left to normal inference. The TLS
+API is JSON:API, so the dates live under `attributes` rather than at the top
+level.
+
+**Hetzner Cloud** is small like DigitalOcean — not a registrar, no token
+listing — so certificates are the whole of it. Its managed certificates carry a
+renewal *status*, which makes the de-rank more honest than elsewhere: managed
+**and** scheduled earns it, managed **and failing** gets `renewal=stuck`
+instead.
+
+**Harbor** is the Docker Hub competitor worth watching, because unlike Docker
+Hub its robot accounts carry a real expiry and are routinely created once for a
+pipeline and never looked at again. When one lapses, deploys stop pulling and
+the error surfaces in the cluster rather than near the registry. Note Harbor
+spells "never expires" as `-1`, which read as a Unix timestamp would land in
+1969 and top the report as decades overdue; it is skipped instead. A
+`system`-level robot reaches every project, so it carries 0.75.
+
+**JFrog Artifactory** access tokens are the same story, and an
+`applied-permissions/admin` scope carries 0.85.
 
 ## Namecheap
 

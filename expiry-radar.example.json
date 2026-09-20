@@ -70,6 +70,23 @@
     "skipGroups": false
   },
   "rotation": [],
+  "fastly": {
+    "enabled": false,
+    "skipCertificates": false,
+    "skipTokens": false
+  },
+  "hetzner": {
+    "enabled": false
+  },
+  "harbor": {
+    "enabled": false,
+    "baseUrl": "",
+    "username": ""
+  },
+  "jfrog": {
+    "enabled": false,
+    "baseUrl": ""
+  },
   "azure": {
     "enabled": false,
     "tenantId": "",
