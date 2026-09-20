@@ -22,8 +22,11 @@ concurrency:
 
 jobs:
   review:
+    # An LLM review of a version bump reads a diff with no code in it.
+    if: github.actor != 'dependabot[bot]'
     # read the code, post the review, and upload code-scanning results.
     permissions:
+      actions: read # private repo: upload-sarif reads this run's metadata
       contents: read
       packages: read # pull the ghcr scanner image
       pull-requests: write
