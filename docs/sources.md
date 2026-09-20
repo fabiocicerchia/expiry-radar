@@ -23,6 +23,8 @@
 | `gitlab:group-token` | group access tokens | same token, owner on the group |
 | `gitlab:deploy-token` | deploy tokens | same token |
 | `gitlab:pages` | Pages custom-domain certificates | same token |
+| `github:org-token` | fine-grained PATs with org access | `GITHUB_TOKEN`, org **owner** |
+| `github:gpg` | GPG signing keys with an expiry | `GITHUB_TOKEN` |
 | `namecheap:domain` | registered domains, with auto-renew state | `NAMECHEAP_API_KEY` + an allowlisted IP |
 | `namecheap:ssl` | resold SSL certificates | same |
 | `digitalocean:certificate` | load-balancer and app certificates | `DIGITALOCEAN_TOKEN`, read |
@@ -242,6 +244,27 @@ the same, `auto_renew` is the part only the registrar knows.
 Each is a separate unit behind the same seam as the original three, with its own
 skip, so an account that denies `acm-pca` still reports its RDS certificates.
 `docs/iam-readonly-policy.json` carries the six new read-only actions.
+
+## GitHub, and what it cannot tell you
+
+This source is deliberately thin, and the gap is the useful part.
+
+**The GitHub credentials that hurt when they lapse are not readable by any
+API.** A GitHub App's private key, an App client secret and a classic personal
+access token have no list endpoint at all. Nothing can discover them, so they
+belong in `manual` with a `renew-at` label — and a fatter adapter here would
+imply coverage that does not exist.
+
+What is readable: fine-grained PATs with access to an organization, which an
+org **owner** can list (a token that merely belongs to the org gets a 403, and
+the warning says so rather than reporting an empty org), and a user's GPG keys.
+A token granted across `all` repositories carries a wider blast radius than one
+scoped to `selected`, and GitHub states which rather than leaving it to be
+inferred. When a GPG key lapses, commit signatures stop verifying and protected
+branches that require signed commits start rejecting pushes.
+
+Compare GitLab above, which exposes far more. That asymmetry is real and not
+worth papering over.
 
 ## Namecheap
 

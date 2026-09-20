@@ -29,6 +29,7 @@ type File struct {
 	AWS          *AWS                `json:"aws"`
 	Cloudflare   *Cloudflare         `json:"cloudflare"`
 	GitLab       *GitLab             `json:"gitlab"`
+	GitHub       *GitHub             `json:"github"`
 	DigitalOcean *DigitalOcean       `json:"digitalocean"`
 	Scaleway     *Scaleway           `json:"scaleway"`
 	Namecheap    *Namecheap          `json:"namecheap"`
@@ -165,6 +166,20 @@ type Namecheap struct {
 	SkipSSL     bool   `json:"skipSSL"`
 }
 
+// GitHub points the GitHub source at organizations. Deliberately small: the
+// GitHub credentials that hurt when they lapse — App private keys, App client
+// secrets, classic PATs — have no list endpoint, so they belong in `manual`.
+type GitHub struct {
+	Enabled bool   `json:"enabled"`
+	BaseURL string `json:"baseUrl"` // empty = api.github.com; set for Enterprise Server
+	// Token never comes from the file. Load fills it from $GITHUB_TOKEN.
+	Token string `json:"-"`
+	// Orgs to inspect. Listing an org's fine-grained tokens needs owner.
+	Orgs          []string `json:"orgs"`
+	SkipOrgTokens bool     `json:"skipOrgTokens"`
+	SkipGPGKeys   bool     `json:"skipGpgKeys"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -239,6 +254,12 @@ func Load(path string) (*File, error) {
 		if f.Rotation[i].Token == "" {
 			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
 				path, f.Rotation[i].Name, env)
+		}
+	}
+	if f.GitHub != nil && f.GitHub.Enabled {
+		f.GitHub.Token = os.Getenv("GITHUB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.GitHub.Token == "" {
+			return nil, fmt.Errorf("%s: github source is enabled but $GITHUB_TOKEN is not set", path)
 		}
 	}
 	if f.Namecheap != nil && f.Namecheap.Enabled {
@@ -335,6 +356,15 @@ func (f *File) Sources() []source.Source {
 			SkipPersonal: f.GitLab.SkipPersonal,
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
+		})
+	}
+	if f.GitHub != nil && f.GitHub.Enabled {
+		out = append(out, &source.GitHubSource{
+			Token:         f.GitHub.Token,
+			BaseURL:       f.GitHub.BaseURL,
+			Orgs:          f.GitHub.Orgs,
+			SkipOrgTokens: f.GitHub.SkipOrgTokens,
+			SkipGPGKeys:   f.GitHub.SkipGPGKeys,
 		})
 	}
 	if f.Namecheap != nil && f.Namecheap.Enabled {

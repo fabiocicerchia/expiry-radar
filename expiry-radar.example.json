@@ -41,6 +41,13 @@
     { "name": "openai", "maxKeyAgeDays": 90 },
     { "name": "dockerhub", "maxKeyAgeDays": 180 }
   ],
+  "github": {
+    "enabled": false,
+    "baseUrl": "",
+    "orgs": ["acme"],
+    "skipOrgTokens": false,
+    "skipGpgKeys": false
+  },
   "namecheap": {
     "enabled": false,
     "apiUser": "",
