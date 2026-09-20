@@ -4,7 +4,8 @@
 [default.extend-words]
 enew = "enew"
 
-# k8strust.go is "k8s" + "trust". typos splits the filename and finds "strust"
-# inside it, which is a real misspelling of "trust" anywhere else.
+# The file k8strust.go is "k8s" followed by "trust". Splitting that name turns
+# up a fragment the dictionary reads as a misspelling of "trust", which it is
+# anywhere else, so the identifier is excepted rather than the word allowed.
 [default.extend-identifiers]
 k8strust = "k8strust"

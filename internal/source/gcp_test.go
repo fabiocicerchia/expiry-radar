@@ -48,9 +48,11 @@ func writeKeyFile(t *testing.T, tokenURI string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// No "type": "service_account" field. The parser never reads it, and its
-	// presence made this fixture match a secret scanner's rule for a real
-	// service-account key file — which is a fair thing for that rule to flag.
+	// The account-type field a real credentials file carries is deliberately
+	// absent here. The parser never reads it, and writing it out made this
+	// fixture match a secret scanner's rule for a genuine key file — which is
+	// a fair thing for that rule to look for, so the fixture stops imitating
+	// one rather than the rule being silenced.
 	body, err := json.Marshal(map[string]string{
 		"client_email": "radar@acme.iam.gserviceaccount.com",
 		"private_key":  string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})),
