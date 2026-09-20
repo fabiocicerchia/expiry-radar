@@ -98,6 +98,7 @@ func (s *K8sSource) clock() time.Time {
 	if s.now != nil {
 		return s.now()
 	}
+	//nolint:forbidigo // FC-GEN-055: this function is the injected clock; s.now is the seam.
 	return time.Now()
 }
 

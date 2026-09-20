@@ -47,15 +47,17 @@ func cfTestSource(url string) *CloudflareSource {
 	return &CloudflareSource{Token: "t", AccountID: "acct", BaseURL: url}
 }
 
-func zoneResult(name, status string, paused bool) []any {
-	return []any{map[string]any{"id": "z1", "name": name, "status": status, "paused": paused}}
+// zoneResult serves one zone. Its status is always active — a non-active zone
+// is not what any of these tests vary; paused is.
+func zoneResult(name string, paused bool) []any {
+	return []any{map[string]any{"id": "z1", "name": name, "status": "active", "paused": paused}}
 }
 
 func TestCloudflareReportsEdgeAndCustomCertificates(t *testing.T) {
 	soon := time.Now().Add(20 * 24 * time.Hour).Format(time.RFC3339)
 
 	srv, _ := fakeCF(map[string]any{
-		"/zones": zoneResult("shop.example.com", "active", false),
+		"/zones": zoneResult("shop.example.com", false),
 		"/ssl/certificate_packs": []any{map[string]any{
 			"id": "pack1", "type": "universal", "hosts": []string{"shop.example.com"},
 			"certificates": []any{map[string]any{
@@ -125,7 +127,7 @@ func TestCloudflareRegistrarAutoRenewIsDeRanked(t *testing.T) {
 func TestCloudflareOneDeniedScopeKeepsTheOthersFindings(t *testing.T) {
 	soon := time.Now().Add(10 * 24 * time.Hour).Format(time.RFC3339)
 	srv, _ := fakeCF(map[string]any{
-		"/zones":                 zoneResult("shop.example.com", "active", false),
+		"/zones":                 zoneResult("shop.example.com", false),
 		"/ssl/certificate_packs": []any{},
 		"/custom_certificates": []any{map[string]any{
 			"id": "cc1", "hosts": []string{"shop.example.com"}, "expires_on": soon, "status": "active",
@@ -204,7 +206,7 @@ func TestCloudflareNeedsATokenBeforeItWillRun(t *testing.T) {
 func TestCloudflarePausedZoneCertificatesAreNotLoadBearing(t *testing.T) {
 	soon := time.Now().Add(15 * 24 * time.Hour).Format(time.RFC3339)
 	srv, _ := fakeCF(map[string]any{
-		"/zones": zoneResult("paused.example.com", "active", true),
+		"/zones": zoneResult("paused.example.com", true),
 		"/custom_certificates": []any{map[string]any{
 			"id": "cc1", "hosts": []string{"paused.example.com"}, "expires_on": soon, "status": "active",
 		}},
@@ -238,7 +240,7 @@ func TestCloudflareOneUnreadableZoneKeepsTheOthers(t *testing.T) {
 		}
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/zones") && r.URL.Query().Get("id") == "goodzone":
-			ok(zoneResult("shop.example.com", "active", false))
+			ok(zoneResult("shop.example.com", false))
 		case strings.HasSuffix(r.URL.Path, "/zones"):
 			// The other configured id is invisible to this token.
 			ok([]any{})

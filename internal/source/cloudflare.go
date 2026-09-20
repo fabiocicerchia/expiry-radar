@@ -273,7 +273,7 @@ func (s *CloudflareSource) certsForZone(ctx context.Context, client *http.Client
 			if len(hosts) == 0 {
 				hosts = p.Hosts
 			}
-			it := s.certItem(z, "cloudflare:edge", p.ID, hosts, c.Issuer, c.Status, expires)
+			it := s.certItem(z, "cloudflare:edge", hosts, c.Issuer, c.Status, expires)
 			it.Labels = label(it.Labels, "pack-type", p.Type)
 			// Cloudflare renews a universal or advanced pack itself. That is
 			// the same evidence cert-manager gives: a deadline something else
@@ -296,7 +296,7 @@ func (s *CloudflareSource) certsForZone(ctx context.Context, client *http.Client
 		if !ok {
 			continue
 		}
-		items = append(items, s.certItem(z, "cloudflare:custom", c.ID, c.Hosts, c.Issuer, c.Status, expires))
+		items = append(items, s.certItem(z, "cloudflare:custom", c.Hosts, c.Issuer, c.Status, expires))
 	}
 
 	// mTLS client certificates: these authenticate callers, so an expiry is a
@@ -329,7 +329,7 @@ func (s *CloudflareSource) certsForZone(ctx context.Context, client *http.Client
 
 // certItem builds the shape the three certificate endpoints share, including
 // the ranking evidence Cloudflare can supply that no other source can.
-func (s *CloudflareSource) certItem(z cfZone, src, id string, hosts []string,
+func (s *CloudflareSource) certItem(z cfZone, src string, hosts []string,
 	issuer, status string, expires time.Time) Item {
 	labels := map[string]string{}
 	labels = label(labels, LabelHosts, strings.Join(hosts, ","))

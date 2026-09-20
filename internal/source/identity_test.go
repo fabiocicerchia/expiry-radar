@@ -292,13 +292,13 @@ func TestFederationReportsBothTheCertificateAndTheMetadataExpiry(t *testing.T) {
 	srv := metadataServer(`<?xml version="1.0"?>
 <EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" entityID="https://idp.example/sso"
 	validUntil="` + validUntil + `">
-  <IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
-    <KeyDescriptor use="signing">
-      <KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><X509Data>
-        <X509Certificate>` + derCert(t, "idp-signing", certExp) + `</X509Certificate>
-      </X509Data></KeyInfo>
-    </KeyDescriptor>
-  </IDPSSODescriptor>
+	<IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+		<KeyDescriptor use="signing">
+			<KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><X509Data>
+				<X509Certificate>` + derCert(t, "idp-signing", certExp) + `</X509Certificate>
+			</X509Data></KeyInfo>
+		</KeyDescriptor>
+	</IDPSSODescriptor>
 </EntityDescriptor>`)
 	defer srv.Close()
 
@@ -334,16 +334,16 @@ func TestFederationReadsAMultiEntityDocument(t *testing.T) {
 	exp := time.Now().Add(60 * 24 * time.Hour)
 	srv := metadataServer(`<?xml version="1.0"?>
 <EntitiesDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata">
-  <EntityDescriptor entityID="https://a.example">
-    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
-    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
-  </EntityDescriptor>
-  <EntityDescriptor entityID="https://b.example">
-    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + derCert(t, "b-signing", exp) + `</X509Certificate>
-    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
-  </EntityDescriptor>
+	<EntityDescriptor entityID="https://a.example">
+		<IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
+		</X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+	</EntityDescriptor>
+	<EntityDescriptor entityID="https://b.example">
+		<IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + derCert(t, "b-signing", exp) + `</X509Certificate>
+		</X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+	</EntityDescriptor>
 </EntitiesDescriptor>`)
 	defer srv.Close()
 
@@ -375,12 +375,12 @@ func TestFederationDedupesACertificateListedTwice(t *testing.T) {
 	same := derCert(t, "dual-use", exp)
 	srv := metadataServer(`<?xml version="1.0"?>
 <EntityDescriptor entityID="https://idp.example">
-  <IDPSSODescriptor>
-    <KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + same + `</X509Certificate></X509Data></KeyInfo></KeyDescriptor>
-    <KeyDescriptor use="encryption"><KeyInfo><X509Data>
-      <X509Certificate>` + same + `</X509Certificate></X509Data></KeyInfo></KeyDescriptor>
-  </IDPSSODescriptor>
+	<IDPSSODescriptor>
+		<KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + same + `</X509Certificate></X509Data></KeyInfo></KeyDescriptor>
+		<KeyDescriptor use="encryption"><KeyInfo><X509Data>
+			<X509Certificate>` + same + `</X509Certificate></X509Data></KeyInfo></KeyDescriptor>
+	</IDPSSODescriptor>
 </EntityDescriptor>`)
 	defer srv.Close()
 
@@ -412,11 +412,11 @@ func TestFederationReadsValidUntilFromAnAggregateRoot(t *testing.T) {
 	validUntil := time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339)
 	srv := metadataServer(`<?xml version="1.0"?>
 <EntitiesDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" validUntil="` + validUntil + `">
-  <EntityDescriptor entityID="https://a.example">
-    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
-    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
-  </EntityDescriptor>
+	<EntityDescriptor entityID="https://a.example">
+		<IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
+		</X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+	</EntityDescriptor>
 </EntitiesDescriptor>`)
 	defer srv.Close()
 
@@ -445,16 +445,16 @@ func TestFederationEntitiesAreTellableApart(t *testing.T) {
 	exp := time.Now().Add(45 * 24 * time.Hour)
 	srv := metadataServer(`<?xml version="1.0"?>
 <EntitiesDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata">
-  <EntityDescriptor entityID="https://a.example">
-    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
-    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
-  </EntityDescriptor>
-  <EntityDescriptor entityID="https://b.example">
-    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
-      <X509Certificate>` + derCert(t, "b-signing", exp) + `</X509Certificate>
-    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
-  </EntityDescriptor>
+	<EntityDescriptor entityID="https://a.example">
+		<IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
+		</X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+	</EntityDescriptor>
+	<EntityDescriptor entityID="https://b.example">
+		<IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+			<X509Certificate>` + derCert(t, "b-signing", exp) + `</X509Certificate>
+		</X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+	</EntityDescriptor>
 </EntitiesDescriptor>`)
 	defer srv.Close()
 

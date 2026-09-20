@@ -74,8 +74,8 @@ func ValidateRotation(providers []RotationProvider) error {
 			return fmt.Errorf("%s: unknown provider %q, want one of %s", where, p.Name, knownRotationNames())
 		}
 		if p.MaxKeyAgeDays <= 0 {
-			return fmt.Errorf(
-				"%s (%s): maxKeyAgeDays is required and must be positive — these keys never expire, so the rotation policy is the only deadline there is",
+			return fmt.Errorf("%s (%s): maxKeyAgeDays is required and must be positive — these keys "+
+				"never expire, so the rotation policy is the only deadline there is",
 				where, p.Name)
 		}
 	}

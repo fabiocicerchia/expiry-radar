@@ -100,6 +100,7 @@ func (s *AzureSource) token(ctx context.Context, client *http.Client, scope stri
 	if s.tokens == nil {
 		s.tokens = map[string]azureToken{}
 	}
+	//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
 	if t, ok := s.tokens[scope]; ok && time.Now().Before(t.till) {
 		return t.value, nil
 	}
@@ -142,6 +143,7 @@ func (s *AzureSource) token(ctx context.Context, client *http.Client, scope stri
 	s.tokens[scope] = azureToken{
 		value: out.AccessToken,
 		// Renew a minute early: a token expiring mid-scan fails half the reads.
+		//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
 		till: time.Now().Add(time.Duration(out.ExpiresIn)*time.Second - time.Minute),
 	}
 	return out.AccessToken, nil

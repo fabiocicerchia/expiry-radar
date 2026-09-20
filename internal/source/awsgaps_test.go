@@ -47,7 +47,7 @@ func TestRoute53DomainsAutoRenewIsDeRanked(t *testing.T) {
 	defer srv.Close()
 
 	s := &AWSSource{}
-	items, err := s.route53Domains(context.Background(), awsConfigFor(srv.URL), "acct")
+	items, err := s.route53Domains(context.Background(), awsConfigFor(srv.URL))
 	if err != nil {
 		t.Fatalf("route53domains: %v", err)
 	}

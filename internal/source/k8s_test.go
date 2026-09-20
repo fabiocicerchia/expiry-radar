@@ -84,10 +84,13 @@ func routeMatches(path, key string) bool {
 	return path == key || strings.HasSuffix(path, "/"+key)
 }
 
-func secretList(t *testing.T, namespace, name string, pemBytes []byte) string {
+// secretList serves one TLS secret. The namespace is always prod: these tests
+// are about what the source does with a secret, not about which namespace it
+// came from, and the namespaced fan-out has its own tests.
+func secretList(t *testing.T, name string, pemBytes []byte) string {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
-		"metadata": map[string]string{"name": name, "namespace": namespace},
+		"metadata": map[string]string{"name": name, "namespace": "prod"},
 		"type":     "kubernetes.io/tls",
 		"data":     map[string][]byte{"tls.crt": pemBytes},
 	}}})
@@ -124,11 +127,11 @@ func itemNamed(items []Item, name string) (Item, bool) {
 // The rule nobody could check before: one denied resource class must not take
 // the rest of the cluster's findings with it.
 func TestOneDeniedResourceKeepsTheOthersFindings(t *testing.T) {
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
-	caPEM, _ := selfSignedPEM(t, "webhook-ca", time.Now().Add(10*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
+	caPEM := selfSignedPEM(t, "webhook-ca", time.Now().Add(10*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets":                         secretList(t, "prod", "shop-tls", certPEM),
+		"secrets":                         secretList(t, "shop-tls", certPEM),
 		"validatingwebhookconfigurations": webhookConfigList(t, "cert-manager-webhook", caPEM),
 	}, map[string]int{
 		"validatingwebhookconfigurations": http.StatusForbidden,
@@ -148,10 +151,10 @@ func TestOneDeniedResourceKeepsTheOthersFindings(t *testing.T) {
 }
 
 func TestADeniedNamespaceKeepsTheOtherNamespacesSecrets(t *testing.T) {
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"namespaces/prod/secrets": secretList(t, "prod", "shop-tls", certPEM),
+		"namespaces/prod/secrets": secretList(t, "shop-tls", certPEM),
 	}, map[string]int{
 		"namespaces/staging/secrets": http.StatusForbidden,
 	})
@@ -236,10 +239,10 @@ func certificateList(t *testing.T, namespace, name, secretName, notAfter, renewa
 
 func TestAHealthyCertManagerCertificateMarksItsSecretManaged(t *testing.T) {
 	now := time.Now()
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "prod", "shop-tls", certPEM),
+		"secrets": secretList(t, "shop-tls", certPEM),
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			now.Add(30*24*time.Hour).Format(time.RFC3339),
 			now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
@@ -263,10 +266,10 @@ func TestAHealthyCertManagerCertificateMarksItsSecretManaged(t *testing.T) {
 
 func TestAStuckCertManagerRenewalIsNotMarkedManaged(t *testing.T) {
 	now := time.Now()
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "prod", "shop-tls", certPEM),
+		"secrets": secretList(t, "shop-tls", certPEM),
 		// Ready=False is cert-manager saying the renewal it owns is failing.
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			now.Add(30*24*time.Hour).Format(time.RFC3339),
@@ -309,7 +312,7 @@ func TestACertificateWithNoIssuedSecretIsStillReported(t *testing.T) {
 }
 
 func TestTheSameWebhookCAInTwoConfigurationsIsReportedOnce(t *testing.T) {
-	caPEM, _ := selfSignedPEM(t, "cert-manager-ca", time.Now().Add(10*24*time.Hour))
+	caPEM := selfSignedPEM(t, "cert-manager-ca", time.Now().Add(10*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"validatingwebhookconfigurations": webhookConfigList(t, "cert-manager-validating", caPEM),
@@ -351,7 +354,7 @@ func TestAWebhookWithNoCABundleIsSkipped(t *testing.T) {
 }
 
 func TestALocalAPIServiceIsSkipped(t *testing.T) {
-	caPEM, _ := selfSignedPEM(t, "front-proxy-ca", time.Now().Add(20*24*time.Hour))
+	caPEM := selfSignedPEM(t, "front-proxy-ca", time.Now().Add(20*24*time.Hour))
 	body, err := json.Marshal(map[string]any{"items": []map[string]any{
 		{"metadata": map[string]string{"name": "v1."}, "spec": map[string]any{}},
 		{"metadata": map[string]string{"name": "v1beta1.metrics.k8s.io"}, "spec": map[string]any{
@@ -395,7 +398,7 @@ func TestAMissingMeshAnchorIsNotAnError(t *testing.T) {
 }
 
 func TestAMeshTrustAnchorIsReadFromItsConfigMap(t *testing.T) {
-	caPEM, _ := selfSignedPEM(t, "identity.linkerd.cluster.local", time.Now().Add(60*24*time.Hour))
+	caPEM := selfSignedPEM(t, "identity.linkerd.cluster.local", time.Now().Add(60*24*time.Hour))
 	body, err := json.Marshal(map[string]any{"data": map[string]string{"ca-bundle.crt": string(caPEM)}})
 	if err != nil {
 		t.Fatal(err)
@@ -466,7 +469,7 @@ func TestACertificateWhoseSecretIsUnreadableIsStillReported(t *testing.T) {
 	notAfter := now.Add(30 * 24 * time.Hour)
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "prod", "shop-tls", corrupt),
+		"secrets": secretList(t, "shop-tls", corrupt),
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			notAfter.Format(time.RFC3339), now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
 	}, nil)
@@ -588,8 +591,8 @@ func TestUnissuedCertificatesComeOutInAStableOrder(t *testing.T) {
 // different clocks. Reading one and labelling it "trust-anchor" reported the
 // wrong certificate under the right name.
 func TestBothIstioCACertsAreReportedWithTheirOwnRoles(t *testing.T) {
-	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(300*24*time.Hour))
-	caPEM, _ := selfSignedPEM(t, "istio-intermediate", time.Now().Add(20*24*time.Hour))
+	rootPEM := selfSignedPEM(t, "istio-root", time.Now().Add(300*24*time.Hour))
+	caPEM := selfSignedPEM(t, "istio-intermediate", time.Now().Add(20*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"secrets/cacerts": secretBody(t, map[string][]byte{
@@ -637,8 +640,8 @@ func TestAnAnchorWhoseKeyIsMissingWarnsRatherThanDisappearing(t *testing.T) {
 func TestTwoCAsWithTheSameIssuerCNAndSerialAreBothReported(t *testing.T) {
 	// selfSigned mints every certificate with serial 1, so a same-CN pair is
 	// exactly the collision an issuer+serial key cannot tell apart.
-	a, _ := selfSignedPEM(t, "kubernetes", time.Now().Add(10*24*time.Hour))
-	b, _ := selfSignedPEM(t, "kubernetes", time.Now().Add(200*24*time.Hour))
+	a := selfSignedPEM(t, "kubernetes", time.Now().Add(10*24*time.Hour))
+	b := selfSignedPEM(t, "kubernetes", time.Now().Add(200*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"validatingwebhookconfigurations": webhookConfigList(t, "one", a),
@@ -656,7 +659,7 @@ func TestTwoCAsWithTheSameIssuerCNAndSerialAreBothReported(t *testing.T) {
 }
 
 func TestACASharedByAWebhookAndAnAPIServiceIsReportedOnce(t *testing.T) {
-	caPEM, _ := selfSignedPEM(t, "front-proxy-ca", time.Now().Add(15*24*time.Hour))
+	caPEM := selfSignedPEM(t, "front-proxy-ca", time.Now().Add(15*24*time.Hour))
 	apis, err := json.Marshal(map[string]any{"items": []map[string]any{{
 		"metadata": map[string]string{"name": "v1beta1.metrics.k8s.io"},
 		"spec": map[string]any{"caBundle": caPEM,
@@ -686,11 +689,11 @@ func TestACASharedByAWebhookAndAnAPIServiceIsReportedOnce(t *testing.T) {
 }
 
 func TestACorruptLeafIsSkippedRatherThanReportedWithTheChainsExpiry(t *testing.T) {
-	chainPEM, _ := selfSignedPEM(t, "intermediate", time.Now().Add(300*24*time.Hour))
+	chainPEM := selfSignedPEM(t, "intermediate", time.Now().Add(300*24*time.Hour))
 	corrupt := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "prod", "shop-tls", append(corrupt, chainPEM...)),
+		"secrets": secretList(t, "shop-tls", append(corrupt, chainPEM...)),
 	}, nil)
 	defer srv.Close()
 
@@ -707,7 +710,7 @@ func TestACorruptLeafIsSkippedRatherThanReportedWithTheChainsExpiry(t *testing.T
 // radius. A CA's SANs are not hosts it fronts, so handing them over would earn
 // a trust anchor a bonus meant for a leaf that actually serves those names.
 func TestATrustAnchorCarriesNoHostsForRankingToAmplify(t *testing.T) {
-	caPEM, _ := selfSignedPEM(t, "wildcard-ca", time.Now().Add(10*24*time.Hour))
+	caPEM := selfSignedPEM(t, "wildcard-ca", time.Now().Add(10*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"validatingwebhookconfigurations": webhookConfigList(t, "wc", caPEM),
@@ -727,7 +730,7 @@ func TestATrustAnchorCarriesNoHostsForRankingToAmplify(t *testing.T) {
 // istio-system/cacerts, and webhooks is collected first. The item must end up
 // with what the mesh collector knew, not just what the webhook did.
 func TestACAKnownToTwoCollectorsKeepsWhatBothKnew(t *testing.T) {
-	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(100*24*time.Hour))
+	rootPEM := selfSignedPEM(t, "istio-root", time.Now().Add(100*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"validatingwebhookconfigurations": webhookConfigList(t, "istio-sidecar-injector", rootPEM),
@@ -788,8 +791,8 @@ func TestADeletedSecretCannotBeCalledAHealthyRenewal(t *testing.T) {
 }
 
 func TestEachCertificateInACABundleGetsItsOwnName(t *testing.T) {
-	rootPEM, _ := selfSignedPEM(t, "bundle-root", time.Now().Add(300*24*time.Hour))
-	intPEM, _ := selfSignedPEM(t, "bundle-intermediate", time.Now().Add(20*24*time.Hour))
+	rootPEM := selfSignedPEM(t, "bundle-root", time.Now().Add(300*24*time.Hour))
+	intPEM := selfSignedPEM(t, "bundle-intermediate", time.Now().Add(20*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"validatingwebhookconfigurations": webhookConfigList(t, "wc", append(rootPEM, intPEM...)),
@@ -899,7 +902,7 @@ func TestMeshSigningSecretsAreOptIn(t *testing.T) {
 }
 
 func TestTheIstioRootIsReadFromThePublicConfigMap(t *testing.T) {
-	rootPEM, _ := selfSignedPEM(t, "istio-root", time.Now().Add(200*24*time.Hour))
+	rootPEM := selfSignedPEM(t, "istio-root", time.Now().Add(200*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
 		"configmaps/istio-ca-root-cert": configMapBody(t, map[string]string{"root-cert.pem": string(rootPEM)}),
@@ -941,10 +944,10 @@ func TestA404OnTheSecretsListIsNotACleanEstate(t *testing.T) {
 
 // The one place a 404 really is an answer.
 func TestAMissingCertManagerCRDIsStillNotAnError(t *testing.T) {
-	certPEM, _ := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
+	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "prod", "shop-tls", certPEM),
+		"secrets": secretList(t, "shop-tls", certPEM),
 	}, map[string]int{
 		"cert-manager.io": http.StatusNotFound,
 	})

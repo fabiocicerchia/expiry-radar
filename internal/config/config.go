@@ -428,7 +428,8 @@ func Load(path string) (*File, error) {
 	}
 	if f.Apple != nil && f.Apple.Enabled {
 		if f.Apple.PrivateKeyFile == "" {
-			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE") //nolint:forbidigo // FC-GEN-055: this is the startup read
+			//nolint:forbidigo // FC-GEN-055: this is the startup read
+			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE")
 		}
 		if f.Apple.IssuerID == "" || f.Apple.KeyID == "" || f.Apple.PrivateKeyFile == "" {
 			return nil, fmt.Errorf(
@@ -447,7 +448,8 @@ func Load(path string) (*File, error) {
 	if f.GCP != nil && f.GCP.Enabled {
 		// Not required: on GCP the metadata server answers and no key file
 		// exists, which is the better posture of the two.
-		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		//nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 		if len(f.GCP.Projects) == 0 {
 			return nil, fmt.Errorf("%s: gcp source is enabled but gcp.projects is empty", path)
 		}

@@ -117,6 +117,7 @@ func (s *AppleSource) assertion() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
 	now := time.Now()
 	claims, err := json.Marshal(map[string]any{
 		"iss": s.IssuerID,

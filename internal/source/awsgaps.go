@@ -208,7 +208,7 @@ func (s *AWSSource) iamCertificates(ctx context.Context, cfg aws.Config, account
 // route53Domains reports registrations. Like every other registrar here, the
 // value over the RDAP source is auto-renew: the date is the same, but only the
 // registrar knows whether anybody is going to act on it.
-func (s *AWSSource) route53Domains(ctx context.Context, cfg aws.Config, account string) ([]Item, error) {
+func (s *AWSSource) route53Domains(ctx context.Context, cfg aws.Config) ([]Item, error) {
 	// Route 53 Domains only exists in us-east-1. Without pinning it, the
 	// endpoint rules resolve route53domains.<scan region>.amazonaws.com and
 	// this unit fails on every account not scanning us-east-1 — which, since

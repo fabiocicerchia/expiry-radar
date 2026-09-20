@@ -261,7 +261,8 @@ const (
 // right far more often than it is wrong. Non-production wins ties: mistaking
 // prod for staging is an outage, the other way round is a wasted alert.
 func environment(it source.Item) env {
-	haystack := strings.ToLower(it.Namespace + " " + it.Name + " " + it.Labels[source.LabelEnvironment] + " " + it.Labels["env"])
+	haystack := strings.ToLower(it.Namespace + " " + it.Name + " " +
+		it.Labels[source.LabelEnvironment] + " " + it.Labels["env"])
 	for _, s := range []string{"staging", "sandbox", "preprod", "pre-prod", "qa", "uat", "canary", "dev", "test", "demo"} {
 		if containsToken(haystack, s) {
 			return envNonProd

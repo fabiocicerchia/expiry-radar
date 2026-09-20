@@ -17,10 +17,8 @@ import (
 )
 
 // gcpServer answers the token exchange and whatever API paths are routed.
-func gcpServer(routes map[string]any) (*httptest.Server, *[]string) {
-	var seen []string
+func gcpServer(routes map[string]any) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = append(seen, r.URL.Path)
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"access_token": "ya29.test", "expires_in": 3600,
@@ -35,7 +33,7 @@ func gcpServer(routes map[string]any) (*httptest.Server, *[]string) {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{})
 	}))
-	return srv, &seen
+	return srv
 }
 
 // writeKeyFile mints a real RSA service account key, so the assertion under
@@ -122,7 +120,7 @@ func TestGCPSignsItsOwnAssertionAndUsesTheToken(t *testing.T) {
 
 func TestGCPManagedCertificatesAreDeRanked(t *testing.T) {
 	soon := time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339)
-	srv, _ := gcpServer(map[string]any{
+	srv := gcpServer(map[string]any{
 		"sslCertificates": map[string]any{"items": []any{
 			map[string]any{"name": "managed", "expireTime": soon, "type": "MANAGED"},
 			map[string]any{"name": "uploaded", "expireTime": soon, "type": "SELF_MANAGED"},
@@ -149,7 +147,7 @@ func TestGCPManagedCertificatesAreDeRanked(t *testing.T) {
 func TestGCPServiceAccountKeysUseThePolicyDate(t *testing.T) {
 	created := time.Now().Add(-120 * 24 * time.Hour).Format(time.RFC3339)
 	tenYears := time.Now().Add(3650 * 24 * time.Hour).Format(time.RFC3339)
-	srv, _ := gcpServer(map[string]any{
+	srv := gcpServer(map[string]any{
 		"serviceAccounts": map[string]any{"accounts": []any{
 			map[string]any{"name": "projects/acme-prod/serviceAccounts/ci@acme.iam.gserviceaccount.com",
 				"email": "ci@acme.iam.gserviceaccount.com"},
@@ -190,7 +188,7 @@ func TestGCPServiceAccountKeysUseThePolicyDate(t *testing.T) {
 func TestGCPSecretsReportExpiryAndRotationSeparately(t *testing.T) {
 	expire := time.Now().Add(50 * 24 * time.Hour).Format(time.RFC3339)
 	rotate := time.Now().Add(10 * 24 * time.Hour).Format(time.RFC3339)
-	srv, _ := gcpServer(map[string]any{
+	srv := gcpServer(map[string]any{
 		"/secrets": map[string]any{"secrets": []any{
 			map[string]any{"name": "projects/acme-prod/secrets/db-password",
 				"expireTime": expire,

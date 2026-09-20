@@ -92,7 +92,7 @@ func (s *AWSSource) services(ctx context.Context, cfg aws.Config, account string
 		{"rds", s.SkipRDS, func() ([]Item, error) { return s.rdsCertificates(ctx, cfg, account) }},
 		{"acm-pca", s.SkipPCA, func() ([]Item, error) { return s.privateCAs(ctx, cfg, account) }},
 		{"iam-certs", s.SkipIAMCerts, func() ([]Item, error) { return s.iamCertificates(ctx, cfg, account) }},
-		{"route53domains", s.SkipDomains, func() ([]Item, error) { return s.route53Domains(ctx, cfg, account) }},
+		{"route53domains", s.SkipDomains, func() ([]Item, error) { return s.route53Domains(ctx, cfg) }},
 	}
 }
 
