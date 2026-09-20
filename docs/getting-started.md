@@ -51,12 +51,17 @@ the ones that need **no credential at all** — they work on the first run:
 [`sources.md`](sources.md) has the full table: what each one reads, the exact
 permission it needs, and where a provider's answer is weaker than it looks.
 
-Run one at a time with `-only`, which is the quickest way to check a single
-credential without waiting for the rest:
+Run one at a time with `-only`, which is the quickest way to see what a single
+source reports without waiting for the rest:
 
 ```sh
 ./bin/expiry-radar -config expiry-radar.json -only cloudflare
 ```
+
+`-only` narrows what is **collected**, not what is **validated**. The config is
+loaded as a whole first, so every block you enabled still needs its environment
+variable set, whether or not `-only` names it. To run without a provider's
+credentials, take its block out of the config.
 
 Naming a source the config did not enable is an error rather than an empty
 report — otherwise a typo would look exactly like an estate with nothing to

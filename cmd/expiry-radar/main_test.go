@@ -91,3 +91,16 @@ func TestOnlyKeepsTheConfiguredOrderNotTheFlagOrder(t *testing.T) {
 		t.Errorf("want configured order %q, got %q", want, strings.Join(names(got), ","))
 	}
 }
+
+// With nothing configured at all, -only has nothing to narrow and the caller's
+// "no sources configured" message is the useful one. Claiming an unknown source
+// and then listing what this config built — an empty list — helps nobody.
+func TestOnlyWithNothingConfiguredDefersToTheEmptyConfigMessage(t *testing.T) {
+	got, err := pick(nil, []string{"aws"})
+	if err != nil {
+		t.Fatalf("want no error, got %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("want nothing back, got %d sources", len(got))
+	}
+}

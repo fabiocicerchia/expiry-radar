@@ -40,15 +40,22 @@ The full list, including the providers not enabled here, is in
 [`docs/sources.md`](../../docs/sources.md) and in `man 1 expiry-radar` under
 `ENVIRONMENT`.
 
-## Check one credential at a time
+## Run one source at a time
 
 Bringing eleven sources up at once means eleven ways to get a warning. `-only`
-runs exactly one:
+narrows the run to one:
 
 ```sh
 ../../bin/expiry-radar -config expiry-radar.json -only cloudflare
 ../../bin/expiry-radar -config expiry-radar.json -only manual      # no network at all
 ```
+
+It narrows what is **collected**, not what is **validated**. The config is
+loaded as a whole before anything runs, so `-only cloudflare` still fails if
+`GITLAB_TOKEN` is unset while the `gitlab` block is enabled — a config that is
+half-broken should say so rather than wait until the day you stop passing
+`-only`. Delete the blocks you have no credentials for; that is what makes this
+file yours rather than a template.
 
 Naming a source this config did not enable is an error, not an empty report:
 

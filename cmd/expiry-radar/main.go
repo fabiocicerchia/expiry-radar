@@ -128,7 +128,10 @@ func run(ctx context.Context, args []string, stdout io.Writer) (int, error) {
 // silently matched nothing would report a clean estate for a source that was
 // never asked anything.
 func pick(sources []source.Source, names []string) ([]source.Source, error) {
-	if len(names) == 0 {
+	if len(names) == 0 || len(sources) == 0 {
+		// Nothing configured at all is a different problem with a better
+		// message, and it is the caller's to report: saying this config built
+		// nothing, in a list that is then empty, helps no one.
 		return sources, nil
 	}
 	want := make(map[string]bool, len(names))

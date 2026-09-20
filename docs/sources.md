@@ -4,9 +4,14 @@
 
 Every credential in the table below is read from **an environment variable at
 startup**, never from the config file — the config names which sources to run
-and what to scan, and holds nothing secret. `expiry-radar -only <name>` runs a
-single source, which is the quickest way to check one credential in isolation.
-The full list of variables is also in `man 1 expiry-radar`, under `ENVIRONMENT`.
+and what to scan, and holds nothing secret. The full list of variables is also
+in `man 1 expiry-radar`, under `ENVIRONMENT`.
+
+The first column is the `Source` an item carries, which is finer grained than
+the source name `-only` takes: `cloudflare:edge` and `cloudflare:registrar` are
+both `-only cloudflare`, and a domain answered over WHOIS carries
+`domain:whois` from the source named `domain:rdap`. The twenty-three names
+`-only` accepts are listed in [`getting-started.md`](getting-started.md).
 
 | Source | What it reads | Credentials |
 | --- | --- | --- |
