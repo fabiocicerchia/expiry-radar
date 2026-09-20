@@ -23,13 +23,15 @@ type File struct {
 	Endpoints []source.Endpoint `json:"endpoints"`
 	Domains   []string          `json:"domains"`
 	// Things that expire that no source can discover. See source.ManualItem.
-	Manual     []source.ManualItem `json:"manual"`
-	K8s        *K8s                `json:"k8s"`
-	Vault      *Vault              `json:"vault"`
-	AWS        *AWS                `json:"aws"`
-	Cloudflare *Cloudflare         `json:"cloudflare"`
-	GitLab     *GitLab             `json:"gitlab"`
-	Overrides  []rank.Override     `json:"overrides"`
+	Manual       []source.ManualItem `json:"manual"`
+	K8s          *K8s                `json:"k8s"`
+	Vault        *Vault              `json:"vault"`
+	AWS          *AWS                `json:"aws"`
+	Cloudflare   *Cloudflare         `json:"cloudflare"`
+	GitLab       *GitLab             `json:"gitlab"`
+	DigitalOcean *DigitalOcean       `json:"digitalocean"`
+	Scaleway     *Scaleway           `json:"scaleway"`
+	Overrides    []rank.Override     `json:"overrides"`
 }
 
 // K8s points the Kubernetes source at a cluster. An empty Server means
@@ -115,6 +117,28 @@ type GitLab struct {
 	SkipGroups   bool     `json:"skipGroups"`
 }
 
+// DigitalOcean points the DigitalOcean source at an account.
+type DigitalOcean struct {
+	Enabled bool `json:"enabled"`
+	// Token never comes from the file. Load fills it from $DIGITALOCEAN_TOKEN.
+	Token string `json:"-"`
+}
+
+// Scaleway points the Scaleway source at an organization and its LB zones.
+type Scaleway struct {
+	Enabled bool `json:"enabled"`
+	// SecretKey never comes from the file. Load fills it from $SCW_SECRET_KEY.
+	SecretKey string `json:"-"`
+	// OrganizationID scopes the IAM key listing; empty skips it.
+	OrganizationID string `json:"organizationId"`
+	// Zones are load-balancer zones ("fr-par-1"). Certificates there are
+	// zonal, so there is nothing to list without one.
+	Zones       []string `json:"zones"`
+	SkipDomains bool     `json:"skipDomains"`
+	SkipLB      bool     `json:"skipLoadBalancers"`
+	SkipKeys    bool     `json:"skipKeys"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -176,6 +200,18 @@ func Load(path string) (*File, error) {
 		f.GitLab.Token = os.Getenv("GITLAB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
 		if f.GitLab.Token == "" {
 			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
+		}
+	}
+	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
+		f.DigitalOcean.Token = os.Getenv("DIGITALOCEAN_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.DigitalOcean.Token == "" {
+			return nil, fmt.Errorf("%s: digitalocean source is enabled but $DIGITALOCEAN_TOKEN is not set", path)
+		}
+	}
+	if f.Scaleway != nil && f.Scaleway.Enabled {
+		f.Scaleway.SecretKey = os.Getenv("SCW_SECRET_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Scaleway.SecretKey == "" {
+			return nil, fmt.Errorf("%s: scaleway source is enabled but $SCW_SECRET_KEY is not set", path)
 		}
 	}
 	// The environment is read here, once, and validated with the rest of the
@@ -250,6 +286,19 @@ func (f *File) Sources() []source.Source {
 			SkipPersonal: f.GitLab.SkipPersonal,
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
+		})
+	}
+	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
+		out = append(out, &source.DigitalOceanSource{Token: f.DigitalOcean.Token})
+	}
+	if f.Scaleway != nil && f.Scaleway.Enabled {
+		out = append(out, &source.ScalewaySource{
+			SecretKey:      f.Scaleway.SecretKey,
+			OrganizationID: f.Scaleway.OrganizationID,
+			Zones:          f.Scaleway.Zones,
+			SkipDomains:    f.Scaleway.SkipDomains,
+			SkipLB:         f.Scaleway.SkipLB,
+			SkipKeys:       f.Scaleway.SkipKeys,
 		})
 	}
 	if f.AWS != nil && f.AWS.Enabled {

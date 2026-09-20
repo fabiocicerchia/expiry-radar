@@ -23,6 +23,10 @@
 | `gitlab:group-token` | group access tokens | same token, owner on the group |
 | `gitlab:deploy-token` | deploy tokens | same token |
 | `gitlab:pages` | Pages custom-domain certificates | same token |
+| `digitalocean:certificate` | load-balancer and app certificates | `DIGITALOCEAN_TOKEN`, read |
+| `scaleway:domain` | registered domains, with auto-renew state | `SCW_SECRET_KEY` |
+| `scaleway:lb` | load-balancer certificates, per zone | same key + `zones` |
+| `scaleway:iam` | API keys that carry an expiry | same key + `organizationId` |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `manual` | what you recorded yourself, because nothing can discover it | none |
@@ -198,6 +202,26 @@ to enumerate everything a token can see, and hammering the API to find out is
 not a read-only posture worth defending. GitLab answers `404` for a resource
 the token cannot see as well as for one that is not there, so the warning says
 both.
+
+## DigitalOcean and Scaleway
+
+**DigitalOcean is deliberately one endpoint.** It hosts DNS but is not a
+registrar, so there are no registrations to report, and its personal access
+tokens have no list endpoint. `/v2/certificates` is the honest extent of what
+this API exposes that expires. A `lets_encrypt` certificate that is verified is
+renewed by DigitalOcean and de-ranked; an uploaded `custom` one is not.
+
+**Scaleway's value is that it is a registrar.** The `domains` source already
+reports registry expiry for any domain over RDAP with no credentials at all, so
+a second date would add nothing — what Scaleway adds is `auto_renew_status`,
+which is the difference between a date existing and somebody having to act on
+it. Enabled auto-renew is de-ranked like any other automated renewal.
+
+Load-balancer certificates are zonal, so `zones` has to name them; IAM keys need
+`organizationId`. Both are skipped rather than guessed at when the identifier is
+missing. Only keys that carry a real `expires_at` are reported — Scaleway allows
+keys without one, and those are a rotation-policy question rather than a
+deadline this source can read, the same line the AWS IAM adapter draws.
 
 ## Recorded, or discovered
 

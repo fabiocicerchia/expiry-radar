@@ -36,6 +36,15 @@
     "skipProjects": false,
     "skipGroups": false
   },
+  "digitalocean": { "enabled": false },
+  "scaleway": {
+    "enabled": false,
+    "organizationId": "",
+    "zones": ["fr-par-1"],
+    "skipDomains": false,
+    "skipLoadBalancers": false,
+    "skipKeys": false
+  },
   "vault": {
     "enabled": false,
     "addr": "",
