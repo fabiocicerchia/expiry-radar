@@ -30,6 +30,7 @@ type File struct {
 	Cloudflare   *Cloudflare         `json:"cloudflare"`
 	GitLab       *GitLab             `json:"gitlab"`
 	GitHub       *GitHub             `json:"github"`
+	GCP          *GCP                `json:"gcp"`
 	DigitalOcean *DigitalOcean       `json:"digitalocean"`
 	Scaleway     *Scaleway           `json:"scaleway"`
 	Namecheap    *Namecheap          `json:"namecheap"`
@@ -180,6 +181,29 @@ type GitHub struct {
 	SkipGPGKeys   bool     `json:"skipGpgKeys"`
 }
 
+// GCP points the Google Cloud source at projects. Credentials come from the
+// metadata server when running on GCP, which holds no key at all, or from a
+// service account key file named by $GOOGLE_APPLICATION_CREDENTIALS.
+type GCP struct {
+	Enabled bool `json:"enabled"`
+	// Projects are named rather than discovered: enumerating them needs
+	// resourcemanager permissions most read-only roles do not carry.
+	Projects []string `json:"projects"`
+	// Locations for Certificate Manager, which is regional. Default: global.
+	Locations []string `json:"locations"`
+	// CredentialsFile is filled from $GOOGLE_APPLICATION_CREDENTIALS; empty
+	// means ask the metadata server.
+	CredentialsFile string `json:"-"`
+	// MaxKeyAgeDays turns service account key age into a rotation deadline.
+	// A user-managed key is valid for about ten years by default, which is not
+	// a deadline anybody means. 0 reports the issuer's date as-is.
+	MaxKeyAgeDays   int  `json:"maxKeyAgeDays"`
+	SkipCertManager bool `json:"skipCertManager"`
+	SkipCompute     bool `json:"skipCompute"`
+	SkipSecrets     bool `json:"skipSecrets"`
+	SkipKeys        bool `json:"skipKeys"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -254,6 +278,14 @@ func Load(path string) (*File, error) {
 		if f.Rotation[i].Token == "" {
 			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
 				path, f.Rotation[i].Name, env)
+		}
+	}
+	if f.GCP != nil && f.GCP.Enabled {
+		// Not required: on GCP the metadata server answers and no key file
+		// exists, which is the better posture of the two.
+		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if len(f.GCP.Projects) == 0 {
+			return nil, fmt.Errorf("%s: gcp source is enabled but gcp.projects is empty", path)
 		}
 	}
 	if f.GitHub != nil && f.GitHub.Enabled {
@@ -356,6 +388,18 @@ func (f *File) Sources() []source.Source {
 			SkipPersonal: f.GitLab.SkipPersonal,
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
+		})
+	}
+	if f.GCP != nil && f.GCP.Enabled {
+		out = append(out, &source.GCPSource{
+			Projects:        f.GCP.Projects,
+			Locations:       f.GCP.Locations,
+			CredentialsFile: f.GCP.CredentialsFile,
+			MaxKeyAgeDays:   f.GCP.MaxKeyAgeDays,
+			SkipCertManager: f.GCP.SkipCertManager,
+			SkipCompute:     f.GCP.SkipCompute,
+			SkipSecrets:     f.GCP.SkipSecrets,
+			SkipKeys:        f.GCP.SkipKeys,
 		})
 	}
 	if f.GitHub != nil && f.GitHub.Enabled {

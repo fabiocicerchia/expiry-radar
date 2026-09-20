@@ -41,6 +41,16 @@
     { "name": "openai", "maxKeyAgeDays": 90 },
     { "name": "dockerhub", "maxKeyAgeDays": 180 }
   ],
+  "gcp": {
+    "enabled": false,
+    "projects": ["acme-prod"],
+    "locations": ["global"],
+    "maxKeyAgeDays": 90,
+    "skipCertManager": false,
+    "skipCompute": false,
+    "skipSecrets": false,
+    "skipKeys": false
+  },
   "github": {
     "enabled": false,
     "baseUrl": "",

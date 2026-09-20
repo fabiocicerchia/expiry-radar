@@ -23,6 +23,10 @@
 | `gitlab:group-token` | group access tokens | same token, owner on the group |
 | `gitlab:deploy-token` | deploy tokens | same token |
 | `gitlab:pages` | Pages custom-domain certificates | same token |
+| `gcp:certificatemanager` | Certificate Manager certificates, per location | metadata server or a key file |
+| `gcp:compute` | classic global SSL certificates | same |
+| `gcp:secretmanager` | secret expiry **and** next rotation, separately | same |
+| `gcp:iam` | user-managed service account keys, by age | same + `maxKeyAgeDays` |
 | `github:org-token` | fine-grained PATs with org access | `GITHUB_TOKEN`, org **owner** |
 | `github:gpg` | GPG signing keys with an expiry | `GITHUB_TOKEN` |
 | `namecheap:domain` | registered domains, with auto-renew state | `NAMECHEAP_API_KEY` + an allowlisted IP |
@@ -244,6 +248,36 @@ the same, `auto_renew` is the part only the registrar knows.
 Each is a separate unit behind the same seam as the original three, with its own
 skip, so an account that denies `acm-pca` still reports its RDS certificates.
 `docs/iam-readonly-policy.json` carries the six new read-only actions.
+
+## Google Cloud
+
+The data here is ordinary REST; the cost of this source is authentication, and
+it is paid in about eighty lines of `crypto/rsa` rather than by taking a
+dependency. Two routes, which is all Google needs:
+
+- **On GCP**, the metadata server answers and no key file exists — so none can
+  leak. This is the better posture and the default when
+  `GOOGLE_APPLICATION_CREDENTIALS` is unset.
+- **Off GCP**, a service account key file signs its own JWT assertion and
+  exchanges it for an access token. The scope requested is
+  `cloud-platform.read-only`.
+
+`projects` are named rather than discovered: enumerating them needs
+`resourcemanager` permissions most read-only roles do not carry. An API that is
+simply not enabled on a project answers `404`, which is an answer about the
+project rather than a failure, so it passes quietly.
+
+Two things are worth calling out. **Secret Manager carries two different dates**
+— an outright `expireTime` and a `rotation.nextRotationTime` — and neither is
+the other, so both are reported as their own row. And **a user-managed service
+account key is valid for about ten years by default**, which is not a deadline
+anybody means; `maxKeyAgeDays` synthesises the rotation deadline instead and the
+row is labelled `deadline=rotation policy` with `created` and `policy.days`,
+exactly as the AWS IAM and rotation sources do. Set `maxKeyAgeDays: 0` to report
+Google's own date as-is. Google-managed keys are rotated for you and are skipped.
+
+Managed certificates — `MANAGED` in Compute, an `ACTIVE` managed cert in
+Certificate Manager — are de-ranked; self-managed uploads are not.
 
 ## GitHub, and what it cannot tell you
 
