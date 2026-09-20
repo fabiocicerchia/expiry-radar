@@ -480,7 +480,7 @@ func (s *CloudflareSource) userTokens(ctx context.Context, client *http.Client) 
 
 // cfTime parses Cloudflare's timestamps. They are RFC 3339 with six fractional
 // digits ("2027-03-07T23:26:12.000000Z"), which time.RFC3339 already accepts.
-// An empty or unparseable value means there is no deadline to report, not an
+// An empty or unparsable value means there is no deadline to report, not an
 // error — the same rule Secrets Manager rotation follows.
 func cfTime(s string) (time.Time, bool) {
 	if s == "" {

@@ -357,11 +357,11 @@ func gcpList[T any](ctx context.Context, s *GCPSource, client *http.Client,
 		}
 		var next string
 		if tok, ok := envelope["nextPageToken"]; ok {
-			// A page token we cannot decode ends the pagination rather than
-			// failing the page we just read: the items are already collected,
-			// and truncation is reported by the caller's own count check.
+			// A token that will not decode means the response is not the shape
+			// this adapter expects. Swallowing it would stop the pagination and
+			// report a prefix of the account as though it were all of it.
 			if err := json.Unmarshal(tok, &next); err != nil {
-				return "", nil
+				return "", fmt.Errorf("nextPageToken: %w", err)
 			}
 		}
 		return next, nil

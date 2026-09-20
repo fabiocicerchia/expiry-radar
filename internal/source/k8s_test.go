@@ -84,13 +84,13 @@ func routeMatches(path, key string) bool {
 	return path == key || strings.HasSuffix(path, "/"+key)
 }
 
-// secretList serves one TLS secret. The namespace is always prod: these tests
-// are about what the source does with a secret, not about which namespace it
-// came from, and the namespaced fan-out has its own tests.
-func secretList(t *testing.T, name string, pemBytes []byte) string {
+// secretList serves one TLS secret. Its namespace and name are fixed: these
+// tests are about what the source does with the certificate inside, not about
+// where it was found, and the namespaced fan-out has its own tests.
+func secretList(t *testing.T, pemBytes []byte) string {
 	t.Helper()
 	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
-		"metadata": map[string]string{"name": name, "namespace": "prod"},
+		"metadata": map[string]string{"name": "shop-tls", "namespace": "prod"},
 		"type":     "kubernetes.io/tls",
 		"data":     map[string][]byte{"tls.crt": pemBytes},
 	}}})
@@ -131,7 +131,7 @@ func TestOneDeniedResourceKeepsTheOthersFindings(t *testing.T) {
 	caPEM := selfSignedPEM(t, "webhook-ca", time.Now().Add(10*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets":                         secretList(t, "shop-tls", certPEM),
+		"secrets":                         secretList(t, certPEM),
 		"validatingwebhookconfigurations": webhookConfigList(t, "cert-manager-webhook", caPEM),
 	}, map[string]int{
 		"validatingwebhookconfigurations": http.StatusForbidden,
@@ -154,7 +154,7 @@ func TestADeniedNamespaceKeepsTheOtherNamespacesSecrets(t *testing.T) {
 	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"namespaces/prod/secrets": secretList(t, "shop-tls", certPEM),
+		"namespaces/prod/secrets": secretList(t, certPEM),
 	}, map[string]int{
 		"namespaces/staging/secrets": http.StatusForbidden,
 	})
@@ -242,7 +242,7 @@ func TestAHealthyCertManagerCertificateMarksItsSecretManaged(t *testing.T) {
 	certPEM := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "shop-tls", certPEM),
+		"secrets": secretList(t, certPEM),
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			now.Add(30*24*time.Hour).Format(time.RFC3339),
 			now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
@@ -269,7 +269,7 @@ func TestAStuckCertManagerRenewalIsNotMarkedManaged(t *testing.T) {
 	certPEM := selfSignedPEM(t, "shop.example.com", now.Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "shop-tls", certPEM),
+		"secrets": secretList(t, certPEM),
 		// Ready=False is cert-manager saying the renewal it owns is failing.
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			now.Add(30*24*time.Hour).Format(time.RFC3339),
@@ -469,7 +469,7 @@ func TestACertificateWhoseSecretIsUnreadableIsStillReported(t *testing.T) {
 	notAfter := now.Add(30 * 24 * time.Hour)
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "shop-tls", corrupt),
+		"secrets": secretList(t, corrupt),
 		"certificates": certificateList(t, "prod", "shop", "shop-tls",
 			notAfter.Format(time.RFC3339), now.Add(15*24*time.Hour).Format(time.RFC3339), "True"),
 	}, nil)
@@ -693,7 +693,7 @@ func TestACorruptLeafIsSkippedRatherThanReportedWithTheChainsExpiry(t *testing.T
 	corrupt := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: []byte("not a certificate")})
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "shop-tls", append(corrupt, chainPEM...)),
+		"secrets": secretList(t, append(corrupt, chainPEM...)),
 	}, nil)
 	defer srv.Close()
 
@@ -947,7 +947,7 @@ func TestAMissingCertManagerCRDIsStillNotAnError(t *testing.T) {
 	certPEM := selfSignedPEM(t, "shop.example.com", time.Now().Add(30*24*time.Hour))
 
 	srv := fakeK8s(map[string]string{
-		"secrets": secretList(t, "shop-tls", certPEM),
+		"secrets": secretList(t, certPEM),
 	}, map[string]int{
 		"cert-manager.io": http.StatusNotFound,
 	})
@@ -1033,7 +1033,7 @@ func TestAnUnreadSecretCannotEarnTheManagedDeRank(t *testing.T) {
 	}
 }
 
-func TestAnUnparseableWebhookCABundleWarns(t *testing.T) {
+func TestAnUnparsableWebhookCABundleWarns(t *testing.T) {
 	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
 		"metadata": map[string]string{"name": "broken"},
 		"webhooks": []map[string]any{{
@@ -1058,7 +1058,7 @@ func TestAnUnparseableWebhookCABundleWarns(t *testing.T) {
 	}
 }
 
-func TestAnUnparseableAPIServiceCABundleWarns(t *testing.T) {
+func TestAnUnparsableAPIServiceCABundleWarns(t *testing.T) {
 	body, err := json.Marshal(map[string]any{"items": []map[string]any{{
 		"metadata": map[string]string{"name": "v1beta1.metrics.k8s.io"},
 		"spec": map[string]any{

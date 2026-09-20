@@ -3,3 +3,8 @@
 # asserting on what the plugin draws into it.
 [default.extend-words]
 enew = "enew"
+
+# k8strust.go is "k8s" + "trust". typos splits the filename and finds "strust"
+# inside it, which is a real misspelling of "trust" anywhere else.
+[default.extend-identifiers]
+k8strust = "k8strust"
