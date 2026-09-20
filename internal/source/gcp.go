@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -260,36 +261,69 @@ func (s *GCPSource) api(name, fallback string) string {
 	return fallback
 }
 
-func gcpGet(ctx context.Context, s *GCPSource, client *http.Client, url string, out any) error {
+// gcpPages walks a list endpoint, handing each page to decode. Google caps
+// pageSize well below what a real project holds, so stopping at the first page
+// would silently drop service accounts and certificates — the quietest way for
+// this tool to be wrong.
+func gcpPages(ctx context.Context, s *GCPSource, client *http.Client, base string,
+	decode func([]byte) (string, error)) error {
+	token := ""
+	for page := 0; page < 50; page++ {
+		u := base
+		if token != "" {
+			sep := "?"
+			if strings.Contains(u, "?") {
+				sep = "&"
+			}
+			u += sep + "pageToken=" + url.QueryEscape(token)
+		}
+		raw, err := gcpRaw(ctx, s, client, u)
+		if err != nil {
+			return err
+		}
+		next, err := decode(raw)
+		if err != nil {
+			return fmt.Errorf("%s: %w", base, err)
+		}
+		if next == "" {
+			return nil
+		}
+		token = next
+	}
+	return fmt.Errorf("%s: stopped after 50 pages", base)
+}
+
+// gcpRaw returns the body so the caller can decode it into its own shape and
+// still read nextPageToken out of the same document.
+func gcpRaw(ctx context.Context, s *GCPSource, client *http.Client, url string) ([]byte, error) {
 	tok, err := s.accessToken(ctx, client)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	//nolint:errcheck // the body is read or abandoned either way.
 	defer func() { _ = resp.Body.Close() }()
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusForbidden, http.StatusUnauthorized:
-		return fmt.Errorf("%s: %s — the service account is missing a viewer role for this API", url, resp.Status)
+		return nil, fmt.Errorf("%s: %s — the service account is missing a viewer role for this API",
+			url, resp.Status)
 	case http.StatusNotFound:
-		// A project with the API not enabled answers 404, which is an answer
-		// about the project rather than a failure.
-		return nil
+		return nil, fmt.Errorf("%s: not found — check the project name, or enable the API on it", url)
 	default:
-		return fmt.Errorf("%s: %s", url, resp.Status)
+		return nil, fmt.Errorf("%s: %s", url, resp.Status)
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	return io.ReadAll(resp.Body)
 }
 
 func (s *GCPSource) locations() []string {
@@ -297,6 +331,43 @@ func (s *GCPSource) locations() []string {
 		return []string{"global"}
 	}
 	return s.Locations
+}
+
+// gcpList reads every page of a list endpoint and returns the named array.
+// Google spells the array differently per API ("certificates", "items",
+// "secrets", "accounts", "keys") but always spells the cursor nextPageToken,
+// so the envelope is decoded loosely and the payload strictly.
+func gcpList[T any](ctx context.Context, s *GCPSource, client *http.Client,
+	url, field string) ([]T, error) {
+	var out []T
+	err := gcpPages(ctx, s, client, url, func(raw []byte) (string, error) {
+		var envelope map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &envelope); err != nil {
+			return "", err
+		}
+		if arr, ok := envelope[field]; ok {
+			var batch []T
+			if err := json.Unmarshal(arr, &batch); err != nil {
+				return "", err
+			}
+			out = append(out, batch...)
+		}
+		var next string
+		if tok, ok := envelope["nextPageToken"]; ok {
+			_ = json.Unmarshal(tok, &next)
+		}
+		return next, nil
+	})
+	return out, err
+}
+
+type gcpCertificate struct {
+	Name        string   `json:"name"`
+	ExpireTime  string   `json:"expireTime"`
+	SanDnsnames []string `json:"sanDnsnames"`
+	Managed     *struct {
+		State string `json:"state"`
+	} `json:"managed"`
 }
 
 // certManager reads Certificate Manager, which is regional.
@@ -307,23 +378,13 @@ func (s *GCPSource) certManager(ctx context.Context, client *http.Client) ([]Ite
 
 	for _, p := range s.Projects {
 		for _, loc := range s.locations() {
-			var body struct {
-				Certificates []struct {
-					Name        string   `json:"name"`
-					ExpireTime  string   `json:"expireTime"`
-					SanDnsnames []string `json:"sanDnsnames"`
-					Managed     *struct {
-						State string `json:"state"`
-					} `json:"managed"`
-				} `json:"certificates"`
-			}
 			u := fmt.Sprintf("%s/v1/projects/%s/locations/%s/certificates?pageSize=500",
 				base, url.PathEscape(p), url.PathEscape(loc))
-			if err := gcpGet(ctx, s, client, u, &body); err != nil {
+			certs, err := gcpList[gcpCertificate](ctx, s, client, u, "certificates")
+			if err != nil {
 				warnings = append(warnings, p+"/"+loc+": "+err.Error())
-				continue
 			}
-			for _, c := range body.Certificates {
+			for _, c := range certs {
 				expires, ok := cfTime(c.ExpireTime)
 				if !ok {
 					continue
@@ -352,6 +413,13 @@ func (s *GCPSource) certManager(ctx context.Context, client *http.Client) ([]Ite
 	return items, joinErrs(warnings)
 }
 
+type gcpComputeCert struct {
+	Name            string   `json:"name"`
+	ExpireTime      string   `json:"expireTime"`
+	SubjectAltNames []string `json:"subjectAltNames"`
+	Type            string   `json:"type"`
+}
+
 // computeCerts reads the classic global SSL certificates, which predate
 // Certificate Manager and are still what most load balancers use.
 func (s *GCPSource) computeCerts(ctx context.Context, client *http.Client) ([]Item, error) {
@@ -360,21 +428,13 @@ func (s *GCPSource) computeCerts(ctx context.Context, client *http.Client) ([]It
 	var warnings []string
 
 	for _, p := range s.Projects {
-		var body struct {
-			Items []struct {
-				Name            string   `json:"name"`
-				ExpireTime      string   `json:"expireTime"`
-				SubjectAltNames []string `json:"subjectAltNames"`
-				Type            string   `json:"type"`
-			} `json:"items"`
-		}
 		u := fmt.Sprintf("%s/compute/v1/projects/%s/global/sslCertificates?maxResults=500",
 			base, url.PathEscape(p))
-		if err := gcpGet(ctx, s, client, u, &body); err != nil {
+		certs, err := gcpList[gcpComputeCert](ctx, s, client, u, "items")
+		if err != nil {
 			warnings = append(warnings, p+": "+err.Error())
-			continue
 		}
-		for _, c := range body.Items {
+		for _, c := range certs {
 			expires, ok := cfTime(c.ExpireTime)
 			if !ok {
 				continue
@@ -398,6 +458,14 @@ func (s *GCPSource) computeCerts(ctx context.Context, client *http.Client) ([]It
 	return items, joinErrs(warnings)
 }
 
+type gcpSecret struct {
+	Name       string `json:"name"`
+	ExpireTime string `json:"expireTime"`
+	Rotation   *struct {
+		NextRotationTime string `json:"nextRotationTime"`
+	} `json:"rotation"`
+}
+
 // secrets reports the two dates a secret can carry: an outright expiry, and a
 // next rotation. Both are real deadlines and neither is the other.
 func (s *GCPSource) secrets(ctx context.Context, client *http.Client) ([]Item, error) {
@@ -406,21 +474,12 @@ func (s *GCPSource) secrets(ctx context.Context, client *http.Client) ([]Item, e
 	var warnings []string
 
 	for _, p := range s.Projects {
-		var body struct {
-			Secrets []struct {
-				Name       string `json:"name"`
-				ExpireTime string `json:"expireTime"`
-				Rotation   *struct {
-					NextRotationTime string `json:"nextRotationTime"`
-				} `json:"rotation"`
-			} `json:"secrets"`
-		}
 		u := fmt.Sprintf("%s/v1/projects/%s/secrets?pageSize=500", base, url.PathEscape(p))
-		if err := gcpGet(ctx, s, client, u, &body); err != nil {
+		secrets, err := gcpList[gcpSecret](ctx, s, client, u, "secrets")
+		if err != nil {
 			warnings = append(warnings, p+": "+err.Error())
-			continue
 		}
-		for _, sec := range body.Secrets {
+		for _, sec := range secrets {
 			name := shortGCPName(sec.Name)
 			if expires, ok := cfTime(sec.ExpireTime); ok {
 				items = append(items, Item{
@@ -443,6 +502,18 @@ func (s *GCPSource) secrets(ctx context.Context, client *http.Client) ([]Item, e
 	return items, joinErrs(warnings)
 }
 
+type gcpServiceAccount struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type gcpSAKey struct {
+	Name            string `json:"name"`
+	ValidAfterTime  string `json:"validAfterTime"`
+	ValidBeforeTime string `json:"validBeforeTime"`
+	KeyType         string `json:"keyType"`
+}
+
 // serviceAccountKeys reports user-managed keys. Google-managed ones are
 // rotated for you and are not anybody's deadline.
 //
@@ -456,33 +527,22 @@ func (s *GCPSource) serviceAccountKeys(ctx context.Context, client *http.Client)
 	var warnings []string
 
 	for _, p := range s.Projects {
-		var accounts struct {
-			Accounts []struct {
-				Name  string `json:"name"`
-				Email string `json:"email"`
-			} `json:"accounts"`
-		}
 		u := fmt.Sprintf("%s/v1/projects/%s/serviceAccounts?pageSize=100", base, url.PathEscape(p))
-		if err := gcpGet(ctx, s, client, u, &accounts); err != nil {
+		accounts, err := gcpList[gcpServiceAccount](ctx, s, client, u, "accounts")
+		if err != nil {
 			warnings = append(warnings, p+": "+err.Error())
-			continue
 		}
 
-		for _, a := range accounts.Accounts {
-			var keys struct {
-				Keys []struct {
-					Name            string `json:"name"`
-					ValidAfterTime  string `json:"validAfterTime"`
-					ValidBeforeTime string `json:"validBeforeTime"`
-					KeyType         string `json:"keyType"`
-				} `json:"keys"`
-			}
+		for _, a := range accounts {
+			// The key listing is not paginated by Google, but it is read
+			// through the same helper so a future cursor is not missed.
 			ku := fmt.Sprintf("%s/v1/%s/keys?keyTypes=USER_MANAGED", base, a.Name)
-			if err := gcpGet(ctx, s, client, ku, &keys); err != nil {
+			keys, err := gcpList[gcpSAKey](ctx, s, client, ku, "keys")
+			if err != nil {
 				warnings = append(warnings, a.Email+": "+err.Error())
 				continue
 			}
-			for _, k := range keys.Keys {
+			for _, k := range keys {
 				if k.KeyType != "" && k.KeyType != "USER_MANAGED" {
 					continue // Google rotates its own; not a deadline
 				}

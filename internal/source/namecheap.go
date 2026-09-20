@@ -119,21 +119,33 @@ func (s *NamecheapSource) call(ctx context.Context, client *http.Client, command
 			base = namecheapSandboxAPI
 		}
 	}
-	q := url.Values{}
-	q.Set("ApiUser", s.APIUser)
-	q.Set("ApiKey", s.APIKey)
-	q.Set("UserName", s.UserName)
-	q.Set("ClientIp", s.ClientIP)
-	q.Set("Command", command)
-	q.Set("PageSize", "100")
+	form := url.Values{}
+	form.Set("ApiUser", s.APIUser)
+	form.Set("ApiKey", s.APIKey)
+	form.Set("UserName", s.UserName)
+	form.Set("ClientIp", s.ClientIP)
+	form.Set("Command", command)
+	form.Set("PageSize", "100")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"?"+q.Encode(), nil)
+	// POSTed as a form body, not a query string, and this is a security
+	// decision rather than a stylistic one. http.Client.Do wraps every
+	// transport failure in *url.Error, whose Error() prints the full URL, and
+	// net/http only redacts userinfo passwords — a query string survives
+	// verbatim. With the key in the URL, one timeout would have printed a
+	// full-account registrar credential to stderr and into CI logs, on the
+	// failure path an operator is most likely to paste into a ticket.
+	// Namecheap accepts POST, so the key simply never enters req.URL.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", command, err)
 	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		// Belt and braces: even with no credential in the URL, the error is
+		// wrapped so nothing downstream can grow a habit of printing raw ones.
+		return nil, fmt.Errorf("%s: %w", command, err)
 	}
 	//nolint:errcheck // the body is read or abandoned either way.
 	defer func() { _ = resp.Body.Close() }()

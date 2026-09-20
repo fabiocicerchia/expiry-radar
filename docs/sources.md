@@ -249,6 +249,25 @@ Each is a separate unit behind the same seam as the original three, with its own
 skip, so an account that denies `acm-pca` still reports its RDS certificates.
 `docs/iam-readonly-policy.json` carries the six new read-only actions.
 
+## Truncation, pagination and other ways to be quietly wrong
+
+A few notes that apply across the provider sources, because the failure they
+share is the one this tool exists to prevent — a report that looks clean because
+something was not read.
+
+- **Every list is paged to the end, or says it was not.** Google Cloud follows
+  `nextPageToken`; Cloudflare, GitLab and GitHub follow their own cursors.
+  Where an API returns a total instead of a cursor (DigitalOcean's `meta.total`,
+  Scaleway's `total_count`), reading fewer than the total is a warning, because
+  100 of 240 with nothing said looks exactly like an account that has 100.
+- **A 404 is not an empty account.** Google Cloud reports it rather than
+  swallowing it: a mistyped project would otherwise produce zero items, zero
+  warnings and exit 0.
+- **A 200 is not a success** on Cloudflare (`success: false`) or Namecheap
+  (`Status="ERROR"`), and both are checked on the body rather than the code.
+- **Route 53 Domains only exists in `us-east-1`**, so that client is pinned
+  there regardless of the region being scanned.
+
 ## Google Cloud
 
 The data here is ordinary REST; the cost of this source is authentication, and
@@ -289,6 +308,10 @@ access token have no list endpoint at all. Nothing can discover them, so they
 belong in `manual` with a `renew-at` label — and a fatter adapter here would
 imply coverage that does not exist.
 
+For GitHub Enterprise Server, set `baseUrl` to the host; `/api/v3` is appended
+for you, since that is where GHES serves the API and `api.github.com` has no
+prefix.
+
 What is readable: fine-grained PATs with access to an organization, which an
 org **owner** can list (a token that merely belongs to the org gets a 403, and
 the warning says so rather than reporting an empty org), and a user's GPG keys.
@@ -304,6 +327,13 @@ worth papering over.
 
 Two things make this source unlike the others, and both are worth knowing
 before you wire it into CI.
+
+Credentials travel in the **POST body**, not the query string, and that is a
+security decision rather than a stylistic one: Go wraps transport failures in
+`*url.Error`, which prints the full URL, and `net/http` redacts only userinfo
+passwords. With the key in the URL, a single timeout would have written a
+full-account registrar credential to stderr and into CI logs — on the failure
+path an operator is most likely to paste into a ticket.
 
 It requires **the calling machine's public IP to be allowlisted** in the
 Namecheap account. Error `1011150` means the credentials are fine and the
@@ -353,6 +383,12 @@ exactly as the AWS IAM adapter labels access keys — AWS will happily serve a
 five-year-old key, and so will these. Where a provider *does* state an expiry
 (Docker Hub grew expiring tokens later than it grew tokens) that date is used
 as-is and labelled `deadline=issuer`.
+
+Naming a provider in `rotation` **enables** it, the way a non-empty `endpoints`
+or `domains` list does — so the shipped example ships an empty array. Copying an
+example that named three providers would fail to load until all three
+environment variables were set, which is not a first-run experience worth
+having.
 
 `maxKeyAgeDays` is required and has no default. A deadline nobody chose is not a
 policy, and inventing one would put a date in the report that no human ever

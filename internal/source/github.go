@@ -67,6 +67,12 @@ func ghGet[T any](ctx context.Context, s *GitHubSource, client *http.Client, pat
 		base = githubAPI
 	}
 	base = strings.TrimSuffix(base, "/")
+	// api.github.com has no path prefix; Enterprise Server serves the same API
+	// under /api/v3. Without this a GHES host configured per the docs 404s on
+	// every call, and ghGet would report that as "not visible to this token".
+	if s.BaseURL != "" && !strings.HasSuffix(base, "/api/v3") {
+		base += "/api/v3"
+	}
 
 	var out []T
 	for page := 1; page <= 20; page++ {

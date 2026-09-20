@@ -216,9 +216,11 @@ func TestGCPSecretsReportExpiryAndRotationSeparately(t *testing.T) {
 	}
 }
 
-// An API that is simply not enabled on a project answers 404. That is an
-// answer about the project, not a failure.
-func TestGCPTreatsADisabledAPIAsAnAnswer(t *testing.T) {
+// A 404 means the project name is wrong or the API is not enabled, and both
+// deserve saying. Swallowing it would let a typo produce zero items, zero
+// warnings and exit 0 — a clean estate that was never read. (GCP answers 403
+// SERVICE_DISABLED for a disabled API, so 404 really is about the project.)
+func TestGCPA404IsNotACleanProject(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
@@ -229,11 +231,56 @@ func TestGCPTreatsADisabledAPIAsAnAnswer(t *testing.T) {
 	defer srv.Close()
 
 	items, err := gcpSource(t, srv.URL).Collect(context.Background())
-	if err != nil {
-		t.Fatalf("an API that is not enabled is not a problem: %v", err)
+	if err == nil {
+		t.Fatal("an empty report with a nil error is indistinguishable from a healthy project")
+	}
+	if !strings.Contains(err.Error(), "check the project name") {
+		t.Errorf("the warning should say what to look at, got %v", err)
 	}
 	if len(items) != 0 {
-		t.Fatalf("nothing to report: %+v", items)
+		t.Fatalf("nothing was readable: %+v", items)
+	}
+}
+
+// Pagination is not optional: Google caps pageSize below what a real project
+// holds, so stopping at the first page silently drops findings.
+func TestGCPFollowsPageTokens(t *testing.T) {
+	soon := time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339)
+	var pages int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/token") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "t", "expires_in": 3600})
+			return
+		}
+		if !strings.Contains(r.URL.Path, "sslCertificates") {
+			_ = json.NewEncoder(w).Encode(map[string]any{})
+			return
+		}
+		pages++
+		body := map[string]any{"items": []any{
+			map[string]any{"name": "cert-" + r.URL.Query().Get("pageToken"), "expireTime": soon},
+		}}
+		if r.URL.Query().Get("pageToken") == "" {
+			body["nextPageToken"] = "p2"
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer srv.Close()
+
+	s := gcpSource(t, srv.URL)
+	s.SkipCertManager, s.SkipSecrets, s.SkipKeys = true, true, true
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if pages != 2 {
+		t.Errorf("fetched %d pages, want 2 — the cursor was not followed", pages)
+	}
+	if len(items) != 2 {
+		t.Fatalf("want a certificate from each page, got %+v", items)
+	}
+	if _, ok := itemNamed(items, "cert-p2"); !ok {
+		t.Error("the second page's certificate is missing")
 	}
 }
 

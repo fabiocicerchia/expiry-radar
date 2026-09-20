@@ -295,13 +295,20 @@ func Load(path string) (*File, error) {
 		}
 	}
 	if f.Namecheap != nil && f.Namecheap.Enabled {
-		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Namecheap.APIKey == "" {
-			return nil, fmt.Errorf("%s: namecheap source is enabled but $NAMECHEAP_API_KEY is not set", path)
+		// What the file itself got wrong is checked before what the
+		// environment is missing: a config error is the operator's to fix
+		// either way, and reporting it first keeps the message about the file
+		// they are looking at.
+		if f.Namecheap.APIUser == "" || f.Namecheap.UserName == "" {
+			return nil, fmt.Errorf("%s: namecheap.apiUser and namecheap.userName are both required", path)
 		}
 		if f.Namecheap.ClientIP == "" {
 			return nil, fmt.Errorf(
 				"%s: namecheap.clientIp is required — it must be this machine's public IP, allowlisted in the account", path)
+		}
+		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Namecheap.APIKey == "" {
+			return nil, fmt.Errorf("%s: namecheap source is enabled but $NAMECHEAP_API_KEY is not set", path)
 		}
 	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {

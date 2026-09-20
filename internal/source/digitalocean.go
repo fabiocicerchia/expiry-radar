@@ -54,6 +54,9 @@ func (s *DigitalOceanSource) Collect(ctx context.Context) ([]Item, error) {
 
 	var body struct {
 		Certificates []doCertificate `json:"certificates"`
+		Meta         struct {
+			Total int `json:"total"`
+		} `json:"meta"`
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		strings.TrimSuffix(base, "/")+"/v2/certificates?per_page=200", nil)
@@ -80,6 +83,13 @@ func (s *DigitalOceanSource) Collect(ctx context.Context) ([]Item, error) {
 	}
 
 	var items []Item
+	// A cap that silently truncates reads exactly like an account with fewer
+	// certificates, which is the failure this tool exists to prevent.
+	var warning error
+	if body.Meta.Total > len(body.Certificates) {
+		warning = fmt.Errorf("read %d of %d certificates; the rest were not fetched",
+			len(body.Certificates), body.Meta.Total)
+	}
 	for _, c := range body.Certificates {
 		expires, ok := cfTime(c.NotAfter)
 		if !ok {
@@ -106,5 +116,5 @@ func (s *DigitalOceanSource) Collect(ctx context.Context) ([]Item, error) {
 			Labels:  labels,
 		})
 	}
-	return items, nil
+	return items, warning
 }

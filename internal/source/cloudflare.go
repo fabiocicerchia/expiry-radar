@@ -174,13 +174,19 @@ type cfZone struct {
 // One zone failing must not lose the others, so the per-zone errors accumulate
 // the way the AWS paginators and the Kubernetes namespace fan-out already do.
 func (s *CloudflareSource) zoneItems(ctx context.Context, client *http.Client) ([]Item, error) {
-	zones, err := s.zoneList(ctx, client)
-	if err != nil {
-		return nil, err
+	// zoneList returns what it could read alongside its error, so taking only
+	// the error here would let one unreadable zone id lose every other zone's
+	// certificates — the rule this source is supposed to keep.
+	zones, zoneErr := s.zoneList(ctx, client)
+	if len(zones) == 0 && zoneErr != nil {
+		return nil, zoneErr
 	}
 
 	var items []Item
 	var warnings []string
+	if zoneErr != nil {
+		warnings = append(warnings, zoneErr.Error())
+	}
 	for _, z := range zones {
 		got, zErr := s.certsForZone(ctx, client, z)
 		items = append(items, got...)

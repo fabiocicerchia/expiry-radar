@@ -1,18 +1,47 @@
 {
   "endpoints": [
-    { "host": "shop.example.com", "labels": { "traffic": "2400", "public": "true" } },
-    { "host": "admin.internal.example.com:8443", "labels": { "ingress.class": "nginx-internal" } }
+    {
+      "host": "shop.example.com",
+      "labels": {
+        "traffic": "2400",
+        "public": "true"
+      }
+    },
+    {
+      "host": "admin.internal.example.com:8443",
+      "labels": {
+        "ingress.class": "nginx-internal"
+      }
+    }
   ],
-  "domains": ["example.com", "example.net"],
+  "domains": [
+    "example.com",
+    "example.net"
+  ],
   "manual": [
-    { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01",
-      "labels": { "public": "true", "renew-at": "https://registrar.example/domains" } },
-    { "name": "code-signing", "kind": "tls_cert", "expires": "2026-11-15", "namespace": "release" }
+    {
+      "name": "acme-corp.co.uk",
+      "kind": "domain",
+      "expires": "2027-03-01",
+      "labels": {
+        "public": "true",
+        "renew-at": "https://registrar.example/domains"
+      }
+    },
+    {
+      "name": "code-signing",
+      "kind": "tls_cert",
+      "expires": "2026-11-15",
+      "namespace": "release"
+    }
   ],
   "k8s": {
     "enabled": true,
     "server": "",
-    "namespaces": ["prod", "payments"],
+    "namespaces": [
+      "prod",
+      "payments"
+    ],
     "caFile": "",
     "insecure": false,
     "certManager": true,
@@ -30,21 +59,25 @@
   "gitlab": {
     "enabled": false,
     "baseUrl": "",
-    "projects": ["acme/payments"],
-    "groups": ["acme"],
+    "projects": [
+      "acme/payments"
+    ],
+    "groups": [
+      "acme"
+    ],
     "skipPersonal": false,
     "skipProjects": false,
     "skipGroups": false
   },
-  "rotation": [
-    { "name": "anthropic", "maxKeyAgeDays": 90, "labels": { "environment": "prod" } },
-    { "name": "openai", "maxKeyAgeDays": 90 },
-    { "name": "dockerhub", "maxKeyAgeDays": 180 }
-  ],
+  "rotation": [],
   "gcp": {
     "enabled": false,
-    "projects": ["acme-prod"],
-    "locations": ["global"],
+    "projects": [
+      "acme-prod"
+    ],
+    "locations": [
+      "global"
+    ],
     "maxKeyAgeDays": 90,
     "skipCertManager": false,
     "skipCompute": false,
@@ -54,7 +87,9 @@
   "github": {
     "enabled": false,
     "baseUrl": "",
-    "orgs": ["acme"],
+    "orgs": [
+      "acme"
+    ],
     "skipOrgTokens": false,
     "skipGpgKeys": false
   },
@@ -67,11 +102,15 @@
     "skipDomains": false,
     "skipSSL": false
   },
-  "digitalocean": { "enabled": false },
+  "digitalocean": {
+    "enabled": false
+  },
   "scaleway": {
     "enabled": false,
     "organizationId": "",
-    "zones": ["fr-par-1"],
+    "zones": [
+      "fr-par-1"
+    ],
     "skipDomains": false,
     "skipLoadBalancers": false,
     "skipKeys": false
@@ -80,7 +119,9 @@
     "enabled": false,
     "addr": "",
     "namespace": "",
-    "pkiMounts": ["pki_int"],
+    "pkiMounts": [
+      "pki_int"
+    ],
     "maxCerts": 500
   },
   "aws": {
@@ -93,7 +134,13 @@
     "skipSecrets": false
   },
   "overrides": [
-    { "match": "payments/*", "blastRadius": 1.0 },
-    { "match": "*sandbox*", "blastRadius": 0.05 }
+    {
+      "match": "payments/*",
+      "blastRadius": 1.0
+    },
+    {
+      "match": "*sandbox*",
+      "blastRadius": 0.05
+    }
   ]
 }

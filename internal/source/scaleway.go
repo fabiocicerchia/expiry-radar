@@ -101,11 +101,13 @@ type scwDomain struct {
 // difference between "this date exists" and "somebody has to act on it".
 func (s *ScalewaySource) domains(ctx context.Context, client *http.Client) ([]Item, error) {
 	var body struct {
-		Domains []scwDomain `json:"domains"`
+		Domains    []scwDomain `json:"domains"`
+		TotalCount int         `json:"total_count"`
 	}
 	if err := scwGet(ctx, s, client, "/domain/v2beta1/domains?page_size=100", &body); err != nil {
 		return nil, err
 	}
+	truncated := truncationWarning("domains", len(body.Domains), body.TotalCount)
 	var items []Item
 	for _, d := range body.Domains {
 		expires, ok := cfTime(d.ExpiredAt)
@@ -126,7 +128,7 @@ func (s *ScalewaySource) domains(ctx context.Context, client *http.Client) ([]It
 			Labels:    labels,
 		})
 	}
-	return items, nil
+	return items, truncated
 }
 
 type scwLBCert struct {
@@ -142,11 +144,15 @@ func (s *ScalewaySource) lbCertificates(ctx context.Context, client *http.Client
 	for _, zone := range s.Zones {
 		var body struct {
 			Certificates []scwLBCert `json:"certificates"`
+			TotalCount   int         `json:"total_count"`
 		}
 		path := "/lb/v1/zones/" + url.PathEscape(zone) + "/certificates?page_size=100"
 		if err := scwGet(ctx, s, client, path, &body); err != nil {
 			warnings = append(warnings, zone+": "+err.Error())
 			continue
+		}
+		if t := truncationWarning(zone, len(body.Certificates), body.TotalCount); t != nil {
+			warnings = append(warnings, t.Error())
 		}
 		for _, c := range body.Certificates {
 			expires, ok := cfTime(c.NotValidAfter)
@@ -183,12 +189,14 @@ type scwAPIKey struct {
 // this source can read — the same line the AWS IAM adapter draws.
 func (s *ScalewaySource) apiKeys(ctx context.Context, client *http.Client) ([]Item, error) {
 	var body struct {
-		APIKeys []scwAPIKey `json:"api_keys"`
+		APIKeys    []scwAPIKey `json:"api_keys"`
+		TotalCount int         `json:"total_count"`
 	}
 	path := "/iam/v1alpha1/api-keys?page_size=100&organization_id=" + url.QueryEscape(s.OrganizationID)
 	if err := scwGet(ctx, s, client, path, &body); err != nil {
 		return nil, err
 	}
+	truncated := truncationWarning("api keys", len(body.APIKeys), body.TotalCount)
 	var items []Item
 	for _, k := range body.APIKeys {
 		expires, ok := cfTime(k.ExpiresAt)
@@ -207,5 +215,14 @@ func (s *ScalewaySource) apiKeys(ctx context.Context, client *http.Client) ([]It
 			Labels:  label(map[string]string{}, "created", k.CreatedAt),
 		})
 	}
-	return items, nil
+	return items, truncated
+}
+
+// truncationWarning turns a page cap into a warning. Reading 100 of 240 and
+// saying nothing looks exactly like an account that has 100.
+func truncationWarning(what string, read, total int) error {
+	if total > read {
+		return fmt.Errorf("%s: read %d of %d; the rest were not fetched", what, read, total)
+	}
+	return nil
 }

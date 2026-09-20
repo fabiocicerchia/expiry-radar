@@ -164,3 +164,44 @@ func TestHostingSourcesNeedTheirCredentialBeforeRunning(t *testing.T) {
 		t.Errorf("scaleway: want the variable named, got %v", err)
 	}
 }
+
+// Reading 100 of 240 and saying nothing looks exactly like an account with 100.
+func TestDigitalOceanTruncationIsNotSilent(t *testing.T) {
+	srv, _ := jsonServer(map[string]any{
+		"/v2/certificates": map[string]any{
+			"certificates": []any{
+				map[string]any{"id": "1", "name": "one", "not_after": soonRFC(), "type": "custom"},
+			},
+			"meta": map[string]any{"total": 240},
+		},
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&DigitalOceanSource{Token: "t", BaseURL: srv.URL}).Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "of 240") {
+		t.Fatalf("a truncated read must say so, got %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("what was read should still be reported: %+v", items)
+	}
+}
+
+func TestScalewayTruncationIsNotSilent(t *testing.T) {
+	srv, _ := jsonServer(map[string]any{
+		"/domain/v2beta1/domains": map[string]any{
+			"domains": []any{
+				map[string]any{"domain": "a.example", "expired_at": soonRFC(), "auto_renew_status": "enabled"},
+			},
+			"total_count": 500,
+		},
+	}, nil)
+	defer srv.Close()
+
+	items, err := (&ScalewaySource{SecretKey: "k", BaseURL: srv.URL}).Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "of 500") {
+		t.Fatalf("a truncated read must say so, got %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("what was read should still be reported: %+v", items)
+	}
+}

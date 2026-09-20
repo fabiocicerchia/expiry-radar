@@ -225,3 +225,40 @@ func TestCloudflarePausedZoneCertificatesAreNotLoadBearing(t *testing.T) {
 		t.Error("a paused zone is not internet-facing through Cloudflare")
 	}
 }
+
+// A configured zone id that cannot be read must not cost the zones that can.
+func TestCloudflareOneUnreadableZoneKeepsTheOthers(t *testing.T) {
+	soon := time.Now().Add(12 * 24 * time.Hour).Format(time.RFC3339)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok := func(result any) {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true, "errors": []any{}, "result": result,
+				"result_info": map[string]any{"page": 1, "total_pages": 1},
+			})
+		}
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/zones") && r.URL.Query().Get("id") == "goodzone":
+			ok(zoneResult("shop.example.com", "active", false))
+		case strings.HasSuffix(r.URL.Path, "/zones"):
+			// The other configured id is invisible to this token.
+			ok([]any{})
+		case strings.Contains(r.URL.Path, "custom_certificates"):
+			ok([]any{map[string]any{"id": "cc1", "hosts": []string{"shop.example.com"},
+				"expires_on": soon, "status": "active"}})
+		default:
+			ok([]any{})
+		}
+	}))
+	defer srv.Close()
+
+	s := cfTestSource(srv.URL)
+	s.Zones = []string{"goodzone", "hiddenzone"}
+	s.SkipAccount, s.SkipUser = true, true
+	items, err := s.Collect(context.Background())
+	if err == nil {
+		t.Fatal("the zone that could not be read must still be reported")
+	}
+	if len(items) != 1 {
+		t.Fatalf("one unreadable zone lost the other's certificates: %+v", items)
+	}
+}

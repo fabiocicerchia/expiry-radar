@@ -12,7 +12,10 @@ import (
 func namecheapServer(bodies map[string]string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/xml")
-		if b, ok := bodies[r.URL.Query().Get("Command")]; ok {
+		// The credentials travel in the POST body, not the query string, so
+		// the fake has to read the form like the real API does.
+		_ = r.ParseForm()
+		if b, ok := bodies[r.FormValue("Command")]; ok {
 			_, _ = w.Write([]byte(b))
 			return
 		}
@@ -123,5 +126,60 @@ func TestNamecheapNeedsItsAllowlistedIPBeforeRunning(t *testing.T) {
 	_, err := s.Collect(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "clientIp") {
 		t.Fatalf("want the constraint named up front, got %v", err)
+	}
+}
+
+// Namecheap's credentials used to ride in the query string. http.Client.Do
+// wraps transport failures in *url.Error, which prints the full URL, and
+// net/http redacts only userinfo passwords — so a single timeout would have
+// written a full-account registrar key to stderr and into CI logs. The key now
+// travels in the POST body; this pins that it cannot come back.
+func TestTheNamecheapAPIKeyNeverReachesAnError(t *testing.T) {
+	const secret = "super-secret-registrar-key"
+
+	// A server that accepts the connection and then hangs up mid-response is
+	// the realistic shape of the failure: a transport error, not a status.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hj, ok := w.(http.Hijacker); ok {
+			conn, _, err := hj.Hijack()
+			if err == nil {
+				_ = conn.Close()
+				return
+			}
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	s := ncSource(srv.URL)
+	s.APIKey = secret
+	_, err := s.Collect(context.Background())
+	if err == nil {
+		t.Fatal("want the transport failure reported")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("the API key leaked into an error that goes to stderr: %v", err)
+	}
+}
+
+// And the request itself must not carry it in the URL, whatever the outcome.
+func TestTheNamecheapAPIKeyIsNotInTheRequestURL(t *testing.T) {
+	const secret = "super-secret-registrar-key"
+	var gotURL, gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.String()
+		gotQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(`<ApiResponse Status="OK"><CommandResponse/></ApiResponse>`))
+	}))
+	defer srv.Close()
+
+	s := ncSource(srv.URL)
+	s.APIKey = secret
+	if _, err := s.Collect(context.Background()); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if strings.Contains(gotURL, secret) || strings.Contains(gotQuery, secret) {
+		t.Fatalf("the API key is in the request URL (%q) — any *url.Error will print it", gotURL)
 	}
 }

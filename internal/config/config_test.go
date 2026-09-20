@@ -48,6 +48,11 @@ func TestLoadRejectsConfigsThatWouldSilentlyScanLess(t *testing.T) {
 			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "istio", "kind": "secrets",` +
 				` "namespace": "istio-system", "name": "cacerts", "keys": []}]}}`,
 			"at least one key"},
+		// Collect hard-fails without these, so the failure belongs at load
+		// (exit 2) rather than at collect time (exit 3).
+		{"namecheap without apiUser",
+			`{"namecheap": {"enabled": true, "userName": "u", "clientIp": "1.2.3.4"}}`,
+			"apiUser and namecheap.userName are both required"},
 		// Anchors the mesh collector will never be asked to read.
 		{"mesh anchors without trust anchors",
 			`{"k8s": {"enabled": true, "meshAnchors": [{"mesh": "m", "kind": "secrets",` +
