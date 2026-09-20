@@ -28,6 +28,7 @@ type File struct {
 	Vault      *Vault              `json:"vault"`
 	AWS        *AWS                `json:"aws"`
 	Cloudflare *Cloudflare         `json:"cloudflare"`
+	GitLab     *GitLab             `json:"gitlab"`
 	Overrides  []rank.Override     `json:"overrides"`
 }
 
@@ -97,6 +98,23 @@ type Cloudflare struct {
 	SkipUser    bool     `json:"skipUser"`
 }
 
+// GitLab points the GitLab source at an instance and the projects and groups
+// whose tokens to read.
+type GitLab struct {
+	Enabled bool   `json:"enabled"`
+	BaseURL string `json:"baseUrl"` // empty = https://gitlab.com
+	// Token never comes from the file. Load fills it from $GITLAB_TOKEN.
+	Token string `json:"-"`
+	// Projects and Groups are full paths ("acme/payments") or numeric IDs.
+	// There is no cheap way to enumerate everything a token can see, so these
+	// are named rather than discovered.
+	Projects     []string `json:"projects"`
+	Groups       []string `json:"groups"`
+	SkipPersonal bool     `json:"skipPersonal"`
+	SkipProjects bool     `json:"skipProjects"`
+	SkipGroups   bool     `json:"skipGroups"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -152,6 +170,12 @@ func Load(path string) (*File, error) {
 		f.Cloudflare.Token = os.Getenv("CLOUDFLARE_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
 		if f.Cloudflare.Token == "" {
 			return nil, fmt.Errorf("%s: cloudflare source is enabled but $CLOUDFLARE_API_TOKEN is not set", path)
+		}
+	}
+	if f.GitLab != nil && f.GitLab.Enabled {
+		f.GitLab.Token = os.Getenv("GITLAB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.GitLab.Token == "" {
+			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
 		}
 	}
 	// The environment is read here, once, and validated with the rest of the
@@ -215,6 +239,17 @@ func (f *File) Sources() []source.Source {
 			SkipZones:   f.Cloudflare.SkipZones,
 			SkipAccount: f.Cloudflare.SkipAccount,
 			SkipUser:    f.Cloudflare.SkipUser,
+		})
+	}
+	if f.GitLab != nil && f.GitLab.Enabled {
+		out = append(out, &source.GitLabSource{
+			BaseURL:      f.GitLab.BaseURL,
+			Token:        f.GitLab.Token,
+			Projects:     f.GitLab.Projects,
+			Groups:       f.GitLab.Groups,
+			SkipPersonal: f.GitLab.SkipPersonal,
+			SkipProjects: f.GitLab.SkipProjects,
+			SkipGroups:   f.GitLab.SkipGroups,
 		})
 	}
 	if f.AWS != nil && f.AWS.Enabled {

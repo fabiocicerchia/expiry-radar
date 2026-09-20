@@ -27,6 +27,15 @@
     "skipAccount": false,
     "skipUser": false
   },
+  "gitlab": {
+    "enabled": false,
+    "baseUrl": "",
+    "projects": ["acme/payments"],
+    "groups": ["acme"],
+    "skipPersonal": false,
+    "skipProjects": false,
+    "skipGroups": false
+  },
   "vault": {
     "enabled": false,
     "addr": "",

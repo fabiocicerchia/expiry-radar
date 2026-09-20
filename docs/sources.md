@@ -18,6 +18,11 @@
 | `cloudflare:registrar` | Registrar domains, with auto-renew state | same token + `accountId` |
 | `cloudflare:access` | Zero Trust service tokens (one-year default) | same token + `accountId` |
 | `cloudflare:token` | the API tokens themselves, including this one | same token |
+| `gitlab:pat` | personal access tokens | `GITLAB_TOKEN`, `read_api` |
+| `gitlab:project-token` | project access tokens — the ones that break CI | same token, maintainer on the project |
+| `gitlab:group-token` | group access tokens | same token, owner on the group |
+| `gitlab:deploy-token` | deploy tokens | same token |
+| `gitlab:pages` | Pages custom-domain certificates | same token |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `manual` | what you recorded yourself, because nothing can discover it | none |
@@ -166,6 +171,33 @@ Each scope — zones, account, user — collects independently, so a token scope
 to certificates only reports its certificates and warns about the rest instead
 of losing them. A `200` carrying `success: false`, which this API returns more
 readily than most, is treated as the error it is.
+
+## GitLab
+
+Everything here carries a real date, because GitLab caps token lifetimes — so
+unlike most credential inventories these genuinely lapse rather than living
+forever. The ones that break things quietly are project and group access
+tokens: CI stops authenticating on a Tuesday morning and the pipeline log says
+401.
+
+Blast radius comes from **scope**, which is the one honest signal a forge can
+give — a hostname tells you nothing here, but breadth of access tells you
+exactly what an expiry costs. `api` scores 0.95 (everything the owner can do),
+`write_repository`/`sudo` 0.85, `read_api` 0.55, and the read-only registry and
+repository scopes 0.40. That goes in as the operator-style
+`expiry-radar/blast-radius` label rather than as inference, because there is
+nothing to infer when the provider states the scope outright.
+
+Pages domains follow the same renewal rule as everywhere else: `auto_ssl` is
+GitLab renewing for you and is de-ranked, an uploaded certificate is not.
+A revoked token gets `in-use=false` — it has already stopped working, so its
+expiry is not a deadline anybody has to meet.
+
+`projects` and `groups` are named rather than discovered. There is no cheap way
+to enumerate everything a token can see, and hammering the API to find out is
+not a read-only posture worth defending. GitLab answers `404` for a resource
+the token cannot see as well as for one that is not there, so the warning says
+both.
 
 ## Recorded, or discovered
 
