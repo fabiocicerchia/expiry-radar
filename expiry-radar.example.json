@@ -71,6 +71,14 @@
   },
   "registrars": [],
   "rotation": [],
+  "apple": {
+    "enabled": false,
+    "issuerId": "",
+    "keyId": "",
+    "privateKeyFile": "",
+    "skipCertificates": false,
+    "skipProfiles": false
+  },
   "fastly": {
     "enabled": false,
     "skipCertificates": false,

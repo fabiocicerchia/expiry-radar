@@ -37,6 +37,7 @@ type File struct {
 	Hetzner    *Hetzner            `json:"hetzner"`
 	Harbor     *Harbor             `json:"harbor"`
 	JFrog      *JFrog              `json:"jfrog"`
+	Apple      *Apple              `json:"apple"`
 	// Federation reads IdP metadata and needs no credential at all.
 	Federation   []source.FederationProvider `json:"federation"`
 	DigitalOcean *DigitalOcean               `json:"digitalocean"`
@@ -274,6 +275,20 @@ type JFrog struct {
 	Token string `json:"-"`
 }
 
+// Apple points the App Store Connect source at a team. The .p8 key is a file
+// path rather than a secret in the config: Apple lets you download it exactly
+// once, so it already lives on disk somewhere.
+type Apple struct {
+	Enabled  bool   `json:"enabled"`
+	IssuerID string `json:"issuerId"`
+	KeyID    string `json:"keyId"`
+	// PrivateKeyFile is filled from $APP_STORE_CONNECT_KEY_FILE when the
+	// config does not name one.
+	PrivateKeyFile   string `json:"privateKeyFile"`
+	SkipCertificates bool   `json:"skipCertificates"`
+	SkipProfiles     bool   `json:"skipProfiles"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -409,6 +424,15 @@ func Load(path string) (*File, error) {
 		f.JFrog.Token = os.Getenv("JFROG_ACCESS_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
 		if f.JFrog.Token == "" {
 			return nil, fmt.Errorf("%s: jfrog source is enabled but $JFROG_ACCESS_TOKEN is not set", path)
+		}
+	}
+	if f.Apple != nil && f.Apple.Enabled {
+		if f.Apple.PrivateKeyFile == "" {
+			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		}
+		if f.Apple.IssuerID == "" || f.Apple.KeyID == "" || f.Apple.PrivateKeyFile == "" {
+			return nil, fmt.Errorf(
+				"%s: apple needs issuerId, keyId and privateKeyFile (or $APP_STORE_CONNECT_KEY_FILE)", path)
 		}
 	}
 	if f.Okta != nil && f.Okta.Enabled {
@@ -570,6 +594,15 @@ func (f *File) Sources() []source.Source {
 	}
 	if f.JFrog != nil && f.JFrog.Enabled {
 		out = append(out, &source.JFrogSource{BaseURL: f.JFrog.BaseURL, Token: f.JFrog.Token})
+	}
+	if f.Apple != nil && f.Apple.Enabled {
+		out = append(out, &source.AppleSource{
+			IssuerID:         f.Apple.IssuerID,
+			KeyID:            f.Apple.KeyID,
+			PrivateKeyFile:   f.Apple.PrivateKeyFile,
+			SkipCertificates: f.Apple.SkipCertificates,
+			SkipProfiles:     f.Apple.SkipProfiles,
+		})
 	}
 	if f.Okta != nil && f.Okta.Enabled {
 		out = append(out, &source.OktaSource{

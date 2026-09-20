@@ -263,6 +263,7 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"azure": {"enabled": true, "tenantId": "t", "clientId": "c"},
 		"okta": {"enabled": true, "orgUrl": "https://acme.okta.com"},
 		"fastly": {"enabled": true},
+		"apple": {"enabled": true, "issuerId": "i", "keyId": "k", "privateKeyFile": "/dev/null"},
 		"hetzner": {"enabled": true},
 		"harbor": {"enabled": true, "baseUrl": "https://registry.example.com", "username": "admin"},
 		"jfrog": {"enabled": true, "baseUrl": "https://acme.jfrog.io"},
@@ -295,7 +296,7 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"tls:endpoint", "domain:rdap", "manual", "k8s", "vault", "aws",
 		"cloudflare", "gitlab", "github", "gcp", "digitalocean", "scaleway",
 		"namecheap", "rotation", "azure", "okta", "federation",
-		"fastly", "hetzner", "harbor", "jfrog", "registrar",
+		"fastly", "hetzner", "harbor", "jfrog", "registrar", "apple",
 	}
 	for _, w := range want {
 		if !got[w] {

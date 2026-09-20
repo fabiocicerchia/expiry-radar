@@ -34,6 +34,8 @@
 | `hetzner:certificate` | Cloud load-balancer certificates | `HCLOUD_TOKEN` |
 | `harbor:robot` | robot accounts — the registry credential that does expire | `HARBOR_PASSWORD` + admin |
 | `jfrog:token` | Artifactory access tokens | `JFROG_ACCESS_TOKEN` + admin |
+| `apple:certificate` | signing certificates, annual clock | App Store Connect `.p8` key |
+| `apple:profile` | provisioning profiles, annual clock | same |
 | `registrar:dnsimple` | domains + auto-renew | `DNSIMPLE_TOKEN` + `account` |
 | `registrar:gandi` | domains + auto-renew | `GANDI_API_KEY` |
 | `registrar:porkbun` | domains + auto-renew | `PORKBUN_API_KEY` + `PORKBUN_SECRET_KEY` |
@@ -364,6 +366,26 @@ spells "never expires" as `-1`, which read as a Unix timestamp would land in
 
 **JFrog Artifactory** access tokens are the same story, and an
 `applied-permissions/admin` scope carries 0.85.
+
+## Apple code signing
+
+The highest nobody-watches-it ratio in the tool. Signing certificates and
+provisioning profiles both expire annually, both are created once by whoever
+set up the pipeline, and when one lapses the failure arrives as a build error
+in CI — usually diagnosed by the person least likely to know what a
+provisioning profile is.
+
+A **distribution** certificate carries 0.75 because it blocks every release; a
+development one inconveniences one machine. A profile Apple has marked
+`INVALID` gets `in-use=false`, since it has already stopped signing.
+
+Authentication is an ES256 JWT signed with the `.p8` key App Store Connect lets
+you download exactly once — so the config takes a **file path**, not a secret.
+One implementation detail is worth knowing if you ever touch it: JWS wants the
+ECDSA signature as a fixed-width `r||s` pair, not the ASN.1 sequence
+`ecdsa.SignASN1` and most Go examples produce, and Apple rejects the difference
+with a 401 that explains nothing. A test verifies the signature and pins the
+64-byte length.
 
 ## Registrars: one source, four adapters
 
