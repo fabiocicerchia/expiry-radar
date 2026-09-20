@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -195,5 +196,32 @@ func TestDNSimpleTruncationIsNotSilent(t *testing.T) {
 	}
 	if len(items) != 1 {
 		t.Fatalf("what was read should still be reported: %+v", items)
+	}
+}
+
+// Gandi returns no total, so a full page is the only signal there may be more
+// — and saying nothing would match the DNSimple adapter's silence rather than
+// its check.
+func TestGandiSaysWhenAPageIsFull(t *testing.T) {
+	rfc := time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		full := make([]any, 0, 100)
+		for i := range 100 {
+			full = append(full, map[string]any{
+				"fqdn":  fmt.Sprintf("d%d.example", i),
+				"dates": map[string]any{"registry_ends_at": rfc}, "autorenew": true,
+			})
+		}
+		_ = json.NewEncoder(w).Encode(full)
+	}))
+	defer srv.Close()
+
+	s := registrarSource("gandi", srv.URL, RegistrarProvider{Token: "t"})
+	items, err := s.Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "there may be more") {
+		t.Fatalf("a full page must not pass for the whole account, got %v", err)
+	}
+	if len(items) != 100 {
+		t.Fatalf("what was read should still be reported: %d", len(items))
 	}
 }

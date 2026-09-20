@@ -402,3 +402,178 @@ func TestFederationRejectsAURLItCouldNeverFetch(t *testing.T) {
 		t.Error("a url with no scheme must be rejected at load")
 	}
 }
+
+// Real federation metadata puts validUntil on the EntitiesDescriptor root.
+// Reading it only from the entities loses one of the two deadlines this source
+// exists for — and loses it silently, because the certificates still produce
+// rows.
+func TestFederationReadsValidUntilFromAnAggregateRoot(t *testing.T) {
+	exp := time.Now().Add(90 * 24 * time.Hour)
+	validUntil := time.Now().Add(7 * 24 * time.Hour).Format(time.RFC3339)
+	srv := metadataServer(`<?xml version="1.0"?>
+<EntitiesDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata" validUntil="` + validUntil + `">
+  <EntityDescriptor entityID="https://a.example">
+    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+      <X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
+    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+  </EntityDescriptor>
+</EntitiesDescriptor>`)
+	defer srv.Close()
+
+	s := &FederationSource{Providers: []FederationProvider{{Name: "fed", URL: srv.URL}}}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	var found bool
+	for _, it := range items {
+		if it.Source == "federation:metadata" {
+			found = true
+			if d := time.Until(it.Expires).Hours() / 24; d < 6 || d > 8 {
+				t.Errorf("the root validUntil was not used: %v", it.Expires)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("the aggregate's own validUntil is a deadline too: %+v", items)
+	}
+}
+
+// Two entities in one document must not produce indistinguishable rows — on
+// screen, or in an iCal UID.
+func TestFederationEntitiesAreTellableApart(t *testing.T) {
+	exp := time.Now().Add(45 * 24 * time.Hour)
+	srv := metadataServer(`<?xml version="1.0"?>
+<EntitiesDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata">
+  <EntityDescriptor entityID="https://a.example">
+    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+      <X509Certificate>` + derCert(t, "a-signing", exp) + `</X509Certificate>
+    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+  </EntityDescriptor>
+  <EntityDescriptor entityID="https://b.example">
+    <IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data>
+      <X509Certificate>` + derCert(t, "b-signing", exp) + `</X509Certificate>
+    </X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor>
+  </EntityDescriptor>
+</EntitiesDescriptor>`)
+	defer srv.Close()
+
+	s := &FederationSource{Providers: []FederationProvider{{Name: "fed", URL: srv.URL}}}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("want both: %+v", items)
+	}
+	if items[0].Name == items[1].Name {
+		t.Fatalf("two entities share the display name %q", items[0].Name)
+	}
+	joined := items[0].Name + " " + items[1].Name
+	if !strings.Contains(joined, "a.example") || !strings.Contains(joined, "b.example") {
+		t.Errorf("the entity ids should distinguish them, got %q", joined)
+	}
+}
+
+// Okta paginates with a Link header. An org with more apps than one page would
+// otherwise report a subset of its SAML signing certificates as though that
+// were all of them.
+func TestOktaFollowsTheLinkHeader(t *testing.T) {
+	notAfter := time.Now().Add(25 * 24 * time.Hour)
+	var appPages int
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/credentials/keys"):
+			_ = json.NewEncoder(w).Encode([]any{
+				map[string]any{"kid": "k", "x5c": []string{derCert(t, "sign", notAfter)}},
+			})
+		case strings.HasSuffix(r.URL.Path, "/apps"):
+			appPages++
+			if r.URL.Query().Get("after") == "" {
+				// Okta sends rel="self" too, so the relation has to be read
+				// rather than taking whichever header arrives last.
+				w.Header().Add("Link", `<`+srv.URL+`/api/v1/apps>; rel="self"`)
+				w.Header().Add("Link", `<`+srv.URL+`/api/v1/apps?after=p2>; rel="next"`)
+				_ = json.NewEncoder(w).Encode([]any{
+					map[string]any{"id": "a1", "label": "One", "status": "ACTIVE", "signOnMode": "SAML_2_0"},
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode([]any{
+				map[string]any{"id": "a2", "label": "Two", "status": "ACTIVE", "signOnMode": "SAML_2_0"},
+			})
+		default:
+			_ = json.NewEncoder(w).Encode([]any{})
+		}
+	}))
+	defer srv.Close()
+
+	s := &OktaSource{OrgURL: srv.URL, Token: "t", SkipTokens: true}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if appPages != 2 {
+		t.Errorf("fetched %d app pages, want 2 — the Link cursor was not followed", appPages)
+	}
+	if len(items) != 2 {
+		t.Fatalf("want a certificate from each page: %+v", items)
+	}
+}
+
+// Graph and Key Vault paginate with absolute URLs the response supplies.
+// Re-attaching a bearer token to whatever host one names is a habit worth not
+// having, even when the response is authentic.
+func TestAzureWillNotFollowAContinuationURLToAnotherHost(t *testing.T) {
+	soon := time.Now().Add(20 * 24 * time.Hour).Format(time.RFC3339)
+	srv, _ := azureServer(t, map[string]any{
+		"/applications": map[string]any{
+			"value": []any{map[string]any{"id": "1", "displayName": "app",
+				"passwordCredentials": []any{
+					map[string]any{"keyId": "k", "displayName": "s", "endDateTime": soon},
+				}}},
+			"@odata.nextLink": "https://attacker.example/v1.0/applications",
+		},
+	})
+	defer srv.Close()
+
+	s := azureTestSource(srv.URL)
+	s.SkipPrincipals, s.SkipVaults = true, true
+	items, err := s.Collect(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "another host") {
+		t.Fatalf("want the off-host continuation refused and reported, got %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("what was read before the refusal should still be reported: %+v", items)
+	}
+}
+
+// Graph's `hint` is the opening characters of the client secret. Microsoft
+// treats it as non-sensitive, but a tool that promises never to handle secrets
+// should not put a prefix of one into an HTML report.
+func TestAzureDoesNotPutASecretPrefixInTheReport(t *testing.T) {
+	soon := time.Now().Add(20 * 24 * time.Hour).Format(time.RFC3339)
+	srv, _ := azureServer(t, map[string]any{
+		"/applications": map[string]any{"value": []any{
+			map[string]any{"id": "1", "displayName": "app", "passwordCredentials": []any{
+				map[string]any{"keyId": "k", "displayName": "s", "endDateTime": soon, "hint": "Xy9"},
+			}},
+		}},
+	})
+	defer srv.Close()
+
+	s := azureTestSource(srv.URL)
+	s.SkipPrincipals, s.SkipVaults = true, true
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	for _, it := range items {
+		for k, v := range it.Labels {
+			if v == "Xy9" {
+				t.Fatalf("label %q carries the secret hint into the report", k)
+			}
+		}
+	}
+}

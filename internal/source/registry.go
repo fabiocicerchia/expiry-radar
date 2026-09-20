@@ -40,7 +40,7 @@ func (s *HarborSource) Collect(ctx context.Context) ([]Item, error) {
 		timeout = 30 * time.Second
 	}
 
-	var robots []struct {
+	type harborRobot struct {
 		ID          int    `json:"id"`
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -50,12 +50,30 @@ func (s *HarborSource) Collect(ctx context.Context) ([]Item, error) {
 		Disable   bool   `json:"disable"`
 		Level     string `json:"level"`
 	}
-	u := strings.TrimSuffix(s.BaseURL, "/") + "/api/v2.0/robots?page_size=100"
-	err := getJSON(ctx, &http.Client{Timeout: timeout}, u,
-		map[string]string{"Authorization": basicAuth(s.Username, s.Password)},
-		"listing robot accounts needs a Harbor administrator", &robots)
-	if err != nil {
-		return nil, err
+
+	const pageSize = 100
+	client := &http.Client{Timeout: timeout}
+	headers := map[string]string{"Authorization": basicAuth(s.Username, s.Password)}
+
+	var robots []harborRobot
+	var truncated error
+	// Paged until a short page: an instance with more robots than one page
+	// would otherwise report the first hundred as though that were all of them.
+	for page := 1; page <= 40; page++ {
+		var batch []harborRobot
+		u := fmt.Sprintf("%s/api/v2.0/robots?page=%d&page_size=%d",
+			strings.TrimSuffix(s.BaseURL, "/"), page, pageSize)
+		if err := getJSON(ctx, client, u, headers,
+			"listing robot accounts needs a Harbor administrator", &batch); err != nil {
+			return nil, err
+		}
+		robots = append(robots, batch...)
+		if len(batch) < pageSize {
+			break
+		}
+		if page == 40 {
+			truncated = fmt.Errorf("stopped after %d pages; the rest were not read", page)
+		}
 	}
 
 	var items []Item
@@ -86,7 +104,7 @@ func (s *HarborSource) Collect(ctx context.Context) ([]Item, error) {
 			Labels:  labels,
 		})
 	}
-	return items, nil
+	return items, truncated
 }
 
 // JFrogSource reports Artifactory access tokens.

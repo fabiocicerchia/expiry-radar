@@ -42,6 +42,8 @@ const (
 	appleAudience = "appstoreconnect-v1"
 	// Apple rejects an assertion valid for longer than twenty minutes.
 	appleTokenLife = 15 * time.Minute
+	// A cap, not a limit on what is reported.
+	appleMaxPages = 40
 )
 
 // Name identifies this source in an item's Source field.
@@ -149,6 +151,42 @@ type appleList[T any] struct {
 		ID         string `json:"id"`
 		Attributes T      `json:"attributes"`
 	} `json:"data"`
+	Links struct {
+		Next string `json:"next"`
+	} `json:"links"`
+}
+
+// appleEntry is one row, flattened out of the envelope.
+type appleEntry[T any] struct {
+	ID         string
+	Attributes T
+}
+
+// applePages follows links.next. A team with more profiles than one page would
+// otherwise lose the rest with nothing said, which for an annual clock means
+// finding out when the build breaks.
+func applePages[T any](ctx context.Context, s *AppleSource, client *http.Client,
+	headers map[string]string, first string) ([]appleEntry[T], error) {
+	var out []appleEntry[T]
+	u := first
+	for page := 0; page < appleMaxPages && u != ""; page++ {
+		var body appleList[T]
+		if err := getJSON(ctx, client, u, headers,
+			"the App Store Connect key needs at least Developer access", &body); err != nil {
+			return out, err
+		}
+		for _, d := range body.Data {
+			out = append(out, appleEntry[T]{ID: d.ID, Attributes: d.Attributes})
+		}
+		if body.Links.Next != "" && !sameHost(body.Links.Next, s.base()) {
+			return out, fmt.Errorf("the API returned a continuation URL on another host")
+		}
+		u = body.Links.Next
+	}
+	if u != "" {
+		return out, fmt.Errorf("stopped after %d pages; the rest were not read", appleMaxPages)
+	}
+	return out, nil
 }
 
 type appleCertificate struct {
@@ -161,15 +199,11 @@ type appleCertificate struct {
 
 func (s *AppleSource) certificates(ctx context.Context, client *http.Client,
 	headers map[string]string) ([]Item, error) {
-	var body appleList[appleCertificate]
-	u := s.base() + "/v1/certificates?limit=200"
-	if err := getJSON(ctx, client, u, headers,
-		"the App Store Connect key needs at least Developer access", &body); err != nil {
-		return nil, err
-	}
+	certs, truncated := applePages[appleCertificate](ctx, s, client, headers,
+		s.base()+"/v1/certificates?limit=200")
 
 	var items []Item
-	for _, c := range body.Data {
+	for _, c := range certs {
 		expires, ok := cfTime(c.Attributes.ExpirationDate)
 		if !ok {
 			continue
@@ -197,7 +231,7 @@ func (s *AppleSource) certificates(ctx context.Context, client *http.Client,
 			Labels:  labels,
 		})
 	}
-	return items, nil
+	return items, truncated
 }
 
 type appleProfile struct {
@@ -209,15 +243,11 @@ type appleProfile struct {
 
 func (s *AppleSource) profiles(ctx context.Context, client *http.Client,
 	headers map[string]string) ([]Item, error) {
-	var body appleList[appleProfile]
-	u := s.base() + "/v1/profiles?limit=200"
-	if err := getJSON(ctx, client, u, headers,
-		"the App Store Connect key needs at least Developer access", &body); err != nil {
-		return nil, err
-	}
+	profiles, truncated := applePages[appleProfile](ctx, s, client, headers,
+		s.base()+"/v1/profiles?limit=200")
 
 	var items []Item
-	for _, p := range body.Data {
+	for _, p := range profiles {
 		expires, ok := cfTime(p.Attributes.ExpirationDate)
 		if !ok {
 			continue
@@ -242,5 +272,5 @@ func (s *AppleSource) profiles(ctx context.Context, client *http.Client,
 			Labels:  labels,
 		})
 	}
-	return items, nil
+	return items, truncated
 }

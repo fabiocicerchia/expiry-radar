@@ -216,3 +216,66 @@ func TestEdgeSourcesNameTheirCredentialBeforeRunning(t *testing.T) {
 		}
 	}
 }
+
+// Hetzner reports several in-flight renewal states. Treating anything but
+// "scheduled" as broken bumps the rank of certificates being renewed perfectly
+// well; only an explicit failure should revoke the de-rank.
+func TestHetznerInFlightRenewalsAreStillManaged(t *testing.T) {
+	soon := time.Now().Add(20 * 24 * time.Hour).Format(time.RFC3339)
+	for _, state := range []string{"pending", "unavailable", "", "scheduled"} {
+		srv, _ := jsonServer(map[string]any{
+			"/v1/certificates": map[string]any{
+				"certificates": []any{
+					map[string]any{"id": 1, "name": "c", "type": "managed",
+						"not_valid_after": soon, "status": map[string]any{"renewal": state}},
+				},
+				"meta": map[string]any{"pagination": map[string]any{"total_entries": 1}},
+			},
+		}, nil)
+
+		items, err := (&HetznerSource{Token: "t", BaseURL: srv.URL}).Collect(context.Background())
+		srv.Close()
+		if err != nil {
+			t.Fatalf("%q: collect: %v", state, err)
+		}
+		if items[0].Labels[LabelRenewal] != RenewalManaged {
+			t.Errorf("renewal %q is not a failure, got %q", state, items[0].Labels[LabelRenewal])
+		}
+	}
+}
+
+// An instance with more robots than one page would otherwise report the first
+// hundred as though that were all of them.
+func TestHarborPagesThroughItsRobots(t *testing.T) {
+	soon := time.Now().Add(30 * 24 * time.Hour).Unix()
+	var pages int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pages++
+		page := r.URL.Query().Get("page")
+		if page == "1" {
+			full := make([]any, 0, 100)
+			for i := range 100 {
+				full = append(full, map[string]any{
+					"id": i, "name": "robot$first", "expires_at": soon, "level": "project"})
+			}
+			_ = json.NewEncoder(w).Encode(full)
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]any{
+			map[string]any{"id": 101, "name": "robot$second-page", "expires_at": soon, "level": "project"},
+		})
+	}))
+	defer srv.Close()
+
+	items, err := (&HarborSource{BaseURL: srv.URL, Username: "a", Password: "p"}).
+		Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if pages != 2 {
+		t.Errorf("fetched %d pages, want 2", pages)
+	}
+	if _, ok := itemNamed(items, "robot$second-page"); !ok {
+		t.Fatalf("the second page's robot is missing: %d items", len(items))
+	}
+}

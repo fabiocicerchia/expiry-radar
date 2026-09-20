@@ -274,7 +274,15 @@ share is the one this tool exists to prevent — a report that looks clean becau
 something was not read.
 
 - **Every list is paged to the end, or says it was not.** Google Cloud follows
-  `nextPageToken`; Cloudflare, GitLab and GitHub follow their own cursors.
+  `nextPageToken`; Cloudflare, GitLab and GitHub follow their own cursors;
+  Okta follows its `Link: rel="next"` header (checking the relation, since it
+  also sends `rel="self"`); App Store Connect and Entra follow `links.next` and
+  `@odata.nextLink`; Harbor pages until a short page. Where a cap is hit, that
+  is a truncated read and it says so.
+- **A continuation URL is not a redirect to follow anywhere.** Entra and App
+  Store Connect hand back absolute next-page URLs, and a bearer token is
+  attached to them — so a link pointing at another host is refused and
+  reported rather than followed.
   Where an API returns a total instead of a cursor (DigitalOcean's `meta.total`,
   Scaleway's `total_count`), reading fewer than the total is a warning, because
   100 of 240 with nothing said looks exactly like an account that has 100.
@@ -352,9 +360,11 @@ level.
 
 **Hetzner Cloud** is small like DigitalOcean — not a registrar, no token
 listing — so certificates are the whole of it. Its managed certificates carry a
-renewal *status*, which makes the de-rank more honest than elsewhere: managed
-**and** scheduled earns it, managed **and failing** gets `renewal=stuck`
-instead.
+renewal *status*, which makes the de-rank more honest than elsewhere: only an
+explicit `failed` gets `renewal=stuck`. Hetzner reports several in-flight
+states — pending, unavailable, not yet due — and treating anything but
+`scheduled` as broken would bump the rank of certificates being renewed
+perfectly well.
 
 **Harbor** is the Docker Hub competitor worth watching, because unlike Docker
 Hub its robot accounts carry a real expiry and are routinely created once for a
@@ -472,6 +482,12 @@ surfaces them until an integration stops authenticating, and Microsoft's own
 answer is a PowerShell script you run by hand — which is a fair admission that
 there was no good one.
 
+One thing is deliberately *not* reported: Graph returns a `hint` on each client
+secret, which is its opening characters. Microsoft publishes it as
+non-sensitive and three characters is not a usable credential, but a tool whose
+whole promise is that it never handles secrets should not put a prefix of one
+into an HTML report.
+
 Service principals are read as well as applications, because a principal's
 `Verify` key credential is the **SAML signing certificate**: when that lapses,
 every sign-in through the app stops at the same moment, so it is reported as a
@@ -503,7 +519,11 @@ one document:
   refuse after.
 
 Both `EntityDescriptor` (one provider) and `EntitiesDescriptor` (a federation)
-are handled, certificates listed under more than one `use` are reported once,
+are handled — including a `validUntil` on the aggregate root, which is where
+real federation metadata usually puts it. In a multi-entity document each
+entity's rows carry its `entityID`, so two providers in one file are tellable
+apart on screen and do not collide on an iCal UID. Certificates listed under
+more than one `use` are reported once,
 and a URL that parses as XML but holds no dates is an error rather than a
 provider with nothing expiring — that would be the clean-estate failure again.
 

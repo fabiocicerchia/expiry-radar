@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+	neturl "net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -54,6 +55,9 @@ const (
 	azureGraphScope  = "https://graph.microsoft.com/.default"
 	azureVaultScope  = "https://vault.azure.net/.default"
 	azureVaultAPIVer = "7.4"
+	// A cap, not a limit on what is reported: hitting it is a truncated read
+	// and says so rather than passing for a complete one.
+	azureMaxPages = 50
 )
 
 // Name identifies this source in an item's Source field.
@@ -100,13 +104,13 @@ func (s *AzureSource) token(ctx context.Context, client *http.Client, scope stri
 		return t.value, nil
 	}
 
-	form := url.Values{}
+	form := neturl.Values{}
 	form.Set("client_id", s.ClientID)
 	form.Set("client_secret", s.ClientSecret)
 	form.Set("scope", scope)
 	form.Set("grant_type", "client_credentials")
 
-	u := s.endpoint("login", azureLogin) + "/" + url.PathEscape(s.TenantID) + "/oauth2/v2.0/token"
+	u := s.endpoint("login", azureLogin) + "/" + neturl.PathEscape(s.TenantID) + "/oauth2/v2.0/token"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
@@ -141,6 +145,22 @@ func (s *AzureSource) token(ctx context.Context, client *http.Client, scope stri
 		till: time.Now().Add(time.Duration(out.ExpiresIn)*time.Second - time.Minute),
 	}
 	return out.AccessToken, nil
+}
+
+// sameHost reports whether a server-supplied continuation URL points at the
+// host we started from. Graph and Key Vault paginate with absolute nextLinks,
+// and re-attaching a bearer token to whatever URL a response hands back is a
+// habit worth not having, even when the response is authentic.
+func sameHost(next, base string) bool {
+	n, err := neturl.Parse(next)
+	if err != nil {
+		return false
+	}
+	b, err := neturl.Parse(base)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(n.Host, b.Host) && strings.EqualFold(n.Scheme, b.Scheme)
 }
 
 func azureGet(ctx context.Context, s *AzureSource, client *http.Client,
@@ -204,7 +224,8 @@ func (s *AzureSource) credentials(ctx context.Context, client *http.Client, kind
 
 	var items []Item
 	var warnings []string
-	for page := 0; page < 50 && u != ""; page++ {
+	page := 0
+	for ; page < azureMaxPages && u != ""; page++ {
 		var body struct {
 			Value    []azureDirectoryObject `json:"value"`
 			NextLink string                 `json:"@odata.nextLink"`
@@ -216,7 +237,15 @@ func (s *AzureSource) credentials(ctx context.Context, client *http.Client, kind
 		for _, obj := range body.Value {
 			items = append(items, azureCredentialItems(obj, kind)...)
 		}
+		if body.NextLink != "" && !sameHost(body.NextLink, base) {
+			warnings = append(warnings, kind+": the API returned a continuation URL on another host")
+			break
+		}
 		u = body.NextLink
+	}
+	if u != "" && page >= azureMaxPages {
+		warnings = append(warnings, kind+": stopped after "+strconv.Itoa(azureMaxPages)+
+			" pages; the rest were not read")
 	}
 	return items, joinErrs(warnings)
 }
@@ -243,8 +272,11 @@ func azureCredentialItems(obj azureDirectoryObject, kind string) []Item {
 		}
 		labels := map[string]string{"credential": what}
 		labels = label(labels, "app-id", obj.AppID)
-		labels = label(labels, "hint", c.Hint)
 		labels = label(labels, "usage", c.Usage)
+		// Graph's `hint` is the first characters of the client secret.
+		// Microsoft publishes it as non-sensitive and three characters is not
+		// a usable credential, but a tool whose whole promise is that it never
+		// handles secrets should not put a prefix of one into an HTML report.
 		// A SAML signing certificate is not one integration breaking, it is
 		// every sign-in through the app stopping at once.
 		if strings.EqualFold(c.Usage, "Verify") && kind == "servicePrincipals" {
@@ -290,13 +322,19 @@ func (s *AzureSource) keyVaults(ctx context.Context, client *http.Client) ([]Ite
 		base := s.endpoint("vault", "https://"+vault+".vault.azure.net")
 		for _, what := range []string{"certificates", "secrets", "keys"} {
 			u := fmt.Sprintf("%s/%s?api-version=%s&maxresults=25", base, what, azureVaultAPIVer)
-			for page := 0; page < 50 && u != ""; page++ {
+			page := 0
+			for ; page < azureMaxPages && u != ""; page++ {
 				var body struct {
 					Value    []azureVaultItem `json:"value"`
 					NextLink string           `json:"nextLink"`
 				}
 				if err := azureGet(ctx, s, client, u, azureVaultScope, &body); err != nil {
 					warnings = append(warnings, vault+"/"+what+": "+err.Error())
+					break
+				}
+				if body.NextLink != "" && !sameHost(body.NextLink, base) {
+					warnings = append(warnings,
+						vault+"/"+what+": the API returned a continuation URL on another host")
 					break
 				}
 				for _, v := range body.Value {
@@ -318,6 +356,10 @@ func (s *AzureSource) keyVaults(ctx context.Context, client *http.Client) ([]Ite
 					})
 				}
 				u = body.NextLink
+			}
+			if u != "" && page >= azureMaxPages {
+				warnings = append(warnings, vault+"/"+what+": stopped after "+
+					strconv.Itoa(azureMaxPages)+" pages; the rest were not read")
 			}
 		}
 	}

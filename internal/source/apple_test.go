@@ -174,3 +174,41 @@ func TestAppleRejectsAKeyThatIsNotAP8(t *testing.T) {
 		t.Fatalf("want a clear complaint about the key file, got %v", err)
 	}
 }
+
+// An annual clock makes silent truncation expensive: the rest of the profiles
+// are found when the build breaks.
+func TestAppleFollowsItsNextLink(t *testing.T) {
+	keyFile, _ := writeP8(t)
+	soon := time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339)
+	var pages int
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/certificates") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{}})
+			return
+		}
+		pages++
+		body := map[string]any{"data": []any{
+			map[string]any{"id": "c" + r.URL.Query().Get("cursor"), "attributes": map[string]any{
+				"displayName": "cert-" + r.URL.Query().Get("cursor"), "expirationDate": soon}},
+		}}
+		if r.URL.Query().Get("cursor") == "" {
+			body["links"] = map[string]any{"next": srv.URL + "/v1/certificates?cursor=p2"}
+		}
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer srv.Close()
+
+	s := &AppleSource{IssuerID: "i", KeyID: "k", PrivateKeyFile: keyFile,
+		BaseURL: srv.URL, SkipProfiles: true}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if pages != 2 {
+		t.Errorf("fetched %d pages, want 2", pages)
+	}
+	if _, ok := itemNamed(items, "certificate/cert-p2"); !ok {
+		t.Fatalf("the second page's certificate is missing: %+v", items)
+	}
+}

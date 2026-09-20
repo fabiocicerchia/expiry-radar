@@ -34,6 +34,10 @@ type OktaSource struct {
 	SkipApps   bool
 }
 
+// A cap, not a limit on what is reported: hitting it is a truncated read and
+// says so.
+const oktaMaxPages = 40
+
 // Name identifies this source in an item's Source field.
 func (s *OktaSource) Name() string { return "okta" }
 
@@ -58,11 +62,37 @@ func (s *OktaSource) Collect(ctx context.Context) ([]Item, error) {
 	return items, err
 }
 
+// oktaGet reads every page. Okta paginates with a Link header rather than a
+// body cursor, and stopping at the first page would quietly report a subset of
+// an org's applications as though it were all of them.
 func oktaGet[T any](ctx context.Context, s *OktaSource, client *http.Client, path string) ([]T, error) {
-	u := strings.TrimSuffix(s.OrgURL, "/") + path
+	base := strings.TrimSuffix(s.OrgURL, "/")
+	u := base + path
+
+	var out []T
+	for page := 0; page < oktaMaxPages && u != ""; page++ {
+		batch, next, err := oktaPage[T](ctx, s, client, u, path)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, batch...)
+		if next != "" && !sameHost(next, base) {
+			return out, fmt.Errorf("GET %s: the API returned a continuation URL on another host", path)
+		}
+		u = next
+	}
+	if u != "" {
+		return out, fmt.Errorf("GET %s: stopped after %d pages; the rest were not read",
+			path, oktaMaxPages)
+	}
+	return out, nil
+}
+
+func oktaPage[T any](ctx context.Context, s *OktaSource, client *http.Client,
+	u, path string) ([]T, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// SSWS is Okta's scheme, not Bearer.
 	req.Header.Set("Authorization", "SSWS "+s.Token)
@@ -70,22 +100,42 @@ func oktaGet[T any](ctx context.Context, s *OktaSource, client *http.Client, pat
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	//nolint:errcheck // the body is read or abandoned either way.
 	defer func() { _ = resp.Body.Close() }()
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, fmt.Errorf("GET %s: %s — the API token needs a read-only admin role", path, resp.Status)
+		return nil, "", fmt.Errorf("GET %s: %s — the API token needs a read-only admin role",
+			path, resp.Status)
 	default:
-		return nil, fmt.Errorf("GET %s: %s", path, resp.Status)
+		return nil, "", fmt.Errorf("GET %s: %s", path, resp.Status)
 	}
 	var out []T
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("GET %s: %w", path, err)
+		return nil, "", fmt.Errorf("GET %s: %w", path, err)
 	}
-	return out, nil
+	return out, oktaNextLink(resp.Header.Values("Link")), nil
+}
+
+// oktaNextLink picks the rel="next" URL out of the Link headers. Okta also
+// sends rel="self", so the relation has to be checked rather than taking the
+// last header and hoping.
+func oktaNextLink(links []string) string {
+	for _, header := range links {
+		for _, part := range strings.Split(header, ",") {
+			if !strings.Contains(part, `rel="next"`) {
+				continue
+			}
+			start := strings.Index(part, "<")
+			end := strings.Index(part, ">")
+			if start >= 0 && end > start {
+				return part[start+1 : end]
+			}
+		}
+	}
+	return ""
 }
 
 type oktaAPIToken struct {

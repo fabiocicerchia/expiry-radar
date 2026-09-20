@@ -264,11 +264,20 @@ func (s *RegistrarSource) gandi(ctx context.Context, client *http.Client,
 		AutoRenew flexBool `json:"autorenew"`
 		Status    []string `json:"status"`
 	}
-	u := s.base("gandi", "https://api.gandi.net") + "/v5/domain/domains?per_page=100"
+	const perPage = 100
+	u := fmt.Sprintf("%s/v5/domain/domains?per_page=%d",
+		s.base("gandi", "https://api.gandi.net"), perPage)
 	// Gandi's scheme is "Apikey", not Bearer.
 	if err := getJSON(ctx, client, u, map[string]string{"Authorization": "Apikey " + p.Token},
 		"the API key needs domain read access", &domains); err != nil {
 		return nil, err
+	}
+	// Gandi returns no total, so a full page is the only signal that there may
+	// be more — and saying nothing would match the DNSimple adapter's silence
+	// rather than its check.
+	var truncated error
+	if len(domains) == perPage {
+		truncated = fmt.Errorf("read a full page of %d domains; there may be more", perPage)
 	}
 
 	out := make([]registrarDomain, 0, len(domains))
@@ -279,7 +288,7 @@ func (s *RegistrarSource) gandi(ctx context.Context, client *http.Client,
 			Extra: map[string]string{"status": strings.Join(d.Status, ",")},
 		})
 	}
-	return out, nil
+	return out, truncated
 }
 
 // porkbun is the odd one: credentials go in a JSON POST body rather than a

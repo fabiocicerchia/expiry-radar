@@ -144,11 +144,28 @@ func (s *FederationSource) provider(ctx context.Context, client *http.Client,
 			EntityID: doc.EntityID, ValidUntil: doc.ValidUntil,
 			IDP: doc.IDP, SP: doc.SP,
 		}}
+	} else if doc.ValidUntil != "" {
+		// An aggregate carries validUntil on the EntitiesDescriptor itself,
+		// and real federation metadata usually does. Reading it only from the
+		// entities would lose one of the two deadlines this source exists for
+		// — silently, because the certificates still produce rows.
+		for i := range entities {
+			if entities[i].ValidUntil == "" {
+				entities[i].ValidUntil = doc.ValidUntil
+			}
+		}
 	}
 
 	var items []Item
 	for _, e := range entities {
-		items = append(items, federationItems(e, p, name)...)
+		// With more than one entity in the document, the provider name alone
+		// does not identify a row — and two entities whose certificates share
+		// an expiry would collide on their iCal UID as well as on screen.
+		entityName := name
+		if len(entities) > 1 && e.EntityID != "" {
+			entityName = name + " [" + e.EntityID + "]"
+		}
+		items = append(items, federationItems(e, p, entityName)...)
 	}
 	if len(items) == 0 {
 		// A document that parsed but held no dates is not a clean result; it

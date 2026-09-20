@@ -83,14 +83,14 @@ func (s *HetznerSource) Collect(ctx context.Context) ([]Item, error) {
 		// Hetzner renews its own managed certificates; an uploaded one is
 		// nobody's job but yours.
 		if strings.EqualFold(c.Type, "managed") {
-			labels[LabelRenewal] = RenewalManaged
-			if c.Status != nil && c.Status.Renewal != "" &&
-				!strings.EqualFold(c.Status.Renewal, "scheduled") &&
-				!strings.EqualFold(c.Status.Renewal, "completed") {
-				// Managed, but the renewal is not healthy — so the de-rank is
-				// not earned.
-				delete(labels, LabelRenewal)
-				labels = label(labels, LabelRenewal, RenewalStuck)
+			// Only an explicit failure revokes the de-rank. Hetzner reports
+			// several in-flight states — pending, unavailable, not yet due —
+			// and treating "anything but scheduled" as broken would bump the
+			// rank of certificates that are being renewed perfectly well.
+			if c.Status != nil && strings.EqualFold(c.Status.Renewal, "failed") {
+				labels[LabelRenewal] = RenewalStuck
+			} else {
+				labels[LabelRenewal] = RenewalManaged
 			}
 		}
 		items = append(items, Item{
