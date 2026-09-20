@@ -70,6 +70,22 @@
     "skipGroups": false
   },
   "rotation": [],
+  "azure": {
+    "enabled": false,
+    "tenantId": "",
+    "clientId": "",
+    "vaults": [],
+    "skipApplications": false,
+    "skipPrincipals": false,
+    "skipVaults": false
+  },
+  "okta": {
+    "enabled": false,
+    "orgUrl": "",
+    "skipTokens": false,
+    "skipApps": false
+  },
+  "federation": [],
   "gcp": {
     "enabled": false,
     "projects": [

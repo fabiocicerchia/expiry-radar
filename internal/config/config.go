@@ -23,17 +23,21 @@ type File struct {
 	Endpoints []source.Endpoint `json:"endpoints"`
 	Domains   []string          `json:"domains"`
 	// Things that expire that no source can discover. See source.ManualItem.
-	Manual       []source.ManualItem `json:"manual"`
-	K8s          *K8s                `json:"k8s"`
-	Vault        *Vault              `json:"vault"`
-	AWS          *AWS                `json:"aws"`
-	Cloudflare   *Cloudflare         `json:"cloudflare"`
-	GitLab       *GitLab             `json:"gitlab"`
-	GitHub       *GitHub             `json:"github"`
-	GCP          *GCP                `json:"gcp"`
-	DigitalOcean *DigitalOcean       `json:"digitalocean"`
-	Scaleway     *Scaleway           `json:"scaleway"`
-	Namecheap    *Namecheap          `json:"namecheap"`
+	Manual     []source.ManualItem `json:"manual"`
+	K8s        *K8s                `json:"k8s"`
+	Vault      *Vault              `json:"vault"`
+	AWS        *AWS                `json:"aws"`
+	Cloudflare *Cloudflare         `json:"cloudflare"`
+	GitLab     *GitLab             `json:"gitlab"`
+	GitHub     *GitHub             `json:"github"`
+	GCP        *GCP                `json:"gcp"`
+	Azure      *Azure              `json:"azure"`
+	Okta       *Okta               `json:"okta"`
+	// Federation reads IdP metadata and needs no credential at all.
+	Federation   []source.FederationProvider `json:"federation"`
+	DigitalOcean *DigitalOcean               `json:"digitalocean"`
+	Scaleway     *Scaleway                   `json:"scaleway"`
+	Namecheap    *Namecheap                  `json:"namecheap"`
 	// Rotation covers credentials with no expiry at all; see source.RotationSource.
 	Rotation  []source.RotationProvider `json:"rotation"`
 	Overrides []rank.Override           `json:"overrides"`
@@ -204,6 +208,32 @@ type GCP struct {
 	SkipKeys        bool `json:"skipKeys"`
 }
 
+// Azure points the Entra ID source at a tenant, and optionally at Key Vaults.
+type Azure struct {
+	Enabled  bool   `json:"enabled"`
+	TenantID string `json:"tenantId"`
+	ClientID string `json:"clientId"`
+	// ClientSecret never comes from the file. Load fills it from
+	// $AZURE_CLIENT_SECRET.
+	ClientSecret string `json:"-"`
+	// Vaults are Key Vault names, not URLs. Enumerating them would need ARM
+	// permissions this source deliberately does not ask for.
+	Vaults           []string `json:"vaults"`
+	SkipApplications bool     `json:"skipApplications"`
+	SkipPrincipals   bool     `json:"skipPrincipals"`
+	SkipVaults       bool     `json:"skipVaults"`
+}
+
+// Okta points the Okta source at a tenant.
+type Okta struct {
+	Enabled bool   `json:"enabled"`
+	OrgURL  string `json:"orgUrl"`
+	// Token never comes from the file. Load fills it from $OKTA_API_TOKEN.
+	Token      string `json:"-"`
+	SkipTokens bool   `json:"skipTokens"`
+	SkipApps   bool   `json:"skipApps"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -278,6 +308,27 @@ func Load(path string) (*File, error) {
 		if f.Rotation[i].Token == "" {
 			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
 				path, f.Rotation[i].Name, env)
+		}
+	}
+	if err := source.ValidateFederation(f.Federation); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	if f.Azure != nil && f.Azure.Enabled {
+		if f.Azure.TenantID == "" || f.Azure.ClientID == "" {
+			return nil, fmt.Errorf("%s: azure.tenantId and azure.clientId are both required", path)
+		}
+		f.Azure.ClientSecret = os.Getenv("AZURE_CLIENT_SECRET") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Azure.ClientSecret == "" {
+			return nil, fmt.Errorf("%s: azure source is enabled but $AZURE_CLIENT_SECRET is not set", path)
+		}
+	}
+	if f.Okta != nil && f.Okta.Enabled {
+		if f.Okta.OrgURL == "" {
+			return nil, fmt.Errorf("%s: okta.orgUrl is required, e.g. https://acme.okta.com", path)
+		}
+		f.Okta.Token = os.Getenv("OKTA_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Okta.Token == "" {
+			return nil, fmt.Errorf("%s: okta source is enabled but $OKTA_API_TOKEN is not set", path)
 		}
 	}
 	if f.GCP != nil && f.GCP.Enabled {
@@ -395,6 +446,28 @@ func (f *File) Sources() []source.Source {
 			SkipPersonal: f.GitLab.SkipPersonal,
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
+		})
+	}
+	if len(f.Federation) > 0 {
+		out = append(out, &source.FederationSource{Providers: f.Federation})
+	}
+	if f.Azure != nil && f.Azure.Enabled {
+		out = append(out, &source.AzureSource{
+			TenantID:         f.Azure.TenantID,
+			ClientID:         f.Azure.ClientID,
+			ClientSecret:     f.Azure.ClientSecret,
+			Vaults:           f.Azure.Vaults,
+			SkipApplications: f.Azure.SkipApplications,
+			SkipPrincipals:   f.Azure.SkipPrincipals,
+			SkipVaults:       f.Azure.SkipVaults,
+		})
+	}
+	if f.Okta != nil && f.Okta.Enabled {
+		out = append(out, &source.OktaSource{
+			OrgURL:     f.Okta.OrgURL,
+			Token:      f.Okta.Token,
+			SkipTokens: f.Okta.SkipTokens,
+			SkipApps:   f.Okta.SkipApps,
 		})
 	}
 	if f.GCP != nil && f.GCP.Enabled {
