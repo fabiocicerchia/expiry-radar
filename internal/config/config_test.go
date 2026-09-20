@@ -228,3 +228,58 @@ func TestConfiguredMeshAnchorsDoNotDisableTheBuiltInOnes(t *testing.T) {
 		}
 	}
 }
+
+// Every provider the config knows about must actually be constructed. A source
+// that parses but is never built is the quietest possible failure.
+func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
+	for _, env := range []string{
+		"CLOUDFLARE_API_TOKEN", "GITLAB_TOKEN", "GITHUB_TOKEN", "DIGITALOCEAN_TOKEN",
+		"SCW_SECRET_KEY", "NAMECHEAP_API_KEY", "ANTHROPIC_ADMIN_KEY", "OPENAI_ADMIN_KEY",
+		"DOCKERHUB_TOKEN", "VAULT_TOKEN", "VAULT_ADDR",
+	} {
+		t.Setenv(env, "test-value")
+	}
+
+	p := write(t, `{
+		"endpoints": [{"host": "a.example.com"}],
+		"domains": ["example.com"],
+		"manual": [{"name": "m", "kind": "domain", "expires": "2030-01-01"}],
+		"k8s": {"enabled": true, "server": "http://127.0.0.1:8001"},
+		"vault": {"enabled": true, "pkiMounts": ["pki"]},
+		"aws": {"enabled": true, "region": "eu-west-1"},
+		"cloudflare": {"enabled": true, "accountId": "acct"},
+		"gitlab": {"enabled": true, "projects": ["acme/x"]},
+		"github": {"enabled": true, "orgs": ["acme"]},
+		"gcp": {"enabled": true, "projects": ["acme-prod"]},
+		"digitalocean": {"enabled": true},
+		"scaleway": {"enabled": true, "organizationId": "org"},
+		"namecheap": {"enabled": true, "apiUser": "u", "userName": "u", "clientIp": "1.2.3.4"},
+		"rotation": [
+			{"name": "anthropic", "maxKeyAgeDays": 90},
+			{"name": "openai", "maxKeyAgeDays": 90},
+			{"name": "dockerhub", "maxKeyAgeDays": 180}
+		]
+	}`)
+	f, err := Load(p)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, s := range f.Sources() {
+		got[s.Name()] = true
+	}
+	want := []string{
+		"tls:endpoint", "domain:rdap", "manual", "k8s", "vault", "aws",
+		"cloudflare", "gitlab", "github", "gcp", "digitalocean", "scaleway",
+		"namecheap", "rotation",
+	}
+	for _, w := range want {
+		if !got[w] {
+			t.Errorf("%s is configured but never constructed", w)
+		}
+	}
+	if len(f.Sources()) != len(want) {
+		t.Errorf("built %d sources, expected %d: %v", len(f.Sources()), len(want), got)
+	}
+}

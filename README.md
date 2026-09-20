@@ -25,6 +25,14 @@ class and namespace, and overridable.
 - Covers the ones nobody watches: admission webhook and aggregation-layer CA
   bundles, service mesh trust anchors, and whether cert-manager is actually
   renewing what it claims to.
+- **Fourteen sources**, one `Item` contract: TLS endpoints, RDAP domains,
+  Kubernetes, Vault, AWS, Google Cloud, Cloudflare, GitLab, GitHub, Scaleway,
+  DigitalOcean, Namecheap, a rotation-policy inventory for keys that never
+  expire, and whatever you record by hand.
+- **Knows the difference between a date and a deadline.** Where a provider says
+  something else is already renewing — a managed certificate, a registrar's
+  auto-renew, a healthy cert-manager `Certificate` — that row is de-ranked, so
+  the ones nobody is renewing rise to the top on their own.
 - **Ranked by blast radius**, inferred from traffic, ingress class and
   namespace, so the cert on the payment path outranks the one on a staging
   dashboard. Overridable where the inference is wrong.
