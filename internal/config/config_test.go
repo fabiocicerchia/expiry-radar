@@ -241,6 +241,7 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"CLOUDFLARE_API_TOKEN", "GITLAB_TOKEN", "GITHUB_TOKEN", "DIGITALOCEAN_TOKEN",
 		"SCW_SECRET_KEY", "NAMECHEAP_API_KEY", "ANTHROPIC_ADMIN_KEY", "OPENAI_ADMIN_KEY",
 		"DOCKERHUB_TOKEN", "VAULT_TOKEN", "VAULT_ADDR",
+		"AZURE_CLIENT_SECRET", "OKTA_API_TOKEN",
 	} {
 		t.Setenv(env, "test-value")
 	}
@@ -256,6 +257,9 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 		"gitlab": {"enabled": true, "projects": ["acme/x"]},
 		"github": {"enabled": true, "orgs": ["acme"]},
 		"gcp": {"enabled": true, "projects": ["acme-prod"]},
+		"azure": {"enabled": true, "tenantId": "t", "clientId": "c"},
+		"okta": {"enabled": true, "orgUrl": "https://acme.okta.com"},
+		"federation": [{"name": "corp", "url": "https://idp.example/metadata"}],
 		"digitalocean": {"enabled": true},
 		"scaleway": {"enabled": true, "organizationId": "org"},
 		"namecheap": {"enabled": true, "apiUser": "u", "userName": "u", "clientIp": "1.2.3.4"},
@@ -277,7 +281,7 @@ func TestEveryConfiguredProviderIsConstructed(t *testing.T) {
 	want := []string{
 		"tls:endpoint", "domain:rdap", "manual", "k8s", "vault", "aws",
 		"cloudflare", "gitlab", "github", "gcp", "digitalocean", "scaleway",
-		"namecheap", "rotation",
+		"namecheap", "rotation", "azure", "okta", "federation",
 	}
 	for _, w := range want {
 		if !got[w] {

@@ -42,6 +42,13 @@
 | `aws:iam-server-cert` | legacy uploaded ELB certificates | `iam:ListServerCertificates` |
 | `aws:iam-saml` | SAML provider metadata validity | `iam:ListSAMLProviders` |
 | `aws:route53domains` | registrations, with auto-renew state | `route53domains:ListDomains` |
+| `azure:app` | app-registration client secrets and certificates | `AZURE_CLIENT_SECRET` + tenant/client id |
+| `azure:serviceprincipal` | service-principal credentials, incl. SAML signing | same |
+| `azure:keyvault` | Key Vault certificates, secrets and keys | same + `vaults` |
+| `okta:api-token` | org API tokens | `OKTA_API_TOKEN` |
+| `okta:app-key` | SAML application signing certificates | same |
+| `federation:certificate` | IdP signing certificates, from published metadata | **none** |
+| `federation:metadata` | the metadata document's own `validUntil` | **none** |
 | `rotation:anthropic` | org API keys — **no expiry exists**, so age vs. policy | `ANTHROPIC_ADMIN_KEY` |
 | `rotation:openai` | org admin keys, same shape | `OPENAI_ADMIN_KEY` |
 | `rotation:dockerhub` | personal access tokens, with or without expiry | `DOCKERHUB_TOKEN` |
@@ -369,6 +376,51 @@ Load-balancer certificates are zonal, so `zones` has to name them; IAM keys need
 missing. Only keys that carry a real `expires_at` are reported — Scaleway allows
 keys without one, and those are a rotation-policy question rather than a
 deadline this source can read, the same line the AWS IAM adapter draws.
+
+## Identity: the things nobody owns
+
+### Entra ID (Azure)
+
+The biggest gap in most estates. Every app registration and service principal
+carries client secrets and certificates on their own schedules, nothing
+surfaces them until an integration stops authenticating, and Microsoft's own
+answer is a PowerShell script you run by hand — which is a fair admission that
+there was no good one.
+
+Service principals are read as well as applications, because a principal's
+`Verify` key credential is the **SAML signing certificate**: when that lapses,
+every sign-in through the app stops at the same moment, so it is reported as a
+`trust_anchor` rather than an ordinary certificate.
+
+Two token audiences are needed and there is no way around it — Graph and Key
+Vault are separate resources with separate scopes — so the source acquires and
+caches one token each. Vaults are named rather than discovered: enumerating
+them needs ARM permissions, and a source whose promise is read-only data-plane
+access should not be asking for the control plane.
+
+### Okta
+
+Unusual in stating a real date for both things it reports. API tokens carry
+`expiresAt` outright; an application's signing key comes back as a JWK whose
+`x5c` is a real certificate, so the expiry is read from the certificate itself
+rather than synthesised. Only SAML applications are visited — they are the ones
+with a signing certificate, and that keeps this from becoming one request per
+app in the org.
+
+### Federation metadata — no credential at all
+
+The best value-per-line in the tool. IdP metadata is *published to be fetched*,
+so this needs nothing but a URL, and it reports two different deadlines from
+one document:
+
+- the **signing certificates**, which stop every federated login at once;
+- the metadata's own **`validUntil`**, which relying parties are entitled to
+  refuse after.
+
+Both `EntityDescriptor` (one provider) and `EntitiesDescriptor` (a federation)
+are handled, certificates listed under more than one `use` are reported once,
+and a URL that parses as XML but holds no dates is an error rather than a
+provider with nothing expiring — that would be the clean-estate failure again.
 
 ## Credentials with no expiry at all
 
