@@ -25,10 +25,15 @@ class and namespace, and overridable.
 - Covers the ones nobody watches: admission webhook and aggregation-layer CA
   bundles, service mesh trust anchors, and whether cert-manager is actually
   renewing what it claims to.
-- **Fourteen sources**, one `Item` contract: TLS endpoints, RDAP domains,
-  Kubernetes, Vault, AWS, Google Cloud, Cloudflare, GitLab, GitHub, Scaleway,
-  DigitalOcean, Namecheap, a rotation-policy inventory for keys that never
-  expire, and whatever you record by hand.
+- **Twenty-three sources**, one `Item` contract. No credential at all: TLS
+  endpoints, RDAP domains, SAML/OIDC federation metadata. Clouds: AWS, Google
+  Cloud, Azure, Scaleway, DigitalOcean, Hetzner, Kubernetes, Vault. Edge:
+  Cloudflare, Fastly. Registrars: Namecheap, plus DNSimple, Gandi, Porkbun and
+  GoDaddy behind one adapter. Identity: Okta, Entra ID. Forges and registries:
+  GitLab, GitHub, Harbor, JFrog. Code signing: Apple. Plus a rotation-policy
+  inventory for the keys that never expire, and whatever you record by hand.
+  Full table, with the permission each one needs, in
+  [`docs/sources.md`](docs/sources.md).
 - **Knows the difference between a date and a deadline.** Where a provider says
   something else is already renewing — a managed certificate, a registrar's
   auto-renew, a healthy cert-manager `Certificate` — that row is de-ranked, so
@@ -91,6 +96,7 @@ make build
 ./bin/expiry-radar -config expiry-radar.json -format prometheus
 ./bin/expiry-radar -config expiry-radar.json -format html -out report.html
 ./bin/expiry-radar -config expiry-radar.json -fail-within 14   # CI gate
+./bin/expiry-radar -config expiry-radar.json -only cloudflare  # one source
 ```
 
 Copy `expiry-radar.example.json` to `expiry-radar.json` to enable the
@@ -145,7 +151,12 @@ sha256sum --ignore-missing -c checksums.txt
 
 ## Documentation
 
-Full docs live in [`docs/`](docs/). Runnable examples live in [`examples/`](examples/).
+Full docs live in [`docs/`](docs/), starting with
+[`docs/sources.md`](docs/sources.md) for what each source reads and the exact
+permission it needs. Runnable examples live in [`examples/`](examples/):
+[`basic/`](examples/basic/) needs no credentials at all,
+[`multi-provider/`](examples/multi-provider/) wires up several providers and
+names the environment variable each one needs.
 
 ## Contributing
 

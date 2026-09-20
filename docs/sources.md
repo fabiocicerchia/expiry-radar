@@ -2,6 +2,12 @@
 
 ## Sources (all read-only)
 
+Every credential in the table below is read from **an environment variable at
+startup**, never from the config file — the config names which sources to run
+and what to scan, and holds nothing secret. `expiry-radar -only <name>` runs a
+single source, which is the quickest way to check one credential in isolation.
+The full list of variables is also in `man 1 expiry-radar`, under `ENVIRONMENT`.
+
 | Source | What it reads | Credentials |
 | --- | --- | --- |
 | `tls:endpoint` | leaf certificates from a live handshake | none |
@@ -34,7 +40,7 @@
 | `hetzner:certificate` | Cloud load-balancer certificates | `HCLOUD_TOKEN` |
 | `harbor:robot` | robot accounts — the registry credential that does expire | `HARBOR_PASSWORD` + admin |
 | `jfrog:token` | Artifactory access tokens | `JFROG_ACCESS_TOKEN` + admin |
-| `apple:certificate` | signing certificates, annual clock | App Store Connect `.p8` key |
+| `apple:certificate` | signing certificates, annual clock | `APP_STORE_CONNECT_KEY_FILE` (a `.p8` path) |
 | `apple:profile` | provisioning profiles, annual clock | same |
 | `registrar:dnsimple` | domains + auto-renew | `DNSIMPLE_TOKEN` + `account` |
 | `registrar:gandi` | domains + auto-renew | `GANDI_API_KEY` |
@@ -46,7 +52,7 @@
 | `scaleway:domain` | registered domains, with auto-renew state | `SCW_SECRET_KEY` |
 | `scaleway:lb` | load-balancer certificates, per zone | same key + `zones` |
 | `scaleway:iam` | API keys that carry an expiry | same key + `organizationId` |
-| `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
+| `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_ADDR` + `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `aws:rds-ca` / `aws:rds` | the regional CA bundle, and the CA each instance is pinned to | `rds:Describe*` |
 | `aws:acm-pca` | Private CA authorities — trust anchors, 0.95 | `acm-pca:ListCertificateAuthorities` |
@@ -391,6 +397,9 @@ development one inconveniences one machine. A profile Apple has marked
 
 Authentication is an ES256 JWT signed with the `.p8` key App Store Connect lets
 you download exactly once — so the config takes a **file path**, not a secret.
+Set it as `apple.privateKeyFile`, or leave that empty and export
+`APP_STORE_CONNECT_KEY_FILE`; `apple.issuerId` and `apple.keyId` are not secret
+and stay in the config.
 One implementation detail is worth knowing if you ever touch it: JWS wants the
 ECDSA signature as a fixed-width `r||s` pair, not the ASN.1 sequence
 `ecdsa.SignASN1` and most Go examples produce, and Apple rejects the difference

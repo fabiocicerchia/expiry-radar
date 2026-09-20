@@ -1,0 +1,8 @@
+{
+  "endpoints": [
+    { "host": "example.com" },
+    { "host": "github.com" },
+    { "host": "wikipedia.org" }
+  ],
+  "domains": ["example.com", "wikipedia.org"]
+}

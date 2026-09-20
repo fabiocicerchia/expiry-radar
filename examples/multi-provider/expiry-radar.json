@@ -1,0 +1,98 @@
+{
+  "endpoints": [
+    {
+      "host": "shop.example.com",
+      "labels": { "public": "true", "traffic": "2400" }
+    },
+    {
+      "host": "admin.internal.example.com:8443",
+      "labels": { "ingress.class": "nginx-internal" }
+    }
+  ],
+  "domains": ["example.com", "example.net"],
+
+  "manual": [
+    {
+      "name": "authenticode-release-signing",
+      "kind": "tls_cert",
+      "expires": "2027-02-01",
+      "namespace": "release",
+      "labels": { "renew-at": "https://ca.example/orders" }
+    }
+  ],
+
+  "federation": [
+    {
+      "name": "okta-workforce",
+      "url": "https://example.okta.com/app/exk1fake/sso/saml/metadata",
+      "labels": { "public": "true", "environment": "prod" }
+    }
+  ],
+
+  "cloudflare": {
+    "enabled": true,
+    "accountId": "your-cloudflare-account-id",
+    "zones": [],
+    "skipZones": false,
+    "skipAccount": false,
+    "skipUser": false
+  },
+
+  "gitlab": {
+    "enabled": true,
+    "baseUrl": "",
+    "projects": ["acme/payments"],
+    "groups": ["acme"],
+    "skipPersonal": false,
+    "skipProjects": false,
+    "skipGroups": false
+  },
+
+  "okta": {
+    "enabled": true,
+    "orgUrl": "https://example.okta.com",
+    "skipTokens": false,
+    "skipApps": false
+  },
+
+  "registrars": [
+    { "name": "gandi", "labels": { "environment": "prod" } },
+    { "name": "porkbun", "labels": { "environment": "prod" } }
+  ],
+
+  "rotation": [
+    {
+      "name": "anthropic",
+      "maxKeyAgeDays": 90,
+      "labels": { "environment": "prod" }
+    },
+    {
+      "name": "dockerhub",
+      "maxKeyAgeDays": 180,
+      "labels": { "environment": "prod" }
+    }
+  ],
+
+  "vault": {
+    "enabled": true,
+    "addr": "",
+    "namespace": "",
+    "pkiMounts": ["pki_int"],
+    "maxCerts": 500
+  },
+
+  "aws": {
+    "enabled": true,
+    "region": "eu-west-1",
+    "profile": "",
+    "maxKeyAgeDays": 90,
+    "skipACM": false,
+    "skipIAM": false,
+    "skipSecrets": false
+  },
+
+  "overrides": [
+    { "match": "payments/*", "blastRadius": 1.0 },
+    { "match": "*sandbox*", "blastRadius": 0.05 }
+  ]
+}
