@@ -33,6 +33,14 @@ type AWSSource struct {
 	SkipACM    bool
 	SkipIAM    bool
 	SkipSecret bool
+	// The services below need IAM permissions the first three do not, so each
+	// has its own skip. They are on by default because they are read-only
+	// Describe/List calls against services the account already pays for, and
+	// the whole point of them is the things nobody remembered to look at.
+	SkipRDS      bool
+	SkipPCA      bool
+	SkipIAMCerts bool
+	SkipDomains  bool
 }
 
 const defaultMaxKeyAge = 90 * 24 * time.Hour
@@ -81,6 +89,10 @@ func (s *AWSSource) services(ctx context.Context, cfg aws.Config, account string
 		{"acm", s.SkipACM, func() ([]Item, error) { return s.acm(ctx, cfg, account) }},
 		{"iam", s.SkipIAM, func() ([]Item, error) { return s.iam(ctx, cfg, account) }},
 		{"secretsmanager", s.SkipSecret, func() ([]Item, error) { return s.secrets(ctx, cfg, account) }},
+		{"rds", s.SkipRDS, func() ([]Item, error) { return s.rdsCertificates(ctx, cfg, account) }},
+		{"acm-pca", s.SkipPCA, func() ([]Item, error) { return s.privateCAs(ctx, cfg, account) }},
+		{"iam-certs", s.SkipIAMCerts, func() ([]Item, error) { return s.iamCertificates(ctx, cfg, account) }},
+		{"route53domains", s.SkipDomains, func() ([]Item, error) { return s.route53Domains(ctx, cfg, account) }},
 	}
 }
 

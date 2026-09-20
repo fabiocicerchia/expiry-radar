@@ -83,6 +83,12 @@ type AWS struct {
 	SkipACM       bool   `json:"skipACM"`
 	SkipIAM       bool   `json:"skipIAM"`
 	SkipSecrets   bool   `json:"skipSecrets"`
+	// These need IAM permissions the first three do not; each can be turned
+	// off on its own rather than costing the whole source.
+	SkipRDS      bool `json:"skipRDS"`
+	SkipPCA      bool `json:"skipPCA"`
+	SkipIAMCerts bool `json:"skipIAMCerts"`
+	SkipDomains  bool `json:"skipDomains"`
 }
 
 // Cloudflare points the Cloudflare source at an account and its zones.
@@ -321,12 +327,16 @@ func (f *File) Sources() []source.Source {
 	}
 	if f.AWS != nil && f.AWS.Enabled {
 		out = append(out, &source.AWSSource{
-			Region:     f.AWS.Region,
-			Profile:    f.AWS.Profile,
-			MaxKeyAge:  time.Duration(f.AWS.MaxKeyAgeDays) * 24 * time.Hour,
-			SkipACM:    f.AWS.SkipACM,
-			SkipIAM:    f.AWS.SkipIAM,
-			SkipSecret: f.AWS.SkipSecrets,
+			Region:       f.AWS.Region,
+			Profile:      f.AWS.Profile,
+			MaxKeyAge:    time.Duration(f.AWS.MaxKeyAgeDays) * 24 * time.Hour,
+			SkipACM:      f.AWS.SkipACM,
+			SkipIAM:      f.AWS.SkipIAM,
+			SkipSecret:   f.AWS.SkipSecrets,
+			SkipRDS:      f.AWS.SkipRDS,
+			SkipPCA:      f.AWS.SkipPCA,
+			SkipIAMCerts: f.AWS.SkipIAMCerts,
+			SkipDomains:  f.AWS.SkipDomains,
 		})
 	}
 	return out

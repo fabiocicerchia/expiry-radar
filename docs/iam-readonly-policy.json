@@ -9,7 +9,13 @@
         "iam:ListUsers",
         "iam:ListAccessKeys",
         "secretsmanager:ListSecrets",
-        "sts:GetCallerIdentity"
+        "sts:GetCallerIdentity",
+        "rds:DescribeCertificates",
+        "rds:DescribeDBInstances",
+        "acm-pca:ListCertificateAuthorities",
+        "iam:ListServerCertificates",
+        "iam:ListSAMLProviders",
+        "route53domains:ListDomains"
       ],
       "Resource": "*"
     }

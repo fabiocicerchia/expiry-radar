@@ -29,6 +29,11 @@
 | `scaleway:iam` | API keys that carry an expiry | same key + `organizationId` |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
+| `aws:rds-ca` / `aws:rds` | the regional CA bundle, and the CA each instance is pinned to | `rds:Describe*` |
+| `aws:acm-pca` | Private CA authorities — trust anchors, 0.95 | `acm-pca:ListCertificateAuthorities` |
+| `aws:iam-server-cert` | legacy uploaded ELB certificates | `iam:ListServerCertificates` |
+| `aws:iam-saml` | SAML provider metadata validity | `iam:ListSAMLProviders` |
+| `aws:route53domains` | registrations, with auto-renew state | `route53domains:ListDomains` |
 | `rotation:anthropic` | org API keys — **no expiry exists**, so age vs. policy | `ANTHROPIC_ADMIN_KEY` |
 | `rotation:openai` | org admin keys, same shape | `OPENAI_ADMIN_KEY` |
 | `rotation:dockerhub` | personal access tokens, with or without expiry | `DOCKERHUB_TOKEN` |
@@ -205,6 +210,36 @@ to enumerate everything a token can see, and hammering the API to find out is
 not a read-only posture worth defending. GitLab answers `404` for a resource
 the token cannot see as well as for one that is not there, so the warning says
 both.
+
+## The rest of AWS
+
+The original three adapters covered ACM, IAM access keys and Secrets Manager
+rotation. Four more services have dates and did not.
+
+**RDS** is the one AWS itself publishes a Prescriptive Guidance pattern for
+detecting, which says something about how often it bites. Two questions, both
+asked: `DescribeCertificates` says which regional CA bundles exist and which is
+the account default, and each instance's `CertificateDetails` says which one
+that database will actually present. The second is what breaks — a driver that
+verifies stops connecting — so a CA nothing is pinned to gets `in-use=false`
+and a publicly accessible instance gets `public=true`, both straight from the
+API rather than inferred.
+
+**ACM Private CA** authorities are `trust_anchor`s at 0.95, for the reason the
+kind exists: an expired private CA invalidates everything it ever signed at
+once.
+
+**IAM server certificates** are the legacy pre-ACM ELB uploads — put there once
+by somebody who has since left, and invisible unless you go looking.
+**SAML providers** are worse: when one lapses every federated login stops
+together, and it does not look like a certificate problem.
+
+**Route 53 Domains** adds what every registrar API adds over RDAP — the date is
+the same, `auto_renew` is the part only the registrar knows.
+
+Each is a separate unit behind the same seam as the original three, with its own
+skip, so an account that denies `acm-pca` still reports its RDS certificates.
+`docs/iam-readonly-policy.json` carries the six new read-only actions.
 
 ## DigitalOcean and Scaleway
 
