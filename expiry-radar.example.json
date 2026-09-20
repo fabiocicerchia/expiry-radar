@@ -36,6 +36,11 @@
     "skipProjects": false,
     "skipGroups": false
   },
+  "rotation": [
+    { "name": "anthropic", "maxKeyAgeDays": 90, "labels": { "environment": "prod" } },
+    { "name": "openai", "maxKeyAgeDays": 90 },
+    { "name": "dockerhub", "maxKeyAgeDays": 180 }
+  ],
   "digitalocean": { "enabled": false },
   "scaleway": {
     "enabled": false,

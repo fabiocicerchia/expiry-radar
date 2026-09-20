@@ -29,6 +29,9 @@
 | `scaleway:iam` | API keys that carry an expiry | same key + `organizationId` |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
+| `rotation:anthropic` | org API keys — **no expiry exists**, so age vs. policy | `ANTHROPIC_ADMIN_KEY` |
+| `rotation:openai` | org admin keys, same shape | `OPENAI_ADMIN_KEY` |
+| `rotation:dockerhub` | personal access tokens, with or without expiry | `DOCKERHUB_TOKEN` |
 | `manual` | what you recorded yourself, because nothing can discover it | none |
 
 The endpoint prober deliberately skips certificate verification: an
@@ -222,6 +225,32 @@ Load-balancer certificates are zonal, so `zones` has to name them; IAM keys need
 missing. Only keys that carry a real `expires_at` are reported — Scaleway allows
 keys without one, and those are a rotation-policy question rather than a
 deadline this source can read, the same line the AWS IAM adapter draws.
+
+## Credentials with no expiry at all
+
+Anthropic, OpenAI and Docker Hub issue keys that simply never expire. There is
+no date to discover, so this source does not pretend to discover one: it reads
+the **age**, takes the rotation policy you set, and reports the deadline that
+follows.
+
+That deadline is yours, not the provider's, and the report says so. Every
+synthesised row carries `created`, `policy.days` and `deadline=rotation policy`,
+exactly as the AWS IAM adapter labels access keys — AWS will happily serve a
+five-year-old key, and so will these. Where a provider *does* state an expiry
+(Docker Hub grew expiring tokens later than it grew tokens) that date is used
+as-is and labelled `deadline=issuer`.
+
+`maxKeyAgeDays` is required and has no default. A deadline nobody chose is not a
+policy, and inventing one would put a date in the report that no human ever
+agreed to — so a provider without it is rejected at load.
+
+Two de-ranks fall out for free: an inactive or revoked key gets `in-use=false`,
+and an OpenAI key that has never been used is flagged the same way — a key never
+used and never expiring is one to delete rather than rotate.
+
+Mistral is not here. Its keys are console-only with no documented list endpoint,
+so there is nothing to read; record them in `manual` instead of shipping a stub
+that implies coverage.
 
 ## Recorded, or discovered
 

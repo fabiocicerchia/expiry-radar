@@ -31,7 +31,9 @@ type File struct {
 	GitLab       *GitLab             `json:"gitlab"`
 	DigitalOcean *DigitalOcean       `json:"digitalocean"`
 	Scaleway     *Scaleway           `json:"scaleway"`
-	Overrides    []rank.Override     `json:"overrides"`
+	// Rotation covers credentials with no expiry at all; see source.RotationSource.
+	Rotation  []source.RotationProvider `json:"rotation"`
+	Overrides []rank.Override           `json:"overrides"`
 }
 
 // K8s points the Kubernetes source at a cluster. An empty Server means
@@ -202,6 +204,19 @@ func Load(path string) (*File, error) {
 			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
 		}
 	}
+	// Rotation providers are list-shaped like endpoints and domains: naming one
+	// enables it. Each reads its own credential from its own variable.
+	if err := source.ValidateRotation(f.Rotation); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for i := range f.Rotation {
+		env := source.RotationProviders[f.Rotation[i].Name]
+		f.Rotation[i].Token = os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Rotation[i].Token == "" {
+			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
+				path, f.Rotation[i].Name, env)
+		}
+	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
 		f.DigitalOcean.Token = os.Getenv("DIGITALOCEAN_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
 		if f.DigitalOcean.Token == "" {
@@ -287,6 +302,9 @@ func (f *File) Sources() []source.Source {
 			SkipProjects: f.GitLab.SkipProjects,
 			SkipGroups:   f.GitLab.SkipGroups,
 		})
+	}
+	if len(f.Rotation) > 0 {
+		out = append(out, &source.RotationSource{Providers: f.Rotation})
 	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
 		out = append(out, &source.DigitalOceanSource{Token: f.DigitalOcean.Token})
