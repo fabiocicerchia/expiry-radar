@@ -12,6 +12,12 @@
 | `k8s:webhook` | admission webhook CA bundles | ClusterRole, `list` |
 | `k8s:apiservice` | aggregation-layer `APIService` CA bundles | ClusterRole, `list` |
 | `k8s:mesh` | Linkerd and Istio trust anchors and issuers | ClusterRole, `get` by name — **reads Secrets holding CA private keys**, see [`rbac-readonly.yaml`](rbac-readonly.yaml) |
+| `cloudflare:edge` | edge certificate packs, per signature algorithm | `CLOUDFLARE_API_TOKEN`, `*:read` |
+| `cloudflare:custom` | uploaded custom certificates — the ones nobody renews | same token |
+| `cloudflare:mtls` | zone mTLS client certificates | same token |
+| `cloudflare:registrar` | Registrar domains, with auto-renew state | same token + `accountId` |
+| `cloudflare:access` | Zero Trust service tokens (one-year default) | same token + `accountId` |
+| `cloudflare:token` | the API tokens themselves, including this one | same token |
 | `vault` | the token's own TTL, and certificates in PKI mounts | `VAULT_TOKEN`, read + list |
 | `aws` | ACM certificates, IAM access key age, Secrets Manager rotation | standard credential chain |
 | `manual` | what you recorded yourself, because nothing can discover it | none |
@@ -133,6 +139,33 @@ this tool has promised not to need. Said plainly here rather than half-covered.
 
 The API server's own serving certificate *is* reachable: point a `tls` endpoint
 at `:6443`.
+
+## Cloudflare
+
+The richest single token in the tool, and the best-behaved for ranking. Every
+other source has to *infer* whether something is internet-facing; Cloudflare
+knows. A zone name is the hostname, and a zone that is active and unpaused is
+served from the edge by definition, so `hosts` and `public` are facts rather
+than guesses. A paused zone gets `in-use=false` for the same reason.
+
+It also supplies the renewal signal twice over, reusing the rule cert-manager
+introduced — a deadline something else is demonstrably meeting is not one you
+have to act on:
+
+- a **universal or advanced** certificate pack that is `active` is renewed by
+  Cloudflare, so it is labelled `renewal=managed` and de-ranked by 0.25;
+- an **uploaded custom** certificate is not, so it keeps its full blast radius.
+  That asymmetry is the point of reading this API at all;
+- a **registrar** domain with `auto_renew` set is de-ranked the same way.
+
+`accountId` is required for the registrar and Zero Trust reads. Without it they
+are skipped rather than guessed at. The token goes in `$CLOUDFLARE_API_TOKEN`,
+never in the config file.
+
+Each scope — zones, account, user — collects independently, so a token scoped
+to certificates only reports its certificates and warns about the rest instead
+of losing them. A `200` carrying `success: false`, which this API returns more
+readily than most, is treated as the error it is.
 
 ## Recorded, or discovered
 

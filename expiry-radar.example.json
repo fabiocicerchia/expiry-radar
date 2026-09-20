@@ -19,6 +19,14 @@
     "trustAnchors": false,
     "meshSigningSecrets": false
   },
+  "cloudflare": {
+    "enabled": false,
+    "accountId": "",
+    "zones": [],
+    "skipZones": false,
+    "skipAccount": false,
+    "skipUser": false
+  },
   "vault": {
     "enabled": false,
     "addr": "",

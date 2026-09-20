@@ -23,11 +23,12 @@ type File struct {
 	Endpoints []source.Endpoint `json:"endpoints"`
 	Domains   []string          `json:"domains"`
 	// Things that expire that no source can discover. See source.ManualItem.
-	Manual    []source.ManualItem `json:"manual"`
-	K8s       *K8s                `json:"k8s"`
-	Vault     *Vault              `json:"vault"`
-	AWS       *AWS                `json:"aws"`
-	Overrides []rank.Override     `json:"overrides"`
+	Manual     []source.ManualItem `json:"manual"`
+	K8s        *K8s                `json:"k8s"`
+	Vault      *Vault              `json:"vault"`
+	AWS        *AWS                `json:"aws"`
+	Cloudflare *Cloudflare         `json:"cloudflare"`
+	Overrides  []rank.Override     `json:"overrides"`
 }
 
 // K8s points the Kubernetes source at a cluster. An empty Server means
@@ -79,6 +80,23 @@ type AWS struct {
 	SkipSecrets   bool   `json:"skipSecrets"`
 }
 
+// Cloudflare points the Cloudflare source at an account and its zones.
+type Cloudflare struct {
+	Enabled bool `json:"enabled"`
+	// Token never comes from the file — a token in a config file is a token in
+	// a git repository. Load fills it from $CLOUDFLARE_API_TOKEN.
+	Token string `json:"-"`
+	// AccountID is needed for the registrar and Zero Trust reads; without it
+	// those are skipped rather than guessed at.
+	AccountID string `json:"accountId"`
+	// Zones limits the scan to these zone IDs. Empty means every zone the
+	// token can see.
+	Zones       []string `json:"zones"`
+	SkipZones   bool     `json:"skipZones"`
+	SkipAccount bool     `json:"skipAccount"`
+	SkipUser    bool     `json:"skipUser"`
+}
+
 // Load reads and validates a config file, refusing one it cannot act on
 // rather than silently watching nothing.
 func Load(path string) (*File, error) {
@@ -124,6 +142,16 @@ func Load(path string) (*File, error) {
 		if f.K8s.MeshSigningSecrets && !f.K8s.TrustAnchors {
 			return nil, fmt.Errorf(
 				"%s: k8s.meshSigningSecrets needs k8s.trustAnchors, or it reads private keys for nothing", path)
+		}
+	}
+	// Same rule as Vault: the credential is read once at load and validated
+	// with everything else, so a source that cannot authenticate fails while
+	// the operator is still looking at the command rather than on first
+	// collect.
+	if f.Cloudflare != nil && f.Cloudflare.Enabled {
+		f.Cloudflare.Token = os.Getenv("CLOUDFLARE_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		if f.Cloudflare.Token == "" {
+			return nil, fmt.Errorf("%s: cloudflare source is enabled but $CLOUDFLARE_API_TOKEN is not set", path)
 		}
 	}
 	// The environment is read here, once, and validated with the rest of the
@@ -177,6 +205,16 @@ func (f *File) Sources() []source.Source {
 			Namespace: f.Vault.Namespace,
 			PKIMounts: f.Vault.PKIMounts,
 			MaxCerts:  f.Vault.MaxCerts,
+		})
+	}
+	if f.Cloudflare != nil && f.Cloudflare.Enabled {
+		out = append(out, &source.CloudflareSource{
+			Token:       f.Cloudflare.Token,
+			AccountID:   f.Cloudflare.AccountID,
+			Zones:       f.Cloudflare.Zones,
+			SkipZones:   f.Cloudflare.SkipZones,
+			SkipAccount: f.Cloudflare.SkipAccount,
+			SkipUser:    f.Cloudflare.SkipUser,
 		})
 	}
 	if f.AWS != nil && f.AWS.Enabled {
