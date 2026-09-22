@@ -37,9 +37,19 @@ type CloudflareSource struct {
 	BaseURL string
 	Timeout time.Duration
 
+	// MaxKeyAgeDays is the rotation policy for API tokens created without an
+	// expiry. There is no default: these have no deadline of their own, so the
+	// policy is the only one there is, and a deadline nobody chose is not a
+	// policy. Unset, such tokens stay out of the report.
+	MaxKeyAgeDays int
+
 	SkipZones   bool
 	SkipAccount bool
 	SkipUser    bool
+	// SkipAccountTokens turns off the account-owned token read on its own.
+	// Separate from SkipAccount because the rest of the account scope needs no
+	// extra permission, and this read needs "Account API Tokens Read".
+	SkipAccountTokens bool
 }
 
 const (
@@ -435,6 +445,18 @@ func (s *CloudflareSource) accountItems(ctx context.Context, client *http.Client
 		})
 	}
 
+	// The account's own API tokens. Last, because it is the one read here that
+	// needs a permission the others do not — a token without "Account API
+	// Tokens Read" warns and the registrar and Zero Trust findings still
+	// arrive, which is the per-scope rule this source is built on.
+	if !s.SkipAccountTokens {
+		owned, err := s.accountTokens(ctx, client, acct)
+		if err != nil {
+			warnings = append(warnings, "account tokens: "+err.Error())
+		}
+		items = append(items, owned...)
+	}
+
 	return items, joinErrs(warnings)
 }
 
@@ -442,23 +464,48 @@ type cfAPIToken struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Status    string `json:"status"`
+	IssuedOn  string `json:"issued_on"`
 	ExpiresOn string `json:"expires_on"`
 }
 
 // userTokens reports the API tokens themselves, including the one doing the
 // reading: when it lapses, every other Cloudflare finding in this report stops
 // arriving, and the report goes quiet rather than wrong.
+//
+// User-owned tokens are only half of them, and on many accounts the empty
+// half. See accountTokens.
 func (s *CloudflareSource) userTokens(ctx context.Context, client *http.Client) ([]Item, error) {
 	tokens, err := cfGet[cfAPIToken](ctx, s, client, "/user/tokens")
 	if err != nil {
 		return nil, err
 	}
+	return s.tokenItems(tokens, "cloudflare:token"), nil
+}
+
+// accountTokens reports the account-owned API tokens, which /user/tokens never
+// returns.
+//
+// Cloudflare has two token stores and one of them was unreadable here. An
+// account whose credentials were all created under Manage Account > API Tokens
+// reported nothing at all, and the source looked like it had simply found
+// nothing to say — on one real estate, six live tokens including the one its
+// own Terraform authenticates with.
+//
+// It is also the half an API token can actually read. /user/tokens requires
+// user-level auth (the Global API Key); this endpoint does not, so a scoped
+// read-only token can inventory it.
+func (s *CloudflareSource) accountTokens(ctx context.Context, client *http.Client, acct string) ([]Item, error) {
+	tokens, err := cfGet[cfAPIToken](ctx, s, client, "/accounts/"+acct+"/tokens")
+	if err != nil {
+		return nil, err
+	}
+	return s.tokenItems(tokens, "cloudflare:account-token"), nil
+}
+
+// tokenItems turns either store's tokens into items, so the two cannot drift.
+func (s *CloudflareSource) tokenItems(tokens []cfAPIToken, source string) []Item {
 	var items []Item
 	for _, t := range tokens {
-		expires, ok := cfTime(t.ExpiresOn)
-		if !ok {
-			continue // a token with no expiry has no deadline to miss
-		}
 		name := t.Name
 		if name == "" {
 			name = t.ID
@@ -467,15 +514,41 @@ func (s *CloudflareSource) userTokens(ctx context.Context, client *http.Client) 
 		if !strings.EqualFold(t.Status, "active") {
 			labels[LabelInUse] = "false"
 		}
+
+		expires, ok := cfTime(t.ExpiresOn)
+		if !ok {
+			// A token with no expiry has no deadline to miss, and that is
+			// exactly what makes it worth watching — it is the one credential
+			// that will still be valid the day it leaks. Reporting it needs a
+			// date, and the only honest one is a rotation policy the operator
+			// chose: maxKeyAgeDays, applied to the day it was issued.
+			//
+			// No default, for the reason rotation.go gives about access keys:
+			// a deadline nobody chose is not a policy, and inventing one puts
+			// a date in the report that no human ever agreed to. Unset, these
+			// stay out — as they were before, but now by choice rather than
+			// because the field was empty.
+			issued, iok := cfTime(t.IssuedOn)
+			if s.MaxKeyAgeDays <= 0 || !iok {
+				continue
+			}
+			expires = issued.Add(time.Duration(s.MaxKeyAgeDays) * 24 * time.Hour)
+			// The same three labels rotationItem writes, so a synthesised
+			// deadline reads identically wherever it came from.
+			labels["created"] = issued.Format(time.RFC3339)
+			labels["policy.days"] = strconv.Itoa(s.MaxKeyAgeDays)
+			labels["deadline"] = "rotation policy"
+		}
+
 		items = append(items, Item{
 			Kind:    KindIAMKey,
 			Name:    "token/" + name,
 			Expires: expires,
-			Source:  "cloudflare:token",
+			Source:  source,
 			Labels:  labels,
 		})
 	}
-	return items, nil
+	return items
 }
 
 // cfTime parses Cloudflare's timestamps. They are RFC 3339 with six fractional
