@@ -6,6 +6,7 @@ package source
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -183,6 +184,20 @@ type sourceError struct {
 
 func (e sourceError) Error() string { return e.name + ": " + e.err.Error() }
 func (e sourceError) Unwrap() error { return e.err }
+
+// policyDeadline is the deadline for a credential that cannot expire: the day
+// it was issued plus the rotation policy the operator chose.
+//
+// The three labels are the point of having one of these in a shared place. A
+// synthesised date is indistinguishable from an issuer's once it is a number in
+// a report, so every source that invents one says `created`, `policy.days` and
+// `deadline=rotation policy` — identically, because they all come through here.
+func policyDeadline(labels map[string]string, created time.Time, days int) (time.Time, map[string]string) {
+	labels = label(labels, "created", created.Format(time.RFC3339))
+	labels = label(labels, "policy.days", strconv.Itoa(days))
+	labels = label(labels, "deadline", "rotation policy")
+	return created.Add(time.Duration(days) * 24 * time.Hour), labels
+}
 
 func label(m map[string]string, k, v string) map[string]string {
 	if v == "" {

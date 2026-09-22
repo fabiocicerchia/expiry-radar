@@ -184,16 +184,17 @@ func accessKeyItems(
 			if string(k.Status) != "Active" {
 				continue // an inactive key is already not working
 			}
+			// A rotation deadline, not an AWS expiry: the key itself never
+			// expires, so policyDeadline both dates it and labels where that
+			// date came from.
+			expires, labels := policyDeadline(nil, k.CreateDate.UTC(), int(maxAge.Hours()/24))
 			items = append(items, Item{
 				Kind:      KindIAMKey,
 				Name:      user + "/" + *k.AccessKeyId,
-				Expires:   k.CreateDate.Add(maxAge), // rotation deadline, not an AWS expiry
+				Expires:   expires,
 				Source:    "aws:iam",
 				Namespace: account,
-				Labels: map[string]string{
-					"created":     k.CreateDate.UTC().Format(time.RFC3339),
-					"policy.days": strconv.Itoa(int(maxAge.Hours() / 24)),
-				},
+				Labels:    labels,
 			})
 		}
 	}

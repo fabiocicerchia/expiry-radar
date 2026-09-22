@@ -18,6 +18,14 @@
       "expires": "2027-02-01",
       "namespace": "release",
       "labels": { "renew-at": "https://ca.example/orders" }
+    },
+    {
+      "name": "analytics-ingest-key",
+      "kind": "secret",
+      "created": "2026-01-01",
+      "maxKeyAgeDays": 365,
+      "namespace": "prod",
+      "labels": { "note": "the ingest store has no expiry column; this is the rotation policy" }
     }
   ],
 
@@ -33,9 +41,11 @@
     "enabled": true,
     "accountId": "your-cloudflare-account-id",
     "zones": [],
+    "maxKeyAgeDays": 365,
     "skipZones": false,
     "skipAccount": false,
-    "skipUser": false
+    "skipUser": true,
+    "skipAccountTokens": false
   },
 
   "gitlab": {
@@ -68,7 +78,7 @@
     },
     {
       "name": "dockerhub",
-      "maxKeyAgeDays": 180,
+      "maxKeyAgeDays": 365,
       "labels": { "environment": "prod" }
     }
   ],

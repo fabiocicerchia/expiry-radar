@@ -532,12 +532,7 @@ func (s *CloudflareSource) tokenItems(tokens []cfAPIToken, source string) []Item
 			if s.MaxKeyAgeDays <= 0 || !iok {
 				continue
 			}
-			expires = issued.Add(time.Duration(s.MaxKeyAgeDays) * 24 * time.Hour)
-			// The same three labels rotationItem writes, so a synthesised
-			// deadline reads identically wherever it came from.
-			labels["created"] = issued.Format(time.RFC3339)
-			labels["policy.days"] = strconv.Itoa(s.MaxKeyAgeDays)
-			labels["deadline"] = "rotation policy"
+			expires, labels = policyDeadline(labels, issued, s.MaxKeyAgeDays)
 		}
 
 		items = append(items, Item{
