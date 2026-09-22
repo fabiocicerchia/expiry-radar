@@ -28,7 +28,8 @@ both `-only cloudflare`, and a domain answered over WHOIS carries
 | `cloudflare:mtls` | zone mTLS client certificates | same token |
 | `cloudflare:registrar` | Registrar domains, with auto-renew state | same token + `accountId` |
 | `cloudflare:access` | Zero Trust service tokens (one-year default) | same token + `accountId` |
-| `cloudflare:token` | the API tokens themselves, including this one | same token |
+| `cloudflare:token` | user-owned API tokens. Needs the Global API Key — an API token cannot read `/user/tokens` | user-level auth |
+| `cloudflare:account-token` | **account-owned** API tokens, including this one | same token + `accountId` + `Account API Tokens Read` |
 | `gitlab:pat` | personal access tokens | `GITLAB_TOKEN`, `read_api` |
 | `gitlab:project-token` | project access tokens — the ones that break CI | same token, maintainer on the project |
 | `gitlab:group-token` | group access tokens | same token, owner on the group |
@@ -211,6 +212,27 @@ have to act on:
 - an **uploaded custom** certificate is not, so it keeps its full blast radius.
   That asymmetry is the point of reading this API at all;
 - a **registrar** domain with `auto_renew` set is de-ranked the same way.
+
+Cloudflare keeps API tokens in two places and they are not the same list.
+Anything created under **Manage Account > API Tokens** is *account*-owned and
+answers at `/accounts/{id}/tokens`; **My Profile > API Tokens** is user-owned
+and answers at `/user/tokens`. An account can easily have six of the first and
+none of the second, in which case reading only the user store reports nothing
+and looks like a clean result.
+
+Only one of them is reachable with an API token at all: `/user/tokens` requires
+user-level auth, so a token-authenticated caller gets `9109 Valid user-level
+authentication not found`. Handing the tool a Global API Key to inventory the
+weaker credentials is a poor trade, which is why the account read exists and
+why `skipUser` is the usual setting.
+
+A token with **no expiry** is reported only against `maxKeyAgeDays`, applied to
+its issue date. There is no default: such a token has no deadline of its own,
+so the policy is the only one there is, and a deadline nobody chose is not a
+policy — the same rule the rotation source states for access keys. Unset, these
+stay out of the report. When one is synthesised the item carries `created`,
+`policy.days` and `deadline=rotation policy`, so the date is never mistaken for
+one Cloudflare stated.
 
 `accountId` is required for the registrar and Zero Trust reads. Without it they
 are skipped rather than guessed at. The token goes in `$CLOUDFLARE_API_TOKEN`,

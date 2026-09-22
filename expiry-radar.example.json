@@ -52,9 +52,11 @@
     "enabled": false,
     "accountId": "",
     "zones": [],
+    "maxKeyAgeDays": 0,
     "skipZones": false,
     "skipAccount": false,
-    "skipUser": false
+    "skipUser": false,
+    "skipAccountTokens": false
   },
   "gitlab": {
     "enabled": false,

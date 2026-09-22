@@ -264,3 +264,97 @@ func TestCloudflareOneUnreadableZoneKeepsTheOthers(t *testing.T) {
 		t.Fatalf("one unreadable zone lost the other's certificates: %+v", items)
 	}
 }
+
+// The account store is the half /user/tokens never returns, and on an account
+// whose credentials were all made under Manage Account > API Tokens it is the
+// only half with anything in it.
+func TestCloudflareReportsAccountOwnedTokens(t *testing.T) {
+	srv, seen := fakeCF(map[string]any{
+		"/accounts/acct/tokens": []any{map[string]any{
+			"id": "a1", "name": "terraform", "status": "active",
+			"issued_on": "2026-08-09T00:00:00Z", "expires_on": "2026-12-20T00:00:00Z",
+		}},
+	}, nil)
+	defer srv.Close()
+
+	items, err := cfTestSource(srv.URL).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	var got *Item
+	for i := range items {
+		if items[i].Source == "cloudflare:account-token" {
+			got = &items[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("the account's own tokens were not read: %+v (paths %v)", items, *seen)
+	}
+	if got.Name != "token/terraform" {
+		t.Errorf("name = %q", got.Name)
+	}
+}
+
+// A token that cannot expire is the one credential still valid the day it
+// leaks, so it is worth reporting — but only against a deadline somebody
+// chose. Without maxKeyAgeDays there is no such deadline and it stays out.
+func TestCloudflareNonExpiringTokenNeedsARotationPolicy(t *testing.T) {
+	routes := map[string]any{
+		"/accounts/acct/tokens": []any{map[string]any{
+			"id": "a1", "name": "forever", "status": "active",
+			"issued_on": "2026-08-09T00:00:00Z", // no expires_on
+		}},
+	}
+
+	srv, _ := fakeCF(routes, nil)
+	defer srv.Close()
+	items, err := cfTestSource(srv.URL).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("invented a deadline nobody chose: %+v", items)
+	}
+
+	s := cfTestSource(srv.URL)
+	s.MaxKeyAgeDays = 365
+	items, err = s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("want 1 item with a policy deadline, got %+v", items)
+	}
+	if want := "2027-08-09"; items[0].Expires.Format("2006-01-02") != want {
+		t.Errorf("deadline = %s, want %s (issued + 365)", items[0].Expires.Format("2006-01-02"), want)
+	}
+	// The labels have to say the date was chosen, not stated by Cloudflare.
+	if items[0].Labels["deadline"] != "rotation policy" {
+		t.Errorf("a synthesised deadline must say so: %v", items[0].Labels)
+	}
+}
+
+// The account token read needs a permission the rest of the account scope does
+// not, so being denied it must not cost the registrar its findings.
+func TestCloudflareDeniedAccountTokensKeepsTheRestOfTheScope(t *testing.T) {
+	srv, _ := fakeCF(map[string]any{
+		"/registrar/domains": []any{map[string]any{
+			"id": "d1", "name": "example.com", "expires_at": "2027-01-01T00:00:00Z",
+		}},
+	}, map[string]int{"/accounts/acct/tokens": http.StatusForbidden})
+	defer srv.Close()
+
+	items, err := cfTestSource(srv.URL).Collect(context.Background())
+	if err == nil {
+		t.Fatal("a denied read must be reported")
+	}
+	found := false
+	for _, it := range items {
+		if it.Source == "cloudflare:registrar" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("one denied permission lost the others' findings: %+v", items)
+	}
+}

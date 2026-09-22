@@ -116,10 +116,15 @@ type Cloudflare struct {
 	AccountID string `json:"accountId"`
 	// Zones limits the scan to these zone IDs. Empty means every zone the
 	// token can see.
-	Zones       []string `json:"zones"`
-	SkipZones   bool     `json:"skipZones"`
-	SkipAccount bool     `json:"skipAccount"`
-	SkipUser    bool     `json:"skipUser"`
+	Zones []string `json:"zones"`
+	// MaxKeyAgeDays is the rotation policy for API tokens created without an
+	// expiry. No default: the policy is the only deadline such a token has, and
+	// a deadline nobody chose is not a policy. Unset, they stay out.
+	MaxKeyAgeDays     int  `json:"maxKeyAgeDays"`
+	SkipZones         bool `json:"skipZones"`
+	SkipAccount       bool `json:"skipAccount"`
+	SkipUser          bool `json:"skipUser"`
+	SkipAccountTokens bool `json:"skipAccountTokens"`
 }
 
 // GitLab points the GitLab source at an instance and the projects and groups
@@ -544,12 +549,14 @@ func (f *File) Sources() []source.Source {
 	}
 	if f.Cloudflare != nil && f.Cloudflare.Enabled {
 		out = append(out, &source.CloudflareSource{
-			Token:       f.Cloudflare.Token,
-			AccountID:   f.Cloudflare.AccountID,
-			Zones:       f.Cloudflare.Zones,
-			SkipZones:   f.Cloudflare.SkipZones,
-			SkipAccount: f.Cloudflare.SkipAccount,
-			SkipUser:    f.Cloudflare.SkipUser,
+			Token:             f.Cloudflare.Token,
+			AccountID:         f.Cloudflare.AccountID,
+			Zones:             f.Cloudflare.Zones,
+			MaxKeyAgeDays:     f.Cloudflare.MaxKeyAgeDays,
+			SkipZones:         f.Cloudflare.SkipZones,
+			SkipAccount:       f.Cloudflare.SkipAccount,
+			SkipUser:          f.Cloudflare.SkipUser,
+			SkipAccountTokens: f.Cloudflare.SkipAccountTokens,
 		})
 	}
 	if f.GitLab != nil && f.GitLab.Enabled {
