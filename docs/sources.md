@@ -618,7 +618,9 @@ token. That is what `manual` is for.
     { "name": "acme-corp.co.uk", "kind": "domain", "expires": "2027-03-01",
       "labels": { "public": "true", "renew-at": "https://registrar.example/domains" } },
     { "name": "code-signing", "kind": "tls_cert", "expires": "2026-11-15",
-      "namespace": "release" }
+      "namespace": "release" },
+    { "name": "stillvalid-ingest", "kind": "secret",
+      "created": "2026-01-01", "maxKeyAgeDays": 90 }
   ]
 }
 ```
@@ -632,6 +634,19 @@ start in UTC, which errs towards warning early. `kind` is one of `tls_cert`,
 the item lands in the ranking — a `trust_anchor` starts at 0.95, a `domain` at
 0.85, a `vault_lease` at 0.40. A misspelt kind is rejected at load rather than quietly ranked on a
 middling default, because a plausible wrong number is worse than an error.
+
+**Something that cannot expire gets `created` and `maxKeyAgeDays` instead of
+`expires`.** Plenty of credentials have no expiry to record: a Cloudflare API
+token issued without one, an ingest key whose store has no expiry column at
+all. Demanding a date for those leaves two options, omit the credential or
+invent a date, and the invented one is worse — it renders as a confident number
+nobody chose, on a thing that is a standing risk precisely because it will
+still be valid the day it leaks. So the deadline becomes the issue date plus a
+rotation policy, and the item carries `created`, `policy.days` and
+`deadline=rotation policy` to say so. There is no default policy, for the
+reason the rotation source gives about access keys: a deadline nobody chose is
+not a policy. Give one or give a date; an entry with both is rejected, because
+which deadline won would be an implementation detail.
 
 Beyond that a manual item is treated exactly like a discovered one: `namespace`
 and `labels` feed the same blast-radius evidence (`public`, `traffic`,

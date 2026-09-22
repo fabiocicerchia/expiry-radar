@@ -26,7 +26,7 @@ cd examples/multi-provider
 
 | Config block | Environment | Notes |
 | --- | --- | --- |
-| `cloudflare` | `CLOUDFLARE_API_TOKEN` | Read-scoped. The only source that can fill `traffic` |
+| `cloudflare` | `CLOUDFLARE_API_TOKEN` | Read-scoped, plus `Account API Tokens Read` for the account's own tokens. The only source that can fill `traffic` |
 | `gitlab` | `GITLAB_TOKEN` | `read_api`. Token scope is the blast radius |
 | `okta` | `OKTA_API_TOKEN` | API tokens *and* SAML app signing certificates |
 | `vault` | `VAULT_ADDR` + `VAULT_TOKEN` | Read + list. `addr` may be set in the config instead |

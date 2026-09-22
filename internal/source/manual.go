@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 )
 
@@ -31,9 +32,26 @@ type ManualItem struct {
 	Kind Kind   `json:"kind"`
 	// RFC 3339, or a plain YYYY-MM-DD: a renewal date is something a person
 	// writes down, and demanding a timestamp for it invites a typo.
-	Expires   string            `json:"expires"`
-	Namespace string            `json:"namespace,omitempty"`
-	Labels    map[string]string `json:"labels,omitempty"`
+	//
+	// Empty for a credential that cannot expire — see Created.
+	Expires string `json:"expires,omitempty"`
+	// Created is the day an unexpiring credential was issued, and with
+	// MaxKeyAgeDays it stands in for Expires.
+	//
+	// Plenty of things have no expiry to record: an API token issued without
+	// one, an ingest key whose store has no expiry column at all. Demanding a
+	// date for those leaves an operator two options, omit the credential or
+	// invent a date, and the invented one is worse — it renders as a confident
+	// number nobody chose. This is the third option, and it is the one the
+	// rotation and Cloudflare sources already take for the same problem.
+	Created string `json:"created,omitempty"`
+	// MaxKeyAgeDays is the rotation policy applied to Created. No default, for
+	// the reason rotation.go gives: a deadline nobody chose is not a policy.
+	// The operator states one here or states a date in Expires; there is no
+	// third answer this tool can invent for them.
+	MaxKeyAgeDays int               `json:"maxKeyAgeDays,omitempty"`
+	Namespace     string            `json:"namespace,omitempty"`
+	Labels        map[string]string `json:"labels,omitempty"`
 }
 
 const dateOnly = "2006-01-02"
@@ -42,14 +60,36 @@ const dateOnly = "2006-01-02"
 // errs towards reporting the item as expiring sooner — the safe direction for
 // something whose whole job is to warn early.
 func (m ManualItem) ExpiresAt() (time.Time, error) {
-	if t, err := time.Parse(time.RFC3339, m.Expires); err == nil {
+	return manualDate("expires", m.Expires)
+}
+
+func manualDate(field, s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t, nil
 	}
-	t, err := time.Parse(dateOnly, m.Expires)
+	t, err := time.Parse(dateOnly, s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("expires %q is neither YYYY-MM-DD nor RFC 3339", m.Expires)
+		return time.Time{}, fmt.Errorf("%s %q is neither YYYY-MM-DD nor RFC 3339", field, s)
 	}
 	return t, nil
+}
+
+// deadline is the date this item is reported against, with the labels that say
+// where it came from: the one the operator wrote, or — for a credential that
+// cannot expire — its issue date plus the rotation policy they chose, marked
+// as policy so it can never be read as a date somebody issued.
+func (m ManualItem) deadline() (time.Time, map[string]string, error) {
+	labels := maps.Clone(m.Labels)
+	if m.Expires != "" {
+		t, err := m.ExpiresAt()
+		return t, labels, err
+	}
+	created, err := manualDate("created", m.Created)
+	if err != nil {
+		return time.Time{}, nil, err
+	}
+	t, labels := policyDeadline(labels, created, m.MaxKeyAgeDays)
+	return t, labels, nil
 }
 
 // ValidateManual rejects entries that would otherwise load and rank wrongly.
@@ -76,10 +116,21 @@ func ValidateManual(items []ManualItem) error {
 		if !known[m.Kind] {
 			return fmt.Errorf("%s: unknown kind %q (want one of %v)", where, m.Kind, Kinds)
 		}
-		if m.Expires == "" {
-			return fmt.Errorf("%s has no expires date", where)
+		if m.Expires == "" && m.MaxKeyAgeDays <= 0 {
+			return fmt.Errorf("%s has no expires date — if it cannot expire, give "+
+				"created and maxKeyAgeDays instead of a date nobody chose", where)
 		}
-		if _, err := m.ExpiresAt(); err != nil {
+		if m.Expires != "" && (m.Created != "" || m.MaxKeyAgeDays > 0) {
+			// Both would mean two deadlines, and the report can only show one.
+			// Which one it showed would be an implementation detail.
+			return fmt.Errorf("%s has both expires and a rotation policy: keep expires for "+
+				"something with a real deadline, created and maxKeyAgeDays for something without", where)
+		}
+		if m.Expires == "" && m.Created == "" {
+			return fmt.Errorf("%s: maxKeyAgeDays needs created — the policy runs "+
+				"from the day the credential was issued", where)
+		}
+		if _, _, err := m.deadline(); err != nil {
 			return fmt.Errorf("%s: %w", where, err)
 		}
 	}
@@ -102,7 +153,7 @@ func (s *ManualSource) Name() string { return "manual" }
 func (s *ManualSource) Collect(context.Context) ([]Item, error) {
 	out := make([]Item, 0, len(s.Items))
 	for _, m := range s.Items {
-		expires, err := m.ExpiresAt()
+		expires, labels, err := m.deadline()
 		if err != nil {
 			// Unreachable through config.Load, which validates first. Skipping
 			// beats returning a zero time, which would read as "expired in
@@ -115,7 +166,7 @@ func (s *ManualSource) Collect(context.Context) ([]Item, error) {
 			Expires:   expires,
 			Source:    "manual",
 			Namespace: m.Namespace,
-			Labels:    m.Labels,
+			Labels:    labels,
 		})
 	}
 	return out, nil

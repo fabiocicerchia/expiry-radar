@@ -33,6 +33,13 @@
       "kind": "tls_cert",
       "expires": "2026-11-15",
       "namespace": "release"
+    },
+    {
+      "name": "analytics-ingest-key",
+      "kind": "secret",
+      "created": "2026-01-01",
+      "maxKeyAgeDays": 365,
+      "namespace": "prod"
     }
   ],
   "k8s": {

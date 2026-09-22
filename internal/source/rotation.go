@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -145,16 +144,15 @@ func (s *RotationSource) provider(ctx context.Context, client *http.Client, p Ro
 		return nil, err
 	}
 
-	maxAge := time.Duration(p.MaxKeyAgeDays) * 24 * time.Hour
 	items := make([]Item, 0, len(keys))
 	for _, k := range keys {
-		items = append(items, rotationItem(p, k, maxAge))
+		items = append(items, rotationItem(p, k))
 	}
 	return items, nil
 }
 
 // rotationItem synthesises the deadline and says so in the labels.
-func rotationItem(p RotationProvider, k rotationKey, maxAge time.Duration) Item {
+func rotationItem(p RotationProvider, k rotationKey) Item {
 	labels := map[string]string{}
 	for key, v := range p.Labels {
 		labels = label(labels, key, v)
@@ -173,11 +171,9 @@ func rotationItem(p RotationProvider, k rotationKey, maxAge time.Duration) Item 
 		// No issuer date exists, so the policy is the deadline — and the
 		// labels have to make clear that this is a date the operator chose,
 		// not one the provider stated.
-		d := k.Created.Add(maxAge)
+		var d time.Time
+		d, labels = policyDeadline(labels, k.Created, p.MaxKeyAgeDays)
 		expires = &d
-		labels = label(labels, "created", k.Created.Format(time.RFC3339))
-		labels = label(labels, "policy.days", strconv.Itoa(p.MaxKeyAgeDays))
-		labels = label(labels, "deadline", "rotation policy")
 	} else {
 		labels = label(labels, "deadline", "issuer")
 	}
