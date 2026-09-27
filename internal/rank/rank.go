@@ -86,8 +86,16 @@ func Rank(items []source.Item, overrides []Override, now time.Time) []Scored {
 	return out
 }
 
-// urgency ramps linearly from 0 at the horizon to 1 at the expiry date, and
-// stays at 1 once expired — an expired thing cannot get more urgent.
+// Urgency decays exponentially from 1 at the expiry date to 0 at the horizon,
+// and stays at 1 once expired — an expired thing cannot get more urgent.
+//
+// Not linear: a straight ramp over ninety days gives the six days between "two
+// days left" and "eight days left" the same weight as the six between 88 and 82,
+// so a slightly bigger blast radius eight days out outranked an IAM key expiring
+// in two. The last fortnight is where renewal stops being calm, so that is where
+// the curve is steep; urgencyScaleDays is its time constant.
+const urgencyScaleDays = 14.0
+
 func urgency(daysLeft float64) float64 {
 	horizonDays := Horizon.Hours() / 24
 	if daysLeft <= 0 {
@@ -96,7 +104,8 @@ func urgency(daysLeft float64) float64 {
 	if daysLeft >= horizonDays {
 		return 0
 	}
-	return (horizonDays - daysLeft) / horizonDays
+	floor := math.Exp(-horizonDays / urgencyScaleDays)
+	return (math.Exp(-daysLeft/urgencyScaleDays) - floor) / (1 - floor)
 }
 
 func blastRadius(it source.Item, overrides []Override) (float64, string) {
