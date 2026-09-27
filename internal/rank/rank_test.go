@@ -155,6 +155,30 @@ func TestUrgencyRamp(t *testing.T) {
 	}
 }
 
+// The linear ramp ranked a production key eight days out (0.82) above the same
+// kind of key two days out with no environment evidence (0.76): six days of
+// runway weighed less than a 0.20 production bump. Blast radius must still win
+// when the gap is a real one, which the staging-vs-payment case below guards.
+func TestTwoDaysLeftOutranksAModestlyBiggerBlastRadiusEightDaysOut(t *testing.T) {
+	items := []source.Item{
+		item(source.KindIAMKey, "production-worker", 8, map[string]string{"environment": "production"}),
+		item(source.KindIAMKey, "mentor-platform", 2, nil),
+	}
+	if got := Rank(items, nil, now); got[0].Item.Name != "mentor-platform" {
+		t.Fatalf("a key two days out must outrank a production key eight days out; got %s first (%v vs %v)",
+			got[0].Item.Name, got[0].Priority, got[1].Priority)
+	}
+
+	items = []source.Item{
+		item(source.KindTLSCert, "staging-dashboard", 4, map[string]string{"environment": "staging"}),
+		item(source.KindTLSCert, "checkout", 6, map[string]string{"environment": "production", source.LabelPublic: "true"}),
+	}
+	if got := Rank(items, nil, now); got[0].Item.Name != "checkout" {
+		t.Fatalf("a public production cert six days out must still outrank a staging one four days out; got %s first",
+			got[0].Item.Name)
+	}
+}
+
 // gandalf finding: path.Match errors were swallowed, so a malformed glob simply
 // never matched — the override failed by quietly not applying.
 func TestValidateOverridesRejectsPatternsThatCouldNeverMatch(t *testing.T) {

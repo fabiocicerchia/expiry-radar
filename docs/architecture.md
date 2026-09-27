@@ -71,8 +71,10 @@ pile up).
 
 `priority = 0.55 × urgency + 0.45 × blast radius`, sorted descending.
 
-Urgency ramps linearly from 0 at ninety days out to 1 on the expiry date, and
-stays at 1 once expired. It is a **weighted sum, not a product**, on purpose: a
+Urgency decays exponentially from 1 on the expiry date to 0 at ninety days out,
+with a fourteen-day time constant, and stays at 1 once expired. The curve is
+steep near the deadline on purpose: a linear ramp let a production key eight
+days out outrank an otherwise similar key two days out. It is a **weighted sum, not a product**, on purpose: a
 product ranks everything beyond the horizon at exactly zero and throws away the
 ordering that makes the tool worth running.
 
