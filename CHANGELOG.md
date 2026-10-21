@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2](https://github.com/fabiocicerchia/expiry-radar/compare/v1.8.1...v1.8.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** bump Go toolchain to go1.26.10 ([#91](https://github.com/fabiocicerchia/expiry-radar/issues/91)) ([ff9e352](https://github.com/fabiocicerchia/expiry-radar/commit/ff9e3521c3402b2a44e3c3a3021139ee69597082))
+
 ## [1.8.1](https://github.com/fabiocicerchia/expiry-radar/compare/v1.8.0...v1.8.1) (2026-09-27)
 
 
