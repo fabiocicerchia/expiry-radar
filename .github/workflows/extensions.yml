@@ -76,7 +76,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # It renames from os.tmpdir() into $HOME; on ubuntu-latest /tmp is another
+      # filesystem, so the rename fails with EXDEV. Keep the download on $HOME's disk.
       - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7  # v1.6.1
+        env:
+          TMPDIR: ${{ runner.temp }}
         with:
           neovim: true
           version: ${{ matrix.neovim }}
@@ -98,7 +102,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # It renames from os.tmpdir() into $HOME; on ubuntu-latest /tmp is another
+      # filesystem, so the rename fails with EXDEV. Keep the download on $HOME's disk.
       - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7  # v1.6.1
+        env:
+          TMPDIR: ${{ runner.temp }}
         with:
           neovim: true
           version: stable
