@@ -107,7 +107,7 @@ func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, err
 		// certificate is exactly what this tool exists to find, and verification
 		// would reject the handshake before we could read it. Nothing is sent
 		// over this connection and no trust decision is made from it.
-		Config: &tls.Config{InsecureSkipVerify: true, ServerName: serverName}, //nolint:gosec // inspection only
+		Config: &tls.Config{InsecureSkipVerify: true, ServerName: serverName, MinVersion: tls.VersionTLS12}, //nolint:gosec // inspection only
 	}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {

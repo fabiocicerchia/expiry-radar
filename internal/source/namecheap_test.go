@@ -16,7 +16,8 @@ func namecheapServer(bodies map[string]string) *httptest.Server {
 		// the fake has to read the form like the real API does.
 		_ = r.ParseForm()
 		if b, ok := bodies[r.FormValue("Command")]; ok {
-			_, _ = w.Write([]byte(b))
+			// b is a canned XML fixture from this test, not untrusted input.
+			_, _ = w.Write([]byte(b)) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 			return
 		}
 		_, _ = w.Write([]byte(`<ApiResponse Status="OK"><CommandResponse/></ApiResponse>`))
