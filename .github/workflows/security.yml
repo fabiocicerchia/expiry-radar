@@ -1,14 +1,15 @@
+---
 name: security
 
-on:
+"on":
   # No push trigger: the pull request already ran this on the identical
   # tree. What a merge cannot tell you, the schedule below can.
   pull_request:
   schedule:
-    - cron: "0 6 * * 1" # weekly, catches newly disclosed CVEs
+    - cron: "0 6 * * 1"  # weekly, catches newly disclosed CVEs
 
 permissions:
-  pull-requests: read # gitleaks reads PR commits
+  pull-requests: read  # gitleaks reads PR commits
   contents: read
 
 concurrency:

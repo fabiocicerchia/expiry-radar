@@ -1,6 +1,7 @@
+---
 name: code-quality
 
-on:
+"on":
   # No push trigger: the pull request already ran this on the identical
   # tree. What a merge cannot tell you, the schedule below can.
   pull_request:

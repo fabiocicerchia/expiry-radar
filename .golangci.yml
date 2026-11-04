@@ -1,3 +1,4 @@
+---
 version: "2"
 
 linters:
@@ -13,8 +14,9 @@ linters:
     - errname
     - exhaustive
     - gocritic
-    - lll               # FC-GEN-045 - 120 columns. gofmt does not wrap, so
-                        # nothing else here holds the line.
+    # FC-GEN-045 - 120 columns. gofmt does not wrap, so nothing else here
+    # holds the line.
+    - lll
     - revive
     - testifylint
     - unconvert

@@ -1,9 +1,10 @@
+---
 name: extensions
 
 # extensions/vscode is a TypeScript workspace and extensions/nvim is a Lua
 # plugin; neither is touched by `go test`, so without this the first time any of
 # it runs here would be a release tag.
-on:
+"on":
   push:
     branches: [main, master]
     paths:
