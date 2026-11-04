@@ -82,6 +82,14 @@ func (s *TLSSource) Collect(ctx context.Context) ([]Item, error) {
 	return items, nil
 }
 
+// insecureInspectionConfig skips verification on purpose: an already-expired
+// certificate is exactly what this tool exists to find, and verification
+// would reject the handshake before we could read it. Nothing is sent over
+// this connection and no trust decision is made from it.
+func insecureInspectionConfig(serverName string) *tls.Config {
+	return &tls.Config{InsecureSkipVerify: true, ServerName: serverName, MinVersion: tls.VersionTLS12} //nolint:gosec // inspection only
+}
+
 func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, error) {
 	addr := ep.Host
 	if _, _, err := net.SplitHostPort(addr); err != nil {
@@ -103,11 +111,7 @@ func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, err
 
 	d := &tls.Dialer{
 		NetDialer: &net.Dialer{},
-		// InsecureSkipVerify is deliberate and required: an already-expired
-		// certificate is exactly what this tool exists to find, and verification
-		// would reject the handshake before we could read it. Nothing is sent
-		// over this connection and no trust decision is made from it.
-		Config: &tls.Config{InsecureSkipVerify: true, ServerName: serverName, MinVersion: tls.VersionTLS12}, //nolint:gosec // inspection only
+		Config:    insecureInspectionConfig(serverName),
 	}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
