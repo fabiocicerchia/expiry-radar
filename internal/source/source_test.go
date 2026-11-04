@@ -316,7 +316,10 @@ func selfSigned(t *testing.T, cn string, notAfter time.Time) (*x509.Certificate,
 
 func tlsConfigFor(t *testing.T, cert *x509.Certificate, key ed25519.PrivateKey) *tls.Config {
 	t.Helper()
-	return &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{cert.Raw}, PrivateKey: key}}, MinVersion: tls.VersionTLS12}
+	return &tls.Config{
+		Certificates: []tls.Certificate{{Certificate: [][]byte{cert.Raw}, PrivateKey: key}},
+		MinVersion:   tls.VersionTLS12,
+	}
 }
 
 func selfSignedPEM(t *testing.T, cn string, notAfter time.Time) []byte {

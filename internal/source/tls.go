@@ -87,7 +87,11 @@ func (s *TLSSource) Collect(ctx context.Context) ([]Item, error) {
 // would reject the handshake before we could read it. Nothing is sent over
 // this connection and no trust decision is made from it.
 func insecureInspectionConfig(serverName string) *tls.Config {
-	return &tls.Config{InsecureSkipVerify: true, ServerName: serverName, MinVersion: tls.VersionTLS12} //nolint:gosec // inspection only
+	return &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec // inspection only
+		ServerName:         serverName,
+		MinVersion:         tls.VersionTLS12,
+	}
 }
 
 func probe(ctx context.Context, ep Endpoint, timeout time.Duration) ([]Item, error) {
