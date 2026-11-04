@@ -12,6 +12,7 @@
 # Scope it to the namespaces that actually have ingress certificates
 # (`k8s.namespaces` in the config) rather than granting the ClusterRole, unless
 # you genuinely need a cluster-wide inventory.
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -79,7 +80,9 @@ roleRef:
 #     resources: ["certificates"]
 #     verbs: ["list"]
 #   - apiGroups: ["admissionregistration.k8s.io"]
-#     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+#     resources:
+#       - "validatingwebhookconfigurations"
+#       - "mutatingwebhookconfigurations"
 #     verbs: ["list"]
 #   - apiGroups: ["apiregistration.k8s.io"]
 #     resources: ["apiservices"]
