@@ -6,9 +6,10 @@
 # moves without this repository changing: a maintainer walks away and the
 # quadrant shifts under a manifest nobody edited.
 
+---
 name: boneyard-scan
 
-on:
+"on":
   push:
     branches: [main]
     paths: ["go.mod"]
@@ -28,12 +29,12 @@ jobs:
     name: measure drift and post
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          persist-credentials: false # this job never pushes
+          persist-credentials: false  # this job never pushes
 
       - id: depwatch
-        uses: fabiocicerchia/depwatch@30cde77c2137028bf82a6a9587e5094686ba0d1a # v1.6.6
+        uses: fabiocicerchia/depwatch@30cde77c2137028bf82a6a9587e5094686ba0d1a  # v1.6.6
         with:
           manifest: go.mod
           eco: go

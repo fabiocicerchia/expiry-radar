@@ -2,6 +2,7 @@
 # (premium hero, feature cards, nav tabs, dark/light, local search, edit links)
 # while staying on the portfolio's standard tooling. See docs/stylesheets/extra.css
 # for the look; the accent palette lives there and is the only thing you swap.
+---
 site_name: expiry-radar
 site_description: >-
 site_url: https://fabiocicerchia.github.io/expiry-radar/docs/
@@ -88,10 +89,10 @@ plugins:
       # history yet — a new page, or a clone the workflow shallowed.
       fallback_to_build_date: true
       type: date
-  # Note: Material's `social` plugin is deliberately NOT enabled — it downloads
-  # a font from fonts.google.com at build time, which breaks this repo's
-  # no-external-requests / reproducible-build stance. Add Open Graph images by
-  # hand if you want them.
+# Note: Material's `social` plugin is deliberately NOT enabled — it downloads
+# a font from fonts.google.com at build time, which breaks this repo's
+# no-external-requests / reproducible-build stance. Add Open Graph images by
+# hand if you want them.
 
 markdown_extensions:
   - abbr

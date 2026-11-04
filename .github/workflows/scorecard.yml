@@ -3,9 +3,10 @@
 # One `common` overlay covers public and private repos alike; the job below
 # guards itself instead of the overlay tree branching. OpenSSF Scorecard only
 # has anything to say about public repos, so on a private one this no-ops.
+---
 name: scorecard
 
-on:
+"on":
   branch_protection_rule:
   schedule:
     - cron: "41 5 * * 2"

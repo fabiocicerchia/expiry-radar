@@ -1,0 +1,6 @@
+[gandalf]
+# docs/ holds the mkdocs site, not Python code: requirements.txt only pins the
+# mkdocs deps, so gandalf treats this directory as a Python project and the
+# `tests` gate runs pytest, which fails with "no tests ran". There are no
+# Python tests to run. Same reason as the root .gandalf.toml.
+skip = ["tests"]

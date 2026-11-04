@@ -7,9 +7,10 @@
 #
 # Source: kodebeat/proofhouse -> ci/github-workflow.yml
 
+---
 name: proofhouse
 
-on:
+"on":
   push:
     branches: [main]
   schedule:
@@ -28,22 +29,22 @@ jobs:
     name: scan and post
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # This job never pushes, so the token must not be left behind where
           # anything archiving the workspace would pick it up.
           persist-credentials: false
-          fetch-depth: 0 # gandalf samples history for the trend
+          fetch-depth: 0  # gandalf samples history for the trend
 
       # gandalf is stdlib-only; the ~130 scanners it wraps are not, and a gate
       # whose scanner is missing is reported `unavailable` and left out of the
       # score. Running bare would post a record covering almost nothing, so the
       # image comes too — the same split gandalf's own Action uses.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
           repository: fabiocicerchia/gandalf
-          ref: a0bb90747ab85aa9e66ed554109991db2951ff86 # v0.14.0
+          ref: a0bb90747ab85aa9e66ed554109991db2951ff86  # v0.14.0
           path: .gandalf-src
 
       # Out of the workspace before the scan starts: left where checkout put it,

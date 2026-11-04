@@ -1,3 +1,4 @@
+---
 name: docs
 
 # Builds the MkDocs site and publishes it to GitHub Pages.
@@ -15,7 +16,7 @@ name: docs
 # behind it, or a missing plugin fails the run rather than publishing a half
 # site.
 
-on:
+"on":
   push:
     branches: [main]
     paths:
@@ -67,8 +68,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      pages: write # publish the artifact
-      id-token: write # deploy-pages authenticates with OIDC
+      pages: write  # publish the artifact
+      id-token: write  # deploy-pages authenticates with OIDC
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

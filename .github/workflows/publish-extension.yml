@@ -1,3 +1,4 @@
+---
 name: publish-extension
 
 # Publishes the VS Code extension to both marketplaces. Called by release.yml
@@ -22,7 +23,7 @@ name: publish-extension
 # registration first, so it is a change to make deliberately, not on the day.
 # https://code.visualstudio.com/api/working-with-extensions/publishing-extension
 
-on:
+"on":
   workflow_call:
     inputs:
       tag:
