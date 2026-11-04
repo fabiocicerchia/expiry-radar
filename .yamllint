@@ -1,0 +1,8 @@
+# FC-GEN-045 is 120 columns, the limit biome and golangci-lint (lll) already
+# hold. yamllint's default of 80 cannot fit a SHA-pinned `uses:` line with its
+# tag comment, which is the pinning policy every workflow here follows.
+extends: default
+
+rules:
+  line-length:
+    max: 120
