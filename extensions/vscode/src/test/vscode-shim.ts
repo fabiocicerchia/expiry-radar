@@ -191,6 +191,8 @@ export const executedCommands: { command: string; args: unknown[] }[] = [];
 export const prompts: string[] = [];
 /** Every line the output channel was given. */
 export const logged: string[] = [];
+/** Every status bar item created, as the extension last left it. */
+export const statusBarItems: { text: string }[] = [];
 /**
  * What the next prompt returns, in order. A function is called with the items
  * offered, so a test can pick one without restating it.
@@ -202,6 +204,7 @@ export function resetShim(): void {
   executedCommands.length = 0;
   prompts.length = 0;
   logged.length = 0;
+  statusBarItems.length = 0;
   answers.length = 0;
   testConfiguration.clear();
   workspace.workspaceFolders = [];
@@ -263,7 +266,7 @@ export const window = {
     };
   },
   createStatusBarItem() {
-    return {
+    const item = {
       text: "",
       name: undefined as string | undefined,
       command: undefined as string | undefined,
@@ -273,6 +276,8 @@ export const window = {
       hide() {},
       dispose() {},
     };
+    statusBarItems.push(item);
+    return item;
   },
   createTreeView(viewId: string, _options?: unknown) {
     return { viewId, reveal: async () => undefined, dispose() {} };
