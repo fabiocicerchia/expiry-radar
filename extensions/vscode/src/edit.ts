@@ -16,11 +16,39 @@ export interface ManualEntry {
   namespace?: string;
 }
 
-/** The config key each kind of entry lives under. */
-export const ARRAY_FOR: Record<EntryKind, string> = {
-  endpoint: "endpoints",
-  domain: "domains",
-  manual: "manual",
+/**
+ * Everything that differs between kinds of entry: the config key it lives
+ * under, the item sources that record into that key, and the JSON it is
+ * written as. A new kind is a new row here, not a branch in each function.
+ */
+export const ENTRY_KINDS: Record<
+  EntryKind,
+  { array: string; sources: string[]; render(value: string | ManualEntry): string }
+> = {
+  endpoint: {
+    array: "endpoints",
+    sources: ["tls:endpoint"],
+    render: (value) => JSON.stringify({ host: String(value).trim() }),
+  },
+  domain: {
+    array: "domains",
+    sources: ["domain:rdap", "domain:whois"],
+    render: (value) => JSON.stringify(String(value).trim()),
+  },
+  manual: {
+    array: "manual",
+    sources: ["manual"],
+    render: (value) => {
+      const entry = value as ManualEntry;
+      const out: Record<string, string> = {
+        name: entry.name.trim(),
+        kind: String(entry.kind),
+        expires: entry.expires.trim(),
+      };
+      if (entry.namespace?.trim()) out.namespace = entry.namespace.trim();
+      return JSON.stringify(out);
+    },
+  },
 };
 
 /** The CLI's `source.Kinds`, in the order `internal/rank` weights them. */
@@ -71,22 +99,10 @@ export function invalidExpires(value: string): string | undefined {
 
 /** One entry, rendered as the CLI's config expects it. */
 export function renderEntry(kind: EntryKind, value: string | ManualEntry): string {
-  if (kind === "domain") return JSON.stringify(String(value).trim());
-  if (kind === "endpoint") return JSON.stringify({ host: String(value).trim() });
-  const entry = value as ManualEntry;
-  const out: Record<string, string> = {
-    name: entry.name.trim(),
-    kind: String(entry.kind),
-    expires: entry.expires.trim(),
-  };
-  if (entry.namespace?.trim()) out.namespace = entry.namespace.trim();
-  return JSON.stringify(out);
+  return ENTRY_KINDS[kind].render(value);
 }
 
 /** Which config array an item's source records into, or undefined if discovered. */
 export function arrayForSource(source: string): string | undefined {
-  if (source === "tls:endpoint") return "endpoints";
-  if (source === "domain:rdap" || source === "domain:whois") return "domains";
-  if (source === "manual") return "manual";
-  return undefined;
+  return Object.values(ENTRY_KINDS).find((k) => k.sources.includes(source))?.array;
 }
