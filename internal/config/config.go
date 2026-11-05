@@ -346,13 +346,13 @@ func Load(path string) (*File, error) {
 	// the operator is still looking at the command rather than on first
 	// collect.
 	if f.Cloudflare != nil && f.Cloudflare.Enabled {
-		f.Cloudflare.Token = os.Getenv("CLOUDFLARE_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Cloudflare.Token = os.Getenv("CLOUDFLARE_API_TOKEN")
 		if f.Cloudflare.Token == "" {
 			return nil, fmt.Errorf("%s: cloudflare source is enabled but $CLOUDFLARE_API_TOKEN is not set", path)
 		}
 	}
 	if f.GitLab != nil && f.GitLab.Enabled {
-		f.GitLab.Token = os.Getenv("GITLAB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.GitLab.Token = os.Getenv("GITLAB_TOKEN")
 		if f.GitLab.Token == "" {
 			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
 		}
@@ -363,13 +363,13 @@ func Load(path string) (*File, error) {
 	}
 	for i := range f.Registrars {
 		envs := source.RegistrarProviders[f.Registrars[i].Name]
-		f.Registrars[i].Token = os.Getenv(envs[0]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Registrars[i].Token = os.Getenv(envs[0])
 		if f.Registrars[i].Token == "" {
 			return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
 				path, f.Registrars[i].Name, envs[0])
 		}
 		if envs[1] != "" {
-			f.Registrars[i].Secret = os.Getenv(envs[1]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+			f.Registrars[i].Secret = os.Getenv(envs[1])
 			if f.Registrars[i].Secret == "" {
 				return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
 					path, f.Registrars[i].Name, envs[1])
@@ -383,7 +383,7 @@ func Load(path string) (*File, error) {
 	}
 	for i := range f.Rotation {
 		env := source.RotationProviders[f.Rotation[i].Name]
-		f.Rotation[i].Token = os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Rotation[i].Token = os.Getenv(env)
 		if f.Rotation[i].Token == "" {
 			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
 				path, f.Rotation[i].Name, env)
@@ -396,19 +396,19 @@ func Load(path string) (*File, error) {
 		if f.Azure.TenantID == "" || f.Azure.ClientID == "" {
 			return nil, fmt.Errorf("%s: azure.tenantId and azure.clientId are both required", path)
 		}
-		f.Azure.ClientSecret = os.Getenv("AZURE_CLIENT_SECRET") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Azure.ClientSecret = os.Getenv("AZURE_CLIENT_SECRET")
 		if f.Azure.ClientSecret == "" {
 			return nil, fmt.Errorf("%s: azure source is enabled but $AZURE_CLIENT_SECRET is not set", path)
 		}
 	}
 	if f.Fastly != nil && f.Fastly.Enabled {
-		f.Fastly.Token = os.Getenv("FASTLY_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Fastly.Token = os.Getenv("FASTLY_API_TOKEN")
 		if f.Fastly.Token == "" {
 			return nil, fmt.Errorf("%s: fastly source is enabled but $FASTLY_API_TOKEN is not set", path)
 		}
 	}
 	if f.Hetzner != nil && f.Hetzner.Enabled {
-		f.Hetzner.Token = os.Getenv("HCLOUD_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Hetzner.Token = os.Getenv("HCLOUD_TOKEN")
 		if f.Hetzner.Token == "" {
 			return nil, fmt.Errorf("%s: hetzner source is enabled but $HCLOUD_TOKEN is not set", path)
 		}
@@ -417,7 +417,7 @@ func Load(path string) (*File, error) {
 		if f.Harbor.BaseURL == "" || f.Harbor.Username == "" {
 			return nil, fmt.Errorf("%s: harbor.baseUrl and harbor.username are both required", path)
 		}
-		f.Harbor.Password = os.Getenv("HARBOR_PASSWORD") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Harbor.Password = os.Getenv("HARBOR_PASSWORD")
 		if f.Harbor.Password == "" {
 			return nil, fmt.Errorf("%s: harbor source is enabled but $HARBOR_PASSWORD is not set", path)
 		}
@@ -426,14 +426,13 @@ func Load(path string) (*File, error) {
 		if f.JFrog.BaseURL == "" {
 			return nil, fmt.Errorf("%s: jfrog.baseUrl is required, e.g. https://acme.jfrog.io", path)
 		}
-		f.JFrog.Token = os.Getenv("JFROG_ACCESS_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.JFrog.Token = os.Getenv("JFROG_ACCESS_TOKEN")
 		if f.JFrog.Token == "" {
 			return nil, fmt.Errorf("%s: jfrog source is enabled but $JFROG_ACCESS_TOKEN is not set", path)
 		}
 	}
 	if f.Apple != nil && f.Apple.Enabled {
 		if f.Apple.PrivateKeyFile == "" {
-			//nolint:forbidigo // FC-GEN-055: this is the startup read
 			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE")
 		}
 		if f.Apple.IssuerID == "" || f.Apple.KeyID == "" || f.Apple.PrivateKeyFile == "" {
@@ -445,7 +444,7 @@ func Load(path string) (*File, error) {
 		if f.Okta.OrgURL == "" {
 			return nil, fmt.Errorf("%s: okta.orgUrl is required, e.g. https://acme.okta.com", path)
 		}
-		f.Okta.Token = os.Getenv("OKTA_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Okta.Token = os.Getenv("OKTA_API_TOKEN")
 		if f.Okta.Token == "" {
 			return nil, fmt.Errorf("%s: okta source is enabled but $OKTA_API_TOKEN is not set", path)
 		}
@@ -453,14 +452,13 @@ func Load(path string) (*File, error) {
 	if f.GCP != nil && f.GCP.Enabled {
 		// Not required: on GCP the metadata server answers and no key file
 		// exists, which is the better posture of the two.
-		//nolint:forbidigo // FC-GEN-055: this is the startup read
 		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 		if len(f.GCP.Projects) == 0 {
 			return nil, fmt.Errorf("%s: gcp source is enabled but gcp.projects is empty", path)
 		}
 	}
 	if f.GitHub != nil && f.GitHub.Enabled {
-		f.GitHub.Token = os.Getenv("GITHUB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.GitHub.Token = os.Getenv("GITHUB_TOKEN")
 		if f.GitHub.Token == "" {
 			return nil, fmt.Errorf("%s: github source is enabled but $GITHUB_TOKEN is not set", path)
 		}
@@ -477,19 +475,19 @@ func Load(path string) (*File, error) {
 			return nil, fmt.Errorf(
 				"%s: namecheap.clientIp is required — it must be this machine's public IP, allowlisted in the account", path)
 		}
-		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY")
 		if f.Namecheap.APIKey == "" {
 			return nil, fmt.Errorf("%s: namecheap source is enabled but $NAMECHEAP_API_KEY is not set", path)
 		}
 	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
-		f.DigitalOcean.Token = os.Getenv("DIGITALOCEAN_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.DigitalOcean.Token = os.Getenv("DIGITALOCEAN_TOKEN")
 		if f.DigitalOcean.Token == "" {
 			return nil, fmt.Errorf("%s: digitalocean source is enabled but $DIGITALOCEAN_TOKEN is not set", path)
 		}
 	}
 	if f.Scaleway != nil && f.Scaleway.Enabled {
-		f.Scaleway.SecretKey = os.Getenv("SCW_SECRET_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Scaleway.SecretKey = os.Getenv("SCW_SECRET_KEY")
 		if f.Scaleway.SecretKey == "" {
 			return nil, fmt.Errorf("%s: scaleway source is enabled but $SCW_SECRET_KEY is not set", path)
 		}
@@ -499,9 +497,9 @@ func Load(path string) (*File, error) {
 	// operator is still looking at the command, not on the first collect.
 	if f.Vault != nil && f.Vault.Enabled {
 		if f.Vault.Addr == "" {
-			f.Vault.Addr = os.Getenv("VAULT_ADDR") //nolint:forbidigo // FC-GEN-055: this is the startup read
+			f.Vault.Addr = os.Getenv("VAULT_ADDR")
 		}
-		f.Vault.Token = os.Getenv("VAULT_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		f.Vault.Token = os.Getenv("VAULT_TOKEN")
 		if f.Vault.Addr == "" {
 			return nil, fmt.Errorf("%s: vault source is enabled but neither vault.addr nor $VAULT_ADDR is set", path)
 		}
