@@ -58,6 +58,15 @@ var RotationProviders = map[string]string{
 	"dockerhub": "DOCKERHUB_TOKEN",
 }
 
+// rotationAdapters maps a provider name to the adapter that reads its keys. A
+// new provider is one entry here and one in RotationProviders.
+var rotationAdapters = map[string]func(*RotationSource, context.Context, *http.Client,
+	RotationProvider) ([]rotationKey, error){
+	"anthropic": (*RotationSource).anthropicKeys,
+	"openai":    (*RotationSource).openAIKeys,
+	"dockerhub": (*RotationSource).dockerHubKeys,
+}
+
 // Name identifies this source in an item's Source field.
 func (s *RotationSource) Name() string { return "rotation" }
 
@@ -126,20 +135,11 @@ func (s *RotationSource) provider(ctx context.Context, client *http.Client, p Ro
 	if p.Token == "" {
 		return nil, fmt.Errorf("no credential: set $%s", RotationProviders[p.Name])
 	}
-	var (
-		keys []rotationKey
-		err  error
-	)
-	switch p.Name {
-	case "anthropic":
-		keys, err = s.anthropicKeys(ctx, client, p)
-	case "openai":
-		keys, err = s.openAIKeys(ctx, client, p)
-	case "dockerhub":
-		keys, err = s.dockerHubKeys(ctx, client, p)
-	default:
+	read, ok := rotationAdapters[p.Name]
+	if !ok {
 		return nil, fmt.Errorf("unknown provider %q", p.Name)
 	}
+	keys, err := read(s, ctx, client, p)
 	if err != nil {
 		return nil, err
 	}
