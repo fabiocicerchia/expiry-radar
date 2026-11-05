@@ -19,27 +19,119 @@ import { Item, Kind, Severity } from "./types";
 
 type Grouping = "rank" | "kind";
 
-interface GroupNode {
-  kind: "group";
-  id: string;
-  label: string;
-  children: ItemNode[];
-}
-
-interface ItemNode {
-  kind: "item";
-  id: string;
-  item: Item;
-}
-
-export type Node = GroupNode | ItemNode;
-
 const ICONS: Record<Severity, { id: string; color: string }> = {
   expired: { id: "error", color: "charts.red" },
   urgent: { id: "warning", color: "problemsWarningIcon.foreground" },
   soon: { id: "clock", color: "charts.yellow" },
   ok: { id: "pass", color: "charts.green" },
 };
+
+/**
+ * A row in the tree. Each shape draws itself, so a new kind of row is a new
+ * class here rather than another branch in getChildren and getTreeItem.
+ */
+export interface Node {
+  readonly id: string;
+  /** The inventory entry behind the row; only item rows have one. */
+  readonly item?: Item;
+  children(): Node[];
+  treeItem(showKind: boolean): vscode.TreeItem;
+}
+
+class GroupNode implements Node {
+  readonly rows: ItemNode[] = [];
+
+  constructor(
+    readonly id: string,
+    private readonly label: string,
+  ) {}
+
+  children(): Node[] {
+    return this.rows;
+  }
+
+  treeItem(): vscode.TreeItem {
+    const item = new vscode.TreeItem(this.label, vscode.TreeItemCollapsibleState.Expanded);
+    item.id = this.id;
+    item.iconPath = new vscode.ThemeIcon("folder");
+    item.description = `${this.rows.length} · soonest ${humanDays(this.rows[0].item.daysLeft)}`;
+    item.contextValue = "expiryRadarGroup";
+    return item;
+  }
+}
+
+class ItemNode implements Node {
+  constructor(
+    readonly id: string,
+    readonly item: Item,
+  ) {}
+
+  children(): Node[] {
+    return [];
+  }
+
+  treeItem(showKind: boolean): vscode.TreeItem {
+    const entry = this.item;
+    const item = new vscode.TreeItem(entry.display, vscode.TreeItemCollapsibleState.None);
+    item.id = this.id;
+    const icon = ICONS[entry.severity];
+    item.iconPath = new vscode.ThemeIcon(icon.id, new vscode.ThemeColor(icon.color));
+    item.description = [
+      humanDays(entry.daysLeft),
+      showKind ? kindLabel(entry.kind) : "",
+      entry.source,
+      `p ${entry.priority.toFixed(2)}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    item.tooltip = tooltip(entry);
+    // Recorded rows can be edited and removed; discovered ones cannot, because
+    // deleting a config line would not delete a certificate from an Ingress.
+    item.contextValue = entry.origin ? "expiryRadarRecorded" : "expiryRadarItem";
+    if (entry.origin) {
+      const uri = vscode.Uri.file(entry.origin.file);
+      const line = Math.max(0, entry.origin.line - 1);
+      const column = Math.max(0, entry.origin.column - 1);
+      item.resourceUri = uri;
+      item.command = {
+        command: "vscode.open",
+        title: "Open the line that declared this",
+        arguments: [
+          uri,
+          {
+            selection: new vscode.Range(line, column, line, column),
+          } satisfies vscode.TextDocumentShowOptions,
+        ],
+      };
+    }
+    return item;
+  }
+}
+
+function tooltip(item: Item): vscode.MarkdownString {
+  const md = new vscode.MarkdownString();
+  md.appendMarkdown(`**${item.display}** — ${humanDays(item.daysLeft)}\n\n`);
+  md.appendMarkdown(`${item.why}\n\n`);
+  md.appendMarkdown(
+    [
+      `**kind** ${kindLabel(item.kind)}`,
+      `**source** \`${item.source}\``,
+      `**expires** ${item.expires.slice(0, 10)}`,
+      `**priority** ${item.priority.toFixed(2)}`,
+      `**blast radius** ${item.blastRadius.toFixed(2)}`,
+    ].join(" · "),
+  );
+  const labels = Object.entries(item.labels ?? {});
+  if (labels.length) {
+    md.appendMarkdown(`\n\n${labels.map(([k, v]) => `\`${k}=${v}\``).join(" ")}`);
+  }
+  md.appendMarkdown(
+    item.origin
+      ? "\n\n_Recorded in the config file — click to open the line, or right-click to remove._"
+      : "\n\n_Discovered by a source, not recorded in the config file._",
+  );
+  return md;
+}
 
 export class InventoryView implements vscode.TreeDataProvider<Node> {
   static readonly viewId = "expiryRadar.inventory";
@@ -193,22 +285,22 @@ export class InventoryView implements vscode.TreeDataProvider<Node> {
     const rev = this.expansion;
 
     if (this.grouping === "rank") {
-      return items.map((item) => ({ kind: "item", id: `${rev}:${item.id}`, item }));
+      return items.map((item) => new ItemNode(`${rev}:${item.id}`, item));
     }
 
     const groups = new Map<string, GroupNode>();
     for (const item of items) {
       let group = groups.get(item.kind);
       if (!group) {
-        group = { kind: "group", id: `${rev}:kind:${item.kind}`, label: kindLabel(item.kind), children: [] };
+        group = new GroupNode(`${rev}:kind:${item.kind}`, kindLabel(item.kind));
         groups.set(item.kind, group);
       }
-      group.children.push({ kind: "item", id: `${rev}:${group.children.length}:${item.id}`, item });
+      group.rows.push(new ItemNode(`${rev}:${group.rows.length}:${item.id}`, item));
     }
     // Groups in worst-deadline order, so the kind with something already broken
     // is at the top rather than wherever the alphabet put it.
     return [...groups.values()].sort(
-      (a, b) => SEVERITY_RANK[a.children[0].item.severity] - SEVERITY_RANK[b.children[0].item.severity],
+      (a, b) => SEVERITY_RANK[a.rows[0].item.severity] - SEVERITY_RANK[b.rows[0].item.severity],
     );
   }
 
@@ -218,79 +310,11 @@ export class InventoryView implements vscode.TreeDataProvider<Node> {
   }
 
   getChildren(element?: Node): Node[] {
-    if (!element) return this.tree;
-    return element.kind === "group" ? element.children : [];
+    return element ? element.children() : this.tree;
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
-    if (node.kind === "group") {
-      const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Expanded);
-      item.id = node.id;
-      item.iconPath = new vscode.ThemeIcon("folder");
-      item.description = `${node.children.length} · soonest ${humanDays(node.children[0].item.daysLeft)}`;
-      item.contextValue = "expiryRadarGroup";
-      return item;
-    }
-
-    const entry = node.item;
-    const item = new vscode.TreeItem(entry.display, vscode.TreeItemCollapsibleState.None);
-    item.id = node.id;
-    const icon = ICONS[entry.severity];
-    item.iconPath = new vscode.ThemeIcon(icon.id, new vscode.ThemeColor(icon.color));
-    item.description = [
-      humanDays(entry.daysLeft),
-      this.grouping === "rank" ? kindLabel(entry.kind) : "",
-      entry.source,
-      `p ${entry.priority.toFixed(2)}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    item.tooltip = this.tooltip(entry);
-    // Recorded rows can be edited and removed; discovered ones cannot, because
-    // deleting a config line would not delete a certificate from an Ingress.
-    item.contextValue = entry.origin ? "expiryRadarRecorded" : "expiryRadarItem";
-    if (entry.origin) {
-      const uri = vscode.Uri.file(entry.origin.file);
-      const line = Math.max(0, entry.origin.line - 1);
-      const column = Math.max(0, entry.origin.column - 1);
-      item.resourceUri = uri;
-      item.command = {
-        command: "vscode.open",
-        title: "Open the line that declared this",
-        arguments: [
-          uri,
-          {
-            selection: new vscode.Range(line, column, line, column),
-          } satisfies vscode.TextDocumentShowOptions,
-        ],
-      };
-    }
-    return item;
-  }
-
-  private tooltip(item: Item): vscode.MarkdownString {
-    const md = new vscode.MarkdownString();
-    md.appendMarkdown(`**${item.display}** — ${humanDays(item.daysLeft)}\n\n`);
-    md.appendMarkdown(`${item.why}\n\n`);
-    md.appendMarkdown(
-      [
-        `**kind** ${kindLabel(item.kind)}`,
-        `**source** \`${item.source}\``,
-        `**expires** ${item.expires.slice(0, 10)}`,
-        `**priority** ${item.priority.toFixed(2)}`,
-        `**blast radius** ${item.blastRadius.toFixed(2)}`,
-      ].join(" · "),
-    );
-    const labels = Object.entries(item.labels ?? {});
-    if (labels.length) {
-      md.appendMarkdown(`\n\n${labels.map(([k, v]) => `\`${k}=${v}\``).join(" ")}`);
-    }
-    md.appendMarkdown(
-      item.origin
-        ? "\n\n_Recorded in the config file — click to open the line, or right-click to remove._"
-        : "\n\n_Discovered by a source, not recorded in the config file._",
-    );
-    return md;
+    return node.treeItem(this.grouping === "rank");
   }
 
   // --- title bar / message / badge -------------------------------------------

@@ -309,8 +309,8 @@ export class Commands {
    * does.
    */
   async removeItem(node?: Node): Promise<void> {
-    if (!node || node.kind !== "item" || !node.item.origin) return;
-    const item = node.item;
+    const item = node?.item;
+    if (!item?.origin) return;
     const origin = item.origin!;
 
     const confirmed = await vscode.window.showWarningMessage(
@@ -351,8 +351,8 @@ export class Commands {
   }
 
   async copyItem(node?: Node): Promise<void> {
-    if (!node || node.kind !== "item") return;
-    const item = node.item;
+    const item = node?.item;
+    if (!item) return;
     await vscode.env.clipboard.writeText(
       [`${item.display} — ${humanDays(item.daysLeft)}`, item.why, ...describe(item)].join("\n"),
     );
