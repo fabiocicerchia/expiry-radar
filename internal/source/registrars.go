@@ -103,6 +103,16 @@ func (s *RegistrarSource) Collect(ctx context.Context) ([]Item, error) {
 	return items, err
 }
 
+// registrarAdapters maps a provider name to the adapter that reads it. A new
+// registrar adds an entry here and in RegistrarProviders, not a branch.
+var registrarAdapters = map[string]func(*RegistrarSource, context.Context, *http.Client,
+	RegistrarProvider) ([]registrarDomain, error){
+	"dnsimple": (*RegistrarSource).dnsimple,
+	"gandi":    (*RegistrarSource).gandi,
+	"porkbun":  (*RegistrarSource).porkbun,
+	"godaddy":  (*RegistrarSource).godaddy,
+}
+
 // registrarDomain is the three facts every registrar agrees on.
 type registrarDomain struct {
 	Name      string
@@ -124,22 +134,11 @@ func (s *RegistrarSource) provider(ctx context.Context, client *http.Client,
 	// An adapter may return domains *and* an error — a truncated read is the
 	// usual case — so both are kept. Taking only the error here would lose
 	// everything that was read, which is the rule this whole tool is built on.
-	var (
-		domains []registrarDomain
-		err     error
-	)
-	switch p.Name {
-	case "dnsimple":
-		domains, err = s.dnsimple(ctx, client, p)
-	case "gandi":
-		domains, err = s.gandi(ctx, client, p)
-	case "porkbun":
-		domains, err = s.porkbun(ctx, client, p)
-	case "godaddy":
-		domains, err = s.godaddy(ctx, client, p)
-	default:
+	read, ok := registrarAdapters[p.Name]
+	if !ok {
 		return nil, fmt.Errorf("unknown registrar %q", p.Name)
 	}
+	domains, err := read(s, ctx, client, p)
 
 	items := make([]Item, 0, len(domains))
 	for _, d := range domains {
