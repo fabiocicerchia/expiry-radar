@@ -55,6 +55,9 @@ jobs:
       - name: Run gandalf
         # A red verdict is the run most worth recording, so it must not stop the
         # POST below. gandalf-pr-review.yml is where findings gate a change.
+        # gandalf exits non-zero on a red verdict and on a crash alike, so this
+        # stays until it tells the two apart; meanwhile a crash leaves no
+        # report, and "Find the report" fails the job on that.
         continue-on-error: true
         env:
           IMAGE: "ghcr.io/fabiocicerchia/gandalf-tools:0.14.0\
@@ -67,18 +70,28 @@ jobs:
             sh -c 'git config --global --add safe.directory "*" \
               && PYTHONPATH=/gandalf/src python -m gandalf --no-llm --no-html --out-dir reports'
 
-      - name: Post to proofhouse
-        # Telemetry. A dashboard being down is not this repository's problem.
-        continue-on-error: true
-        env:
-          TOKEN: ${{ secrets.PROOFHOUSE_TOKEN }}
+      - name: Find the report
+        id: report
         run: |
           set -euo pipefail
           # Newest report without parsing `ls` output, which shellcheck refuses.
           report="$(find reports -name 'gandalf-*.json' -printf '%T@ %p\n' \
                     | sort -rn | head -1 | cut -d' ' -f2-)"
-          echo "posting ${report} ($(wc -c < "${report}") bytes)"
-          gzip -c "${report}" > report.json.gz
+          test -s "${report}"
+          echo "path=${report}" >> "${GITHUB_OUTPUT}"
+
+      - name: Post to proofhouse
+        # Telemetry. A dashboard being down is not this repository's problem;
+        # only the network call is left in here, so this goes when proofhouse
+        # outages stop being worth a red run on main.
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.PROOFHOUSE_TOKEN }}
+          REPORT: ${{ steps.report.outputs.path }}
+        run: |
+          set -euo pipefail
+          echo "posting ${REPORT} ($(wc -c < "${REPORT}") bytes)"
+          gzip -c "${REPORT}" > report.json.gz
           curl --fail-with-body --silent --show-error \
             --retry 3 --retry-connrefused --max-time 120 \
             -X POST https://app.proofhouse.cloud/v1/runs \
