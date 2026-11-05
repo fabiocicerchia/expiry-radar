@@ -55,6 +55,9 @@ jobs:
       - name: Run gandalf
         # A red verdict is the run most worth recording, so it must not stop the
         # POST below. gandalf-pr-review.yml is where findings gate a change.
+        # gandalf exits non-zero on a red verdict, the same as on a crash; the
+        # post step fails when no report was written, so a crash still fails the
+        # job. Drop this once gandalf can exit 0 on a red verdict.
         continue-on-error: true
         env:
           IMAGE: "ghcr.io/fabiocicerchia/gandalf-tools:0.14.0\
@@ -68,8 +71,6 @@ jobs:
               && PYTHONPATH=/gandalf/src python -m gandalf --no-llm --no-html --out-dir reports'
 
       - name: Post to proofhouse
-        # Telemetry. A dashboard being down is not this repository's problem.
-        continue-on-error: true
         env:
           TOKEN: ${{ secrets.PROOFHOUSE_TOKEN }}
         run: |
@@ -77,6 +78,12 @@ jobs:
           # Newest report without parsing `ls` output, which shellcheck refuses.
           report="$(find reports -name 'gandalf-*.json' -printf '%T@ %p\n' \
                     | sort -rn | head -1 | cut -d' ' -f2-)"
+          test -s "${report}"
+          # Forks and repositories without the secret configured; nothing to post.
+          if [ -z "${TOKEN}" ]; then
+            echo "::notice::PROOFHOUSE_TOKEN unavailable, skipping the post"
+            exit 0
+          fi
           echo "posting ${report} ($(wc -c < "${report}") bytes)"
           gzip -c "${report}" > report.json.gz
           curl --fail-with-body --silent --show-error \
