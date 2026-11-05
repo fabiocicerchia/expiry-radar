@@ -15,7 +15,7 @@ import { Collector } from "./collector";
 import { ARRAY_FOR, addToArray } from "./edit";
 import { runDoctor } from "./doctor";
 import { primaryFolder, settingsFor } from "./folder";
-import { InventoryView, Node } from "./inventoryView";
+import { InventoryView, ItemNode } from "./inventoryView";
 import { log } from "./log";
 import { describe, humanDays, toItems } from "./parse";
 import { pickEntryKind, pickExportFormat, promptEntry, promptHost } from "./prompts";
@@ -52,8 +52,8 @@ export class Commands {
       "expiryRadar.groupByKind": () => this.inventoryView.setGrouping("kind"),
       "expiryRadar.groupByRank": () => this.inventoryView.setGrouping("rank"),
       "expiryRadar.expandAll": () => this.inventoryView.expandAll(),
-      "expiryRadar.removeItem": (node?: Node) => this.removeItem(node),
-      "expiryRadar.copyItem": (node?: Node) => this.copyItem(node),
+      "expiryRadar.removeItem": (node?: ItemNode) => this.removeItem(node),
+      "expiryRadar.copyItem": (node?: ItemNode) => this.copyItem(node),
       "expiryRadar.checkEnvironment": () => this.checkEnvironment(),
     };
     return Object.entries(handlers).map(([id, handler]) => vscode.commands.registerCommand(id, handler));
@@ -308,7 +308,7 @@ export class Commands {
    * and offering it would imply this tool writes to your estate, which it never
    * does.
    */
-  async removeItem(node?: Node): Promise<void> {
+  async removeItem(node?: ItemNode): Promise<void> {
     const item = node?.item;
     if (!item?.origin) return;
     const origin = item.origin!;
@@ -350,7 +350,7 @@ export class Commands {
     await this.run("item removed");
   }
 
-  async copyItem(node?: Node): Promise<void> {
+  async copyItem(node?: ItemNode): Promise<void> {
     const item = node?.item;
     if (!item) return;
     await vscode.env.clipboard.writeText(

@@ -32,8 +32,6 @@ const ICONS: Record<Severity, { id: string; color: string }> = {
  */
 export interface Node {
   readonly id: string;
-  /** The inventory entry behind the row; only item rows have one. */
-  readonly item?: Item;
   children(): Node[];
   treeItem(showKind: boolean): vscode.TreeItem;
 }
@@ -60,7 +58,8 @@ class GroupNode implements Node {
   }
 }
 
-class ItemNode implements Node {
+/** An inventory entry. The only row the item commands are offered on. */
+export class ItemNode implements Node {
   constructor(
     readonly id: string,
     readonly item: Item,
