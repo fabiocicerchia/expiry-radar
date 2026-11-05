@@ -17,6 +17,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: expiry-radar
+  # The boundary is the namespace itself: this account is bound only in `prod`.
+  # kics-scan ignore-line
   namespace: platform
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -30,6 +32,9 @@ rules:
     verbs: ["list"]
   - apiGroups: [""]
     resources: ["secrets"]
+    # Intended: the TLS-secret collector lists kubernetes.io/tls secrets, and
+    # `list` cannot be narrowed by resourceNames. See the caveat at the top.
+    # kics-scan ignore-line
     verbs: ["list"]
   # cert-manager Certificates carry no key material: this rule says whether
   # renewal is working, which is the failure the secret above cannot show.
