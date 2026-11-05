@@ -307,128 +307,164 @@ func Load(path string) (*File, error) {
 	if err := dec.Decode(&f); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if err := f.validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return &f, nil
+}
+
+// requireEnv reads a credential from the environment at startup. what names
+// the thing that needs it, for the error when it is unset.
+func requireEnv(env, what string) (string, error) {
+	v := os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
+	if v == "" {
+		return "", fmt.Errorf("%s but $%s is not set", what, env)
+	}
+	return v, nil
+}
+
+// validate checks the decoded file and fills credentials from the
+// environment. The checks run in a fixed order, so a file with several
+// problems always reports the same one first.
+func (f *File) validate() error {
 	// Rejected at load, not at rank time: a malformed glob never matches, so an
 	// unvalidated override fails by quietly not applying — exactly the case the
 	// operator wrote it to prevent.
 	if err := rank.ValidateOverrides(f.Overrides); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return err
 	}
 	// Rejected at load for the same reason: a manual item exists because
 	// nothing else can find the thing. One that silently fails to parse leaves
 	// no trace anywhere, which is the one outcome it was written to prevent.
 	if err := source.ValidateManual(f.Manual); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return err
 	}
-	// And again for the same reason: a mesh anchor with a misspelt kind falls
-	// through to the Secret branch and 404s into silence, so an unvalidated one
-	// fails by quietly watching nothing.
-	if f.K8s != nil {
-		if err := source.ValidateMeshAnchors(f.K8s.MeshAnchors); err != nil {
-			return nil, fmt.Errorf("%s: %w", path, err)
-		}
-		// Rejected rather than ignored: meshSigningSecrets on its own collects
-		// nothing, because the mesh collector it feeds is behind trustAnchors.
-		// Granting read access to CA private keys and silently getting no
-		// findings for it is the worst of both.
-		// Same rule, same reason: the mesh collector these feed is behind
-		// trustAnchors, so without it the anchors are configured and never read.
-		if len(f.K8s.MeshAnchors) > 0 && !f.K8s.TrustAnchors {
-			return nil, fmt.Errorf(
-				"%s: k8s.meshAnchors needs k8s.trustAnchors, or the anchors are never read", path)
-		}
-		if f.K8s.MeshSigningSecrets && !f.K8s.TrustAnchors {
-			return nil, fmt.Errorf(
-				"%s: k8s.meshSigningSecrets needs k8s.trustAnchors, or it reads private keys for nothing", path)
-		}
+	if err := f.K8s.validate(); err != nil {
+		return err
 	}
 	// Same rule as Vault: the credential is read once at load and validated
 	// with everything else, so a source that cannot authenticate fails while
 	// the operator is still looking at the command rather than on first
 	// collect.
+	var err error
 	if f.Cloudflare != nil && f.Cloudflare.Enabled {
-		f.Cloudflare.Token = os.Getenv("CLOUDFLARE_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Cloudflare.Token == "" {
-			return nil, fmt.Errorf("%s: cloudflare source is enabled but $CLOUDFLARE_API_TOKEN is not set", path)
+		if f.Cloudflare.Token, err = requireEnv("CLOUDFLARE_API_TOKEN", "cloudflare source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.GitLab != nil && f.GitLab.Enabled {
-		f.GitLab.Token = os.Getenv("GITLAB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.GitLab.Token == "" {
-			return nil, fmt.Errorf("%s: gitlab source is enabled but $GITLAB_TOKEN is not set", path)
+		if f.GitLab.Token, err = requireEnv("GITLAB_TOKEN", "gitlab source is enabled"); err != nil {
+			return err
 		}
 	}
+	if err := f.readProviderCredentials(); err != nil {
+		return err
+	}
+	if err := source.ValidateFederation(f.Federation); err != nil {
+		return err
+	}
+	return f.readSourceCredentials()
+}
+
+// validate checks the opt-in Kubernetes collectors. A nil K8s has nothing to
+// check.
+func (k *K8s) validate() error {
+	if k == nil {
+		return nil
+	}
+	// And again for the same reason: a mesh anchor with a misspelt kind falls
+	// through to the Secret branch and 404s into silence, so an unvalidated one
+	// fails by quietly watching nothing.
+	if err := source.ValidateMeshAnchors(k.MeshAnchors); err != nil {
+		return err
+	}
+	// Rejected rather than ignored: meshSigningSecrets on its own collects
+	// nothing, because the mesh collector it feeds is behind trustAnchors.
+	// Granting read access to CA private keys and silently getting no
+	// findings for it is the worst of both.
+	// Same rule, same reason: the mesh collector these feed is behind
+	// trustAnchors, so without it the anchors are configured and never read.
+	if len(k.MeshAnchors) > 0 && !k.TrustAnchors {
+		return fmt.Errorf("k8s.meshAnchors needs k8s.trustAnchors, or the anchors are never read")
+	}
+	if k.MeshSigningSecrets && !k.TrustAnchors {
+		return fmt.Errorf("k8s.meshSigningSecrets needs k8s.trustAnchors, or it reads private keys for nothing")
+	}
+	return nil
+}
+
+// readProviderCredentials validates the list-shaped registrar and rotation
+// providers and reads each one's credentials.
+func (f *File) readProviderCredentials() error {
 	// Registrars are list-shaped too, and each reads its own credentials.
 	if err := source.ValidateRegistrars(f.Registrars); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return err
 	}
+	var err error
 	for i := range f.Registrars {
-		envs := source.RegistrarProviders[f.Registrars[i].Name]
-		f.Registrars[i].Token = os.Getenv(envs[0]) //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Registrars[i].Token == "" {
-			return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
-				path, f.Registrars[i].Name, envs[0])
+		r := &f.Registrars[i]
+		envs := source.RegistrarProviders[r.Name]
+		what := fmt.Sprintf("registrar %q is configured", r.Name)
+		if r.Token, err = requireEnv(envs[0], what); err != nil {
+			return err
 		}
 		if envs[1] != "" {
-			f.Registrars[i].Secret = os.Getenv(envs[1]) //nolint:forbidigo // FC-GEN-055: this is the startup read
-			if f.Registrars[i].Secret == "" {
-				return nil, fmt.Errorf("%s: registrar %q is configured but $%s is not set",
-					path, f.Registrars[i].Name, envs[1])
+			if r.Secret, err = requireEnv(envs[1], what); err != nil {
+				return err
 			}
 		}
 	}
 	// Rotation providers are list-shaped like endpoints and domains: naming one
 	// enables it. Each reads its own credential from its own variable.
 	if err := source.ValidateRotation(f.Rotation); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+		return err
 	}
 	for i := range f.Rotation {
-		env := source.RotationProviders[f.Rotation[i].Name]
-		f.Rotation[i].Token = os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Rotation[i].Token == "" {
-			return nil, fmt.Errorf("%s: rotation provider %q is configured but $%s is not set",
-				path, f.Rotation[i].Name, env)
+		r := &f.Rotation[i]
+		what := fmt.Sprintf("rotation provider %q is configured", r.Name)
+		if r.Token, err = requireEnv(source.RotationProviders[r.Name], what); err != nil {
+			return err
 		}
 	}
-	if err := source.ValidateFederation(f.Federation); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
+	return nil
+}
+
+// readSourceCredentials checks the remaining enabled sources' required fields
+// and reads their credentials.
+func (f *File) readSourceCredentials() error {
+	var err error
 	if f.Azure != nil && f.Azure.Enabled {
 		if f.Azure.TenantID == "" || f.Azure.ClientID == "" {
-			return nil, fmt.Errorf("%s: azure.tenantId and azure.clientId are both required", path)
+			return fmt.Errorf("azure.tenantId and azure.clientId are both required")
 		}
-		f.Azure.ClientSecret = os.Getenv("AZURE_CLIENT_SECRET") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Azure.ClientSecret == "" {
-			return nil, fmt.Errorf("%s: azure source is enabled but $AZURE_CLIENT_SECRET is not set", path)
+		if f.Azure.ClientSecret, err = requireEnv("AZURE_CLIENT_SECRET", "azure source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Fastly != nil && f.Fastly.Enabled {
-		f.Fastly.Token = os.Getenv("FASTLY_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Fastly.Token == "" {
-			return nil, fmt.Errorf("%s: fastly source is enabled but $FASTLY_API_TOKEN is not set", path)
+		if f.Fastly.Token, err = requireEnv("FASTLY_API_TOKEN", "fastly source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Hetzner != nil && f.Hetzner.Enabled {
-		f.Hetzner.Token = os.Getenv("HCLOUD_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Hetzner.Token == "" {
-			return nil, fmt.Errorf("%s: hetzner source is enabled but $HCLOUD_TOKEN is not set", path)
+		if f.Hetzner.Token, err = requireEnv("HCLOUD_TOKEN", "hetzner source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Harbor != nil && f.Harbor.Enabled {
 		if f.Harbor.BaseURL == "" || f.Harbor.Username == "" {
-			return nil, fmt.Errorf("%s: harbor.baseUrl and harbor.username are both required", path)
+			return fmt.Errorf("harbor.baseUrl and harbor.username are both required")
 		}
-		f.Harbor.Password = os.Getenv("HARBOR_PASSWORD") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Harbor.Password == "" {
-			return nil, fmt.Errorf("%s: harbor source is enabled but $HARBOR_PASSWORD is not set", path)
+		if f.Harbor.Password, err = requireEnv("HARBOR_PASSWORD", "harbor source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.JFrog != nil && f.JFrog.Enabled {
 		if f.JFrog.BaseURL == "" {
-			return nil, fmt.Errorf("%s: jfrog.baseUrl is required, e.g. https://acme.jfrog.io", path)
+			return fmt.Errorf("jfrog.baseUrl is required, e.g. https://acme.jfrog.io")
 		}
-		f.JFrog.Token = os.Getenv("JFROG_ACCESS_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.JFrog.Token == "" {
-			return nil, fmt.Errorf("%s: jfrog source is enabled but $JFROG_ACCESS_TOKEN is not set", path)
+		if f.JFrog.Token, err = requireEnv("JFROG_ACCESS_TOKEN", "jfrog source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Apple != nil && f.Apple.Enabled {
@@ -437,17 +473,15 @@ func Load(path string) (*File, error) {
 			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE")
 		}
 		if f.Apple.IssuerID == "" || f.Apple.KeyID == "" || f.Apple.PrivateKeyFile == "" {
-			return nil, fmt.Errorf(
-				"%s: apple needs issuerId, keyId and privateKeyFile (or $APP_STORE_CONNECT_KEY_FILE)", path)
+			return fmt.Errorf("apple needs issuerId, keyId and privateKeyFile (or $APP_STORE_CONNECT_KEY_FILE)")
 		}
 	}
 	if f.Okta != nil && f.Okta.Enabled {
 		if f.Okta.OrgURL == "" {
-			return nil, fmt.Errorf("%s: okta.orgUrl is required, e.g. https://acme.okta.com", path)
+			return fmt.Errorf("okta.orgUrl is required, e.g. https://acme.okta.com")
 		}
-		f.Okta.Token = os.Getenv("OKTA_API_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Okta.Token == "" {
-			return nil, fmt.Errorf("%s: okta source is enabled but $OKTA_API_TOKEN is not set", path)
+		if f.Okta.Token, err = requireEnv("OKTA_API_TOKEN", "okta source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.GCP != nil && f.GCP.Enabled {
@@ -456,13 +490,12 @@ func Load(path string) (*File, error) {
 		//nolint:forbidigo // FC-GEN-055: this is the startup read
 		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 		if len(f.GCP.Projects) == 0 {
-			return nil, fmt.Errorf("%s: gcp source is enabled but gcp.projects is empty", path)
+			return fmt.Errorf("gcp source is enabled but gcp.projects is empty")
 		}
 	}
 	if f.GitHub != nil && f.GitHub.Enabled {
-		f.GitHub.Token = os.Getenv("GITHUB_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.GitHub.Token == "" {
-			return nil, fmt.Errorf("%s: github source is enabled but $GITHUB_TOKEN is not set", path)
+		if f.GitHub.Token, err = requireEnv("GITHUB_TOKEN", "github source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Namecheap != nil && f.Namecheap.Enabled {
@@ -471,45 +504,47 @@ func Load(path string) (*File, error) {
 		// either way, and reporting it first keeps the message about the file
 		// they are looking at.
 		if f.Namecheap.APIUser == "" || f.Namecheap.UserName == "" {
-			return nil, fmt.Errorf("%s: namecheap.apiUser and namecheap.userName are both required", path)
+			return fmt.Errorf("namecheap.apiUser and namecheap.userName are both required")
 		}
 		if f.Namecheap.ClientIP == "" {
-			return nil, fmt.Errorf(
-				"%s: namecheap.clientIp is required — it must be this machine's public IP, allowlisted in the account", path)
+			return fmt.Errorf(
+				"namecheap.clientIp is required — it must be this machine's public IP, allowlisted in the account")
 		}
-		f.Namecheap.APIKey = os.Getenv("NAMECHEAP_API_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Namecheap.APIKey == "" {
-			return nil, fmt.Errorf("%s: namecheap source is enabled but $NAMECHEAP_API_KEY is not set", path)
+		if f.Namecheap.APIKey, err = requireEnv("NAMECHEAP_API_KEY", "namecheap source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.DigitalOcean != nil && f.DigitalOcean.Enabled {
-		f.DigitalOcean.Token = os.Getenv("DIGITALOCEAN_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.DigitalOcean.Token == "" {
-			return nil, fmt.Errorf("%s: digitalocean source is enabled but $DIGITALOCEAN_TOKEN is not set", path)
+		if f.DigitalOcean.Token, err = requireEnv("DIGITALOCEAN_TOKEN", "digitalocean source is enabled"); err != nil {
+			return err
 		}
 	}
 	if f.Scaleway != nil && f.Scaleway.Enabled {
-		f.Scaleway.SecretKey = os.Getenv("SCW_SECRET_KEY") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Scaleway.SecretKey == "" {
-			return nil, fmt.Errorf("%s: scaleway source is enabled but $SCW_SECRET_KEY is not set", path)
+		if f.Scaleway.SecretKey, err = requireEnv("SCW_SECRET_KEY", "scaleway source is enabled"); err != nil {
+			return err
 		}
+	}
+	return f.Vault.readCredentials()
+}
+
+// readCredentials fills a Vault source's address and token from the
+// environment. A nil or disabled Vault needs neither.
+func (v *Vault) readCredentials() error {
+	if v == nil || !v.Enabled {
+		return nil
 	}
 	// The environment is read here, once, and validated with the rest of the
 	// config: a Vault source that cannot authenticate should fail while the
 	// operator is still looking at the command, not on the first collect.
-	if f.Vault != nil && f.Vault.Enabled {
-		if f.Vault.Addr == "" {
-			f.Vault.Addr = os.Getenv("VAULT_ADDR") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		}
-		f.Vault.Token = os.Getenv("VAULT_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
-		if f.Vault.Addr == "" {
-			return nil, fmt.Errorf("%s: vault source is enabled but neither vault.addr nor $VAULT_ADDR is set", path)
-		}
-		if f.Vault.Token == "" {
-			return nil, fmt.Errorf("%s: vault source is enabled but $VAULT_TOKEN is not set", path)
-		}
+	if v.Addr == "" {
+		v.Addr = os.Getenv("VAULT_ADDR") //nolint:forbidigo // FC-GEN-055: this is the startup read
 	}
-	return &f, nil
+	if v.Addr == "" {
+		return fmt.Errorf("vault source is enabled but neither vault.addr nor $VAULT_ADDR is set")
+	}
+	var err error
+	v.Token, err = requireEnv("VAULT_TOKEN", "vault source is enabled")
+	return err
 }
 
 // Sources builds the enabled sources. Nothing is enabled implicitly: a source
