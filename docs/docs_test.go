@@ -4,17 +4,31 @@
 package docs
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/fabiocicerchia/expiry-radar/internal/source"
 )
 
 // iamPrefix maps an aws-sdk-go-v2 service package to its IAM action prefix.
@@ -210,5 +224,93 @@ func TestVaultPolicyCoversEveryVaultCall(t *testing.T) {
 		if !used[g] {
 			t.Errorf("vault-readonly-policy.hcl grants %q, which no source calls", g)
 		}
+	}
+}
+
+// TestVaultPolicyAgainstVaultSource runs the real VaultSource over HTTP against
+// a fake Vault that answers only what vault-readonly-policy.hcl grants, so a
+// request the policy misses fails here the way it would in the field.
+func TestVaultPolicyAgainstVaultSource(t *testing.T) {
+	raw, err := os.ReadFile("vault-readonly-policy.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	type grant struct{ capability, path string }
+	var grants []grant
+	block := regexp.MustCompile(`path "([^"]+)" \{\s*capabilities = \[([^\]]*)\]`)
+	for _, m := range block.FindAllStringSubmatch(string(raw), -1) {
+		for _, c := range strings.Split(m[2], ",") {
+			c, _ = strconv.Unquote(strings.TrimSpace(c))
+			grants = append(grants, grant{c, m[1]})
+		}
+	}
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notAfter := time.Date(2030, 1, 2, 0, 0, 0, 0, time.UTC)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "pay.example.com"},
+		DNSNames:     []string{"pay.example.com"},
+		NotBefore:    notAfter.AddDate(-1, 0, 0),
+		NotAfter:     notAfter,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certPEM := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capability := map[string]string{http.MethodGet: "read", "LIST": "list"}[r.Method]
+		p := strings.TrimPrefix(r.URL.Path, "/v1/")
+		allowed := false
+		for _, g := range grants {
+			if ok, _ := path.Match(g.path, p); ok && g.capability == capability {
+				allowed = true
+			}
+		}
+		if !allowed || r.Header.Get("X-Vault-Token") != "s.test" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		var data any
+		switch p {
+		case "auth/token/lookup-self":
+			data = map[string]string{"display_name": "token-radar", "expire_time": "2027-01-01T00:00:00Z"}
+		case "pki/certs":
+			data = map[string][]string{"keys": {"01"}}
+		case "pki/cert/01":
+			data = map[string]string{"certificate": certPEM}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+	}))
+	defer srv.Close()
+
+	s := &source.VaultSource{Addr: srv.URL, Token: "s.test", PKIMounts: []string{"pki"}}
+	items, err := s.Collect(context.Background())
+	if err != nil {
+		t.Fatalf("Collect under the shipped policy: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want the token and one certificate: %+v", len(items), items)
+	}
+	if items[0].Kind != source.KindVaultLease || items[0].Name != "token-radar" {
+		t.Errorf("items[0] = %+v, want the token-radar vault lease", items[0])
+	}
+	if items[1].Kind != source.KindTLSCert || items[1].Name != "pay.example.com" ||
+		!items[1].Expires.Equal(notAfter) || items[1].Source != "vault:pki" {
+		t.Errorf("items[1] = %+v, want pay.example.com from vault:pki expiring %v", items[1], notAfter)
+	}
+
+	// A mount the policy does not cover must surface as a denial, not vanish.
+	s.PKIMounts = []string{"pki_int"}
+	if _, err := s.Collect(context.Background()); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("Collect on an ungranted mount: err = %v, want permission denied", err)
 	}
 }
