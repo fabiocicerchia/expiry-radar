@@ -58,8 +58,15 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # The same tests as `npm test`, under node's built-in coverage; the
+      # per-file table, mapped back to src/*.ts, goes on the run's summary page.
       - name: Test
-        run: npm test
+        run: |
+          set -o pipefail
+          echo '### Coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npm run coverage | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       # Proves the manifest still packages, which is what a release does.
       - name: Package
