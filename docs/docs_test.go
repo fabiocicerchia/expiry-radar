@@ -5,7 +5,9 @@ package docs
 
 import (
 	"encoding/json"
+	"go/ast"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -124,6 +126,89 @@ func TestIAMPolicyCoversEveryAWSCall(t *testing.T) {
 	for action := range allowed {
 		if _, ok := used[action]; !ok {
 			t.Errorf("iam-readonly-policy.json grants %s, which no source calls", action)
+		}
+	}
+}
+
+// TestVaultPolicyCoversEveryVaultCall checks vault-readonly-policy.hcl against
+// every s.do call in vault.go: each request must be granted, each grant must be
+// used, and nothing may write.
+func TestVaultPolicyCoversEveryVaultCall(t *testing.T) {
+	raw, err := os.ReadFile("vault-readonly-policy.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	granted := map[string]bool{} // "capability path"
+	block := regexp.MustCompile(`path "([^"]+)" \{\s*capabilities = \[([^\]]*)\]`)
+	for _, m := range block.FindAllStringSubmatch(string(raw), -1) {
+		for _, c := range strings.Split(m[2], ",") {
+			c, _ = strconv.Unquote(strings.TrimSpace(c))
+			if c != "read" && c != "list" {
+				t.Errorf("path %q grants %q, want read or list only", m[1], c)
+			}
+			granted[c+" "+m[1]] = true
+		}
+	}
+	if len(granted) == 0 {
+		t.Fatal("found no path blocks; the parse is broken")
+	}
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "../internal/source/vault.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability := map[string]string{"http.MethodGet": "read", `"LIST"`: "list"}
+	// The policy is written for the default `pki` mount; any other variable in
+	// a path, such as a serial, is what the policy's `*` stands for.
+	var flatten func(ast.Expr) string
+	flatten = func(e ast.Expr) string {
+		switch e := e.(type) {
+		case *ast.BasicLit:
+			s, _ := strconv.Unquote(e.Value)
+			return s
+		case *ast.BinaryExpr:
+			return flatten(e.X) + flatten(e.Y)
+		case *ast.CallExpr:
+			if len(e.Args) == 1 {
+				if id, ok := e.Args[0].(*ast.Ident); ok && id.Name == "mount" {
+					return "pki"
+				}
+			}
+		}
+		return "*"
+	}
+	used := map[string]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok || len(call.Args) != 5 {
+			return true
+		}
+		if sel, ok := call.Fun.(*ast.SelectorExpr); !ok || sel.Sel.Name != "do" {
+			return true
+		}
+		var method strings.Builder
+		if err := printer.Fprint(&method, fset, call.Args[2]); err != nil {
+			t.Fatal(err)
+		}
+		c, ok := capability[method.String()]
+		if !ok {
+			t.Errorf("vault.go sends %s, which is not a read-only method", method.String())
+			return true
+		}
+		req := c + " " + strings.TrimPrefix(flatten(call.Args[3]), "/v1/")
+		used[req] = true
+		if !granted[req] {
+			t.Errorf("vault.go needs %q, which vault-readonly-policy.hcl does not grant", req)
+		}
+		return true
+	})
+	if len(used) == 0 {
+		t.Fatal("found no Vault calls; the scan is broken")
+	}
+	for g := range granted {
+		if !used[g] {
+			t.Errorf("vault-readonly-policy.hcl grants %q, which no source calls", g)
 		}
 	}
 }
