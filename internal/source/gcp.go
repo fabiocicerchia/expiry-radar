@@ -63,6 +63,9 @@ const (
 	gcpMetadataURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 )
 
+// gcpNow is the clock for token lifetimes and JWT claims.
+var gcpNow = time.Now //nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock
+
 // Name identifies this source in an item's Source field.
 func (s *GCPSource) Name() string { return "gcp" }
 
@@ -96,8 +99,7 @@ func (s *GCPSource) Collect(ctx context.Context) ([]Item, error) {
 // available. Cached because four APIs across several projects is a lot of
 // requests to re-authenticate for.
 func (s *GCPSource) accessToken(ctx context.Context, client *http.Client) (string, error) {
-	//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
-	if s.token != "" && time.Now().Before(s.tokenTill) {
+	if s.token != "" && gcpNow().Before(s.tokenTill) {
 		return s.token, nil
 	}
 	var (
@@ -115,8 +117,7 @@ func (s *GCPSource) accessToken(ctx context.Context, client *http.Client) (strin
 	}
 	s.token = tok
 	// Renew early: a token that expires mid-scan would fail half the reads.
-	//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
-	s.tokenTill = time.Now().Add(ttl - time.Minute)
+	s.tokenTill = gcpNow().Add(ttl - time.Minute)
 	return tok, nil
 }
 
@@ -152,8 +153,7 @@ func (s *GCPSource) tokenFromKeyFile(ctx context.Context, client *http.Client) (
 		return "", 0, err
 	}
 
-	//nolint:forbidigo // FC-GEN-055: an OAuth token's life is the provider's real clock, not the report's.
-	now := time.Now()
+	now := gcpNow()
 	header := base64URL(`{"alg":"RS256","typ":"JWT"}`)
 	claims, err := json.Marshal(map[string]any{
 		"iss":   kf.ClientEmail,
