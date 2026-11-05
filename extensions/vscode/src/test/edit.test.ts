@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { addToArray, arrayForSource, invalidExpires, removeEntry, renderEntry } from "../edit";
+import { addToArray, invalidExpires, renderEntry } from "../edit";
+import { arrayForSource, removeEntry } from "../remove";
 
 /** Every result has to still be a config the CLI can load. */
 function reparse(text: string): Record<string, unknown> {

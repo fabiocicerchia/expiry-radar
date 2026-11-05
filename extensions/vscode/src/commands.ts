@@ -12,13 +12,14 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { Collector } from "./collector";
-import { arrayForSource, ARRAY_FOR, addToArray, removeEntry } from "./edit";
+import { ARRAY_FOR, addToArray } from "./edit";
 import { runDoctor } from "./doctor";
 import { primaryFolder, settingsFor } from "./folder";
 import { InventoryView, Node } from "./inventoryView";
 import { log } from "./log";
 import { describe, humanDays, toItems } from "./parse";
 import { pickEntryKind, pickExportFormat, promptEntry, promptHost } from "./prompts";
+import { arrayForSource, removeEntry } from "./remove";
 import { ReportView } from "./report";
 import { collect, Format, hasSources, resolveConfig, runRadar } from "./runner";
 import { Job, Scheduler } from "./scheduler";
