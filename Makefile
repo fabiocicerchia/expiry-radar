@@ -65,9 +65,9 @@ else
 	@echo "removed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
 endif
 
-## test: run tests
+## test: run tests and write coverage.out
 test:
-	go test -race -count=1 ./...
+	go test -race -count=1 -coverprofile=coverage.out ./...
 
 ## tidy: tidy modules
 tidy:

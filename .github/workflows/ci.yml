@@ -34,3 +34,11 @@ jobs:
 
       - name: Test
         run: make test
+
+      # Publish the per-function coverage `make test` wrote on the run's summary page.
+      - name: Coverage
+        run: |
+          echo '### Coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
