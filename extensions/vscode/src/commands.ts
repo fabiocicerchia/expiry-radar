@@ -12,7 +12,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { Collector } from "./collector";
-import { arrayForSource, ARRAY_FOR, addToArray, removeEntry } from "./edit";
+import { arrayForSource, ENTRY_KINDS } from "./edit";
 import { runDoctor } from "./doctor";
 import { primaryFolder, settingsFor } from "./folder";
 import { InventoryView, Node } from "./inventoryView";
@@ -22,6 +22,7 @@ import { pickEntryKind, pickExportFormat, promptEntry, promptHost } from "./prom
 import { ReportView } from "./report";
 import { collect, Format, hasSources, resolveConfig, runRadar } from "./runner";
 import { Job, Scheduler } from "./scheduler";
+import { addToArray, removeEntry } from "./splice";
 import { ResultStore } from "./store";
 
 export class Commands {
@@ -253,7 +254,7 @@ export class Commands {
     } catch {
       // No config yet: addToArray writes one around the entry.
     }
-    const { text, line } = addToArray(existing, ARRAY_FOR[kind], rendered);
+    const { text, line } = addToArray(existing, ENTRY_KINDS[kind].array, rendered);
     await fs.promises.writeFile(target, text, "utf8");
 
     // Shown, not just written: the entry is now the operator's to check, and a

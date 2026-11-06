@@ -33,43 +33,62 @@ export function selectedText(): string {
  */
 export async function pickEntryKind(): Promise<EntryKind | undefined> {
   const what = await vscode.window.showQuickPick(
-    [
-      {
-        label: "Endpoint",
-        detail: "A host to probe over TLS — its certificate and every intermediate in its chain.",
-        entry: "endpoint" as EntryKind,
-      },
-      {
-        label: "Domain",
-        detail: "A registration to check via RDAP.",
-        entry: "domain" as EntryKind,
-      },
-      {
-        label: "Something nothing can discover",
-        detail: "A date you know: a registrar with no RDAP, a credential rotated by hand, a contract.",
-        entry: "manual" as EntryKind,
-      },
-    ],
+    (Object.keys(ENTRY_PROMPTS) as EntryKind[]).map((entry) => ({
+      label: ENTRY_PROMPTS[entry].label,
+      detail: ENTRY_PROMPTS[entry].detail,
+      entry,
+    })),
     { title: "expiry-radar: record what?", placeHolder: "Everything else is discovered, not recorded" },
   );
   return what?.entry;
 }
 
 /** The prompts for one kind of entry, or undefined if the user backed out. */
-export async function promptEntry(kind: EntryKind): Promise<string | undefined> {
-  if (kind !== "manual") {
-    const isHost = kind === "endpoint";
-    const value = await vscode.window.showInputBox({
-      title: isHost ? "expiry-radar: record an endpoint" : "expiry-radar: record a domain",
-      prompt: isHost ? "Host to probe over TLS. Port optional." : "Domain to check via RDAP.",
-      placeHolder: isHost ? "shop.example.com" : "example.com",
-      value: selectedText(),
-      validateInput: (v) => (v.trim() ? undefined : "A value is required."),
-    });
-    return value?.trim() ? renderEntry(kind, value) : undefined;
-  }
-  return promptManualEntry();
+export function promptEntry(kind: EntryKind): Promise<string | undefined> {
+  return ENTRY_PROMPTS[kind].prompt();
 }
+
+/** One input box for a kind recorded as a single value: a host or a domain. */
+async function promptValue(
+  kind: EntryKind,
+  box: { title: string; prompt: string; placeHolder: string },
+): Promise<string | undefined> {
+  const value = await vscode.window.showInputBox({
+    ...box,
+    value: selectedText(),
+    validateInput: (v) => (v.trim() ? undefined : "A value is required."),
+  });
+  return value?.trim() ? renderEntry(kind, value) : undefined;
+}
+
+/** How each kind is offered, and how it is asked for. A new kind is a new row. */
+const ENTRY_PROMPTS: Record<EntryKind, { label: string; detail: string; prompt(): Promise<string | undefined> }> = {
+  endpoint: {
+    label: "Endpoint",
+    detail: "A host to probe over TLS — its certificate and every intermediate in its chain.",
+    prompt: () =>
+      promptValue("endpoint", {
+        title: "expiry-radar: record an endpoint",
+        prompt: "Host to probe over TLS. Port optional.",
+        placeHolder: "shop.example.com",
+      }),
+  },
+  domain: {
+    label: "Domain",
+    detail: "A registration to check via RDAP.",
+    prompt: () =>
+      promptValue("domain", {
+        title: "expiry-radar: record a domain",
+        prompt: "Domain to check via RDAP.",
+        placeHolder: "example.com",
+      }),
+  },
+  manual: {
+    label: "Something nothing can discover",
+    detail: "A date you know: a registrar with no RDAP, a credential rotated by hand, a contract.",
+    prompt: () => promptManualEntry(),
+  },
+};
 
 /** Name, then kind, then date — the three things nothing can discover for you. */
 async function promptManualEntry(): Promise<string | undefined> {
