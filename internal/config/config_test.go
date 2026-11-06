@@ -185,7 +185,9 @@ func TestManualItemsAreRankedLikeAnythingElse(t *testing.T) {
 		t.Fatalf("recording an item must not need anything that can fail: %v", errs)
 	}
 
-	scored := rank.Rank(items, f.Overrides, time.Now())
+	// Frozen before the fixture's 2027-03-01 expiry, so this cannot start
+	// failing on the day both items lapse.
+	scored := rank.Rank(items, f.Overrides, time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
 	if len(scored) != 2 {
 		t.Fatalf("want 2 scored items, got %d", len(scored))
 	}

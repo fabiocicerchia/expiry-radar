@@ -127,6 +127,7 @@ side. Directly:
 npm install
 npm run typecheck
 npm test        # unit tests, plus contract tests against a real ./bin/expiry-radar
+npm run test:coverage  # the same, plus a coverage table and out/lcov.info
 npm run build   # bundle into dist/
 npm run package # build a .vsix
 ```

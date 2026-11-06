@@ -58,8 +58,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Node's own coverage (no extra dependency), mapped back to src/ through
+      # the esbuild source maps.
       - name: Test
-        run: npm test
+        run: npm run test:coverage
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: vscode-coverage
+          path: extensions/vscode/out/lcov.info
+          if-no-files-found: error
 
       # Proves the manifest still packages, which is what a release does.
       - name: Package
