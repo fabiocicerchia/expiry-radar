@@ -85,7 +85,6 @@ func (f *File) validate() error {
 	}
 	if f.Apple != nil && f.Apple.Enabled {
 		if f.Apple.PrivateKeyFile == "" {
-			//nolint:forbidigo // FC-GEN-055: this is the startup read
 			f.Apple.PrivateKeyFile = os.Getenv("APP_STORE_CONNECT_KEY_FILE")
 		}
 		if f.Apple.IssuerID == "" || f.Apple.KeyID == "" || f.Apple.PrivateKeyFile == "" {
@@ -103,7 +102,6 @@ func (f *File) validate() error {
 	if f.GCP != nil && f.GCP.Enabled {
 		// Not required: on GCP the metadata server answers and no key file
 		// exists, which is the better posture of the two.
-		//nolint:forbidigo // FC-GEN-055: this is the startup read
 		f.GCP.CredentialsFile = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 		if len(f.GCP.Projects) == 0 {
 			return fmt.Errorf("gcp source is enabled but gcp.projects is empty")
@@ -146,7 +144,7 @@ func (f *File) validate() error {
 // requireEnv fills dst from the variable env, refusing an enabled source whose
 // credential is unset.
 func requireEnv(dst *string, name, env string) error {
-	*dst = os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
+	*dst = os.Getenv(env)
 	if *dst == "" {
 		return fmt.Errorf("%s source is enabled but $%s is not set", name, env)
 	}
@@ -188,12 +186,12 @@ func (f *File) loadRegistrars() error {
 	for i := range f.Registrars {
 		r := &f.Registrars[i]
 		envs := source.RegistrarProviders[r.Name]
-		r.Token = os.Getenv(envs[0]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		r.Token = os.Getenv(envs[0])
 		if r.Token == "" {
 			return fmt.Errorf("registrar %q is configured but $%s is not set", r.Name, envs[0])
 		}
 		if envs[1] != "" {
-			r.Secret = os.Getenv(envs[1]) //nolint:forbidigo // FC-GEN-055: this is the startup read
+			r.Secret = os.Getenv(envs[1])
 			if r.Secret == "" {
 				return fmt.Errorf("registrar %q is configured but $%s is not set", r.Name, envs[1])
 			}
@@ -212,7 +210,7 @@ func (f *File) loadRotation() error {
 	for i := range f.Rotation {
 		r := &f.Rotation[i]
 		env := source.RotationProviders[r.Name]
-		r.Token = os.Getenv(env) //nolint:forbidigo // FC-GEN-055: this is the startup read
+		r.Token = os.Getenv(env)
 		if r.Token == "" {
 			return fmt.Errorf("rotation provider %q is configured but $%s is not set", r.Name, env)
 		}
@@ -229,9 +227,9 @@ func (v *Vault) load() error {
 		return nil
 	}
 	if v.Addr == "" {
-		v.Addr = os.Getenv("VAULT_ADDR") //nolint:forbidigo // FC-GEN-055: this is the startup read
+		v.Addr = os.Getenv("VAULT_ADDR")
 	}
-	v.Token = os.Getenv("VAULT_TOKEN") //nolint:forbidigo // FC-GEN-055: this is the startup read
+	v.Token = os.Getenv("VAULT_TOKEN")
 	if v.Addr == "" {
 		return fmt.Errorf("vault source is enabled but neither vault.addr nor $VAULT_ADDR is set")
 	}
