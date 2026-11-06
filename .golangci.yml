@@ -57,7 +57,7 @@ linters:
       - path: (^|/)(main|cmd)/
         linters:
           - forbidigo      # composition root reads env and the clock
-      - path: (^|/)internal/config/config\.go$
+      - path: (^|/)internal/config/validate\.go$
         text: os\.Getenv
         linters:
           - forbidigo      # Load is the startup read FC-GEN-055 asks for

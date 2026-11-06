@@ -57,20 +57,21 @@ func RenderAt(w io.Writer, items []rank.Scored, format Format, opts Options) err
 	if opts.Now.IsZero() {
 		opts.Now = time.Now() //nolint:forbidigo // the default for a caller that supplied none
 	}
-	switch format {
-	case FormatTable:
-		return renderTable(w, items)
-	case FormatJSON:
-		return renderJSON(w, items, opts)
-	case FormatICal:
-		return renderICal(w, items, opts)
-	case FormatPrometheus:
-		return renderPrometheus(w, items, opts)
-	case FormatHTML:
-		return renderHTML(w, items, opts)
-	default:
+	render, ok := renderers[format]
+	if !ok {
 		return fmt.Errorf("unknown format %q (want one of %v)", format, Formats)
 	}
+	return render(w, items, opts)
+}
+
+// renderers maps each Format to its renderer. A new format is one entry here
+// and one in Formats.
+var renderers = map[Format]func(io.Writer, []rank.Scored, Options) error{
+	FormatTable:      renderTable,
+	FormatJSON:       renderJSON,
+	FormatICal:       renderICal,
+	FormatPrometheus: renderPrometheus,
+	FormatHTML:       renderHTML,
 }
 
 func displayName(s rank.Scored) string {

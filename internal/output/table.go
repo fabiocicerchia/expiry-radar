@@ -8,7 +8,7 @@ import (
 	"github.com/fabiocicerchia/expiry-radar/internal/rank"
 )
 
-func renderTable(w io.Writer, items []rank.Scored) error {
+func renderTable(w io.Writer, items []rank.Scored, _ Options) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	// tabwriter buffers until Flush, which is what actually reports write errors.
 	//nolint:errcheck // tabwriter buffers; the Flush below is what reports a write error

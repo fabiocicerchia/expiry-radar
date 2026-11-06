@@ -383,6 +383,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "node esbuild.mjs --tests && node --test \"out/**/*.test.js\"",
+    "test:coverage": "node esbuild.mjs --tests && node --enable-source-maps --test --experimental-test-coverage --test-coverage-exclude=\"src/test/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=out/lcov.info \"out/**/*.test.js\"",
     "copy-legal": "node scripts/copy-package-files.mjs",
     "vscode:prepublish": "npm run typecheck && npm test && node esbuild.mjs --production && npm run copy-legal",
     "package": "npx --yes @vscode/vsce@3.9.2 package --no-dependencies",

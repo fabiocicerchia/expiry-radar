@@ -65,9 +65,9 @@ else
 	@echo "removed $(DESTDIR)$(PREFIX)/bin/$(BINARY)"
 endif
 
-## test: run tests
+## test: run tests and write coverage.out (`go tool cover -func=coverage.out` reads it)
 test:
-	go test -race -count=1 ./...
+	go test -race -count=1 -coverprofile=coverage.out ./...
 
 ## tidy: tidy modules
 tidy:
@@ -78,7 +78,7 @@ tidy:
 # reason `test` is not `ext-test`: they are separate projects with their own
 # toolchains, and `clean` should not cost a `npm ci` to undo.
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) coverage.out
 
 setup: ## Install the pre-commit hook
 	pre-commit install

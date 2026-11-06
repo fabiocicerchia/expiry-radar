@@ -55,6 +55,16 @@ var RegistrarProviders = map[string][2]string{
 	"godaddy":  {"GODADDY_API_KEY", "GODADDY_API_SECRET"},
 }
 
+// registrarAdapters maps a registrar name to the adapter that lists its
+// domains. A new registrar is one entry here and one in RegistrarProviders.
+var registrarAdapters = map[string]func(*RegistrarSource, context.Context, *http.Client,
+	RegistrarProvider) ([]registrarDomain, error){
+	"dnsimple": (*RegistrarSource).dnsimple,
+	"gandi":    (*RegistrarSource).gandi,
+	"porkbun":  (*RegistrarSource).porkbun,
+	"godaddy":  (*RegistrarSource).godaddy,
+}
+
 // Name identifies this source in an item's Source field.
 func (s *RegistrarSource) Name() string { return "registrar" }
 
@@ -124,22 +134,11 @@ func (s *RegistrarSource) provider(ctx context.Context, client *http.Client,
 	// An adapter may return domains *and* an error — a truncated read is the
 	// usual case — so both are kept. Taking only the error here would lose
 	// everything that was read, which is the rule this whole tool is built on.
-	var (
-		domains []registrarDomain
-		err     error
-	)
-	switch p.Name {
-	case "dnsimple":
-		domains, err = s.dnsimple(ctx, client, p)
-	case "gandi":
-		domains, err = s.gandi(ctx, client, p)
-	case "porkbun":
-		domains, err = s.porkbun(ctx, client, p)
-	case "godaddy":
-		domains, err = s.godaddy(ctx, client, p)
-	default:
+	read, ok := registrarAdapters[p.Name]
+	if !ok {
 		return nil, fmt.Errorf("unknown registrar %q", p.Name)
 	}
+	domains, err := read(s, ctx, client, p)
 
 	items := make([]Item, 0, len(domains))
 	for _, d := range domains {
