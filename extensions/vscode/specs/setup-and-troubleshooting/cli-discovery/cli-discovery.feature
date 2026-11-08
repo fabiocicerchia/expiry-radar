@@ -22,6 +22,7 @@ Feature: Finding the expiry-radar CLI
   @id:vscode.setup-and-troubleshooting.cli-discovery.002 @rule:cli.discovery.missing-binary-offers-install @inferred @source:extensions/vscode/src/runner.ts#promptInstall
   Scenario: A missing binary comes with an offer to install it
     Given no expiry-radar binary exists in any of the usual locations
+    And the offer has not already been shown since the settings last changed
     When the operator starts a scan
     Then an error says the expiry-radar binary was not found and names the command "go install github.com/fabiocicerchia/expiry-radar/cmd/expiry-radar@latest"
     And the error offers Install, Copy command and Open settings

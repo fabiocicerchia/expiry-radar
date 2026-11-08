@@ -41,13 +41,13 @@ Feature: Sharing a standalone HTML report of the ranked inventory
     And groups appear in the order of their highest-ranked item
 
     Examples:
-      | name                 | kind         | namespace | group            |
-      | example.com          | domain       |           | example.com      |
-      | *.example.com        | tls_cert     |           | example.com      |
-      | api.shop.example.com | tls_cert     | payments  | shop.example.com |
-      | db-password          | secret       | payments  | payments         |
-      | Issuing CA           | intermediate |           | shared chain     |
-      | deploy-token         | api_token    |           | other            |
+      | name                 | kind            | namespace | group            |
+      | example.com          | domain          |           | example.com      |
+      | *.example.com        | tls_cert        |           | example.com      |
+      | api.shop.example.com | tls_cert        | payments  | shop.example.com |
+      | db-password          | secret          | payments  | payments         |
+      | Issuing CA           | intermediate_ca |           | shared chain     |
+      | deploy-token         | secret          |           | other            |
 
   @id:reporting.html-report.005 @rule:reporting.html-report.group-shows-worst-deadline @verified @source:internal/output/html.go#groupRows @test:internal/output/output_test.go#TestHTMLGroupsRowsUnderTheDomainTheyBelongTo
   Scenario: A group's heading shows its most urgent deadline, not its first row's
@@ -77,7 +77,7 @@ Feature: Sharing a standalone HTML report of the ranked inventory
 
   @id:reporting.html-report.007 @rule:reporting.html-report.interactive-filtering @inferred @source:internal/output/report.html.tmpl#controls @questionable
   Scenario Outline: A reader can narrow the report by text, by kind and to the next 30 days
-    Given the report lists a TLS certificate due in 12 days and a domain due in 200 days
+    Given the report lists a TLS certificate "checkout.example.com" due in 12 days and a domain "example.org" due in 200 days
     When a stakeholder chooses the <filter> filter
     Then only <visible> stays visible
     And groups with no visible rows are hidden

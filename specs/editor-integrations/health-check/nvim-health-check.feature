@@ -3,13 +3,13 @@ Feature: Diagnosing the Neovim setup
   Tells an operator why the editor shows nothing or too little: no binary, no usable config, or a source with no way in.
 
   Background:
-    Given Given the operator uses the expiry-radar plugin in Neovim
+    Giventhe operator uses the expiry-radar plugin in Neovim
 
   @id:editor-integrations.health-check.001 @rule:editor.health.binary-is-expiry-radar @verified @source:extensions/nvim/lua/expiry-radar/health.lua#check_binary @test:extensions/nvim/tests/health_spec.lua#does not vouch for something on disk that is not expiry-radar
   Scenario Outline: The health check verifies the binary is really expiry-radar
-    Given Given <binary>
-    When When the operator runs the health check
-    Then Then it reports <report>
+    Given<binary>
+    Whenthe operator runs the health check
+    Thenit reports <report>
 
     Examples:
       | binary                                                                 | report                                                                                                     |
@@ -19,9 +19,9 @@ Feature: Diagnosing the Neovim setup
 
   @id:editor-integrations.health-check.002 @rule:editor.health.config-must-enable-a-source @verified @source:extensions/nvim/lua/expiry-radar/health.lua#M.check_config @test:extensions/nvim/tests/health_spec.lua#says a config it cannot parse is unusable, rather than saying nothing @test:extensions/nvim/tests/health_spec.lua#calls a config that enables nothing an error, not an empty inventory @test:extensions/nvim/tests/health_spec.lua#explains an empty list when there is no config and nothing configured @test:extensions/nvim/tests/health_spec.lua#reports both free sources when the config declares them
   Scenario Outline: The health check says when the config cannot produce an inventory
-    Given Given <config>
-    When When the operator runs the health check
-    Then Then it reports <report>
+    Given<config>
+    Whenthe operator runs the health check
+    Thenit reports <report>
 
     Examples:
       | config                                                                     | report                                                                                                                                            |
@@ -33,10 +33,10 @@ Feature: Diagnosing the Neovim setup
 
   @id:editor-integrations.health-check.003 @rule:editor.health.enabled-source-needs-credentials @verified @source:extensions/nvim/lua/expiry-radar/health.lua#check_vault @test:extensions/nvim/tests/health_spec.lua#warns per source when the environment has nothing to reach it with
   Scenario Outline: The health check warns about an enabled source the environment cannot reach
-    Given Given the config enables <source>
-    And And <environment>
-    When When the operator runs the health check
-    Then Then it warns "<warning>"
+    Giventhe config enables <source>
+    And<environment>
+    Whenthe operator runs the health check
+    Thenit warns "<warning>"
 
     Examples:
       | source                             | environment                            | warning                                                                  |
@@ -47,13 +47,13 @@ Feature: Diagnosing the Neovim setup
 
   @id:editor-integrations.health-check.004 @rule:editor.health.names-limits-hiding-rows @verified @source:extensions/nvim/lua/expiry-radar/health.lua#check_limits @test:extensions/nvim/tests/health_spec.lua#names the collection options that are silently hiding rows
   Scenario: The health check names the options that leave items out
-    Given Given the plugin collects only items within 7 days and with priority at least 0.5
-    When When the operator runs the health check
-    Then Then it notes "collect.within_days is 7 — anything further out is not collected"
-    And And it notes "collect.min_priority is 0.5 — lower-ranked items are not collected"
+    Giventhe plugin collects only items within 7 days and with priority at least 0.5
+    Whenthe operator runs the health check
+    Thenit notes "collect.within_days is 7 — anything further out is not collected"
+    Andit notes "collect.min_priority is 0.5 — lower-ranked items are not collected"
 
   @id:editor-integrations.health-check.005 @rule:editor.health.reports-lost-sources @inferred @source:extensions/nvim/lua/expiry-radar/health.lua#M.check
   Scenario: The health check repeats which sources the last collection lost
-    Given Given the last collection lost the aws source with "aws: AccessDenied"
-    When When the operator runs the health check
-    Then Then it warns "the last collection lost 1 source(s)" with "aws: AccessDenied" as detail
+    Giventhe last collection lost the aws source with "aws: AccessDenied"
+    Whenthe operator runs the health check
+    Thenit warns "the last collection lost 1 source(s)" with "aws: AccessDenied" as detail

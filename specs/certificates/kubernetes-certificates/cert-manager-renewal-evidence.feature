@@ -3,7 +3,7 @@ Feature: Checking that cert-manager renewal is actually working
   Lets an operator see which cluster certificates cert-manager is reliably renewing and which it has failed to issue or renew, so the ones nobody is renewing rise above the ones that will renew themselves.
 
   Background:
-    Given Given cert-manager collection is enabled for the cluster
+    Given cert-manager collection is enabled for the cluster
 
   @id:certificates.kubernetes-certificates.002 @rule:certificates.cert-manager.renewal-evidence-on-issued-secret @verified @source:internal/source/k8scert.go#renewalState @test:internal/source/k8s_test.go#TestAHealthyCertManagerCertificateMarksItsSecretManaged @test:internal/source/k8s_test.go#TestAStuckCertManagerRenewalIsNotMarkedManaged
   Scenario Outline: A certificate cert-manager manages is reported once, carrying whether its renewal is working
@@ -43,7 +43,7 @@ Feature: Checking that cert-manager renewal is actually working
   @id:certificates.kubernetes-certificates.004 @rule:certificates.cert-manager.no-missing-claim-without-reading-secrets @verified @source:internal/source/k8scert.go#certificateItemFor @test:internal/source/k8s_test.go#TestSkippingSecretsDoesNotMakeEveryCertificateLookUnissued @test:internal/source/k8s_test.go#TestUnissuedIsOnlyClaimedForANamespaceWeActuallyRead @test:internal/source/k8s_test.go#TestAnUnreadSecretCannotEarnTheManagedDeRank
   Scenario Outline: A certificate is never called missing or healthy in a namespace whose secrets were not read
     Given the operator's scan <how> the TLS secrets in namespace "staging"
-    And the cert-manager Certificate "dash" in "staging" records an expiry 40 days from now and a renewal 15 days from now, and reports Ready
+    And the cert-manager Certificate "dash" in "staging" should produce the secret "staging/dash-tls", records an expiry 40 days from now and a renewal 15 days from now, and reports Ready
     When the operator runs a scan
     Then the inventory holds a finding "staging/dash-tls" from "k8s:cert-manager" expiring 40 days from now
     And it carries no "missing" secret state

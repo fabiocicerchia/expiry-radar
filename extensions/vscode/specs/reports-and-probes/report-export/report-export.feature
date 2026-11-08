@@ -10,7 +10,7 @@ Feature: Exporting the report to a file
     Given today is 2026-11-08
     When the operator exports the report as <format>
     Then the save dialog suggests expiry-radar-2026-11-08.<ext> in the workspace folder
-    And the file is written with the CLI's <format> output
+    And when the operator keeps the suggested name, the file is written with the CLI's <format> output
     And "expiry-radar: exported to expiry-radar-2026-11-08.<ext>." is shown with an Open action
 
     Examples:

@@ -18,7 +18,7 @@ Feature: Publishing expiries to the team calendar
     Examples:
       | kind     | name                          | source      | expires           | blast | why                                        | priority | day        | next_day   | category |
       | tls_cert | payments/checkout.example.com | k8s:secret  | 2026-08-13T12:00Z | 0.90  | base tls_cert, internet-facing, production | 0.88     | 2026-08-13 | 2026-08-14 | TLS_CERT |
-      | domain   | example.com                   | domain:rdap | 2027-02-17T12:00Z | 0.85  | base domain, internet-facing               | 0.38     | 2027-02-17 | 2027-02-18 | DOMAIN   |
+      | domain   | example.com                   | domain:rdap | 2027-02-17T12:00Z | 0.85  | base domain                                | 0.38     | 2027-02-17 | 2027-02-18 | DOMAIN   |
 
   @id:reporting.calendar-feed.002 @rule:reporting.calendar-feed.alarm-lead-scales-with-blast-radius @verified @source:internal/output/ical.go#alarm @test:internal/output/output_test.go#TestICalIsWellFormed
   Scenario Outline: Items with a larger blast radius are reminded about earlier
@@ -38,7 +38,7 @@ Feature: Publishing expiries to the team calendar
   @id:reporting.calendar-feed.003 @rule:reporting.calendar-feed.event-identity-stable-across-refreshes @verified @source:internal/output/ical.go#uid @test:internal/output/output_test.go#TestICalUIDIsStableAcrossRuns
   Scenario: Refreshing the feed updates existing events instead of duplicating them
     Given the team calendar is subscribed to a feed exported yesterday
-    And the tls_cert "payments/checkout.example.com" still expires on 2026-08-13
+    And the tls_cert "payments/checkout.example.com" from source "k8s:secret" still expires on 2026-08-13
     When the operator exports the inventory as an iCalendar feed again
     Then the item's event keeps the identifier "tls-cert-k8s-secret-payments-checkout-example-com-20260813@expiry-radar"
     And the calendar shows one event for the item, not two

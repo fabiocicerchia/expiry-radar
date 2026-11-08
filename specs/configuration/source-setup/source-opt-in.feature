@@ -22,7 +22,8 @@ Feature: Choosing which sources a scan runs
 
   @id:configuration.source-setup.002 @rule:configuration.sources.listed-targets-are-scanned @verified @source:internal/config/sources.go#Sources @test:internal/config/config_test.go#TestSourcesBuildsOneSourcePerEnabledBlock @test:internal/config/config_test.go#TestEveryConfiguredProviderIsConstructed
   Scenario Outline: Listing endpoints, domains, manual entries, identity providers, registrars or rotation policies is enough to scan them
-    Given the config file lists at least one entry under "<list>" and has no enabled flag for it
+    Given the config file lists at least one valid entry under "<list>" and has no enabled flag for it
+    And any credential that entry needs is set in the environment
     When the operator runs a scan
     Then the "<source>" source is included in the scan
 

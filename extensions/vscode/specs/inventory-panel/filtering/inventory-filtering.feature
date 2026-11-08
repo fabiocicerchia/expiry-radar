@@ -20,7 +20,7 @@ Feature: Filtering the inventory
     And the Kind section lists only Domain and TLS certificate, showing 1 and 2
 
   @id:vscode.inventory-panel.filtering.003 @rule:inventory.filtering.empty-axis-means-all @inferred @source:extensions/vscode/src/inventoryView.ts#InventoryView
-  Scenario Outline: Leaving a whole filter axis unselected shows everything on that axis
+  Scenario Outline: Leaving a whole filter axis unselected, or selecting all of it, shows everything on that axis
     Given the last scan found items of several kinds and deadlines
     When the operator applies the filter with <selection>
     Then <outcome>

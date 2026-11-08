@@ -14,15 +14,15 @@ Feature: Recording an item to track
 
   @id:vscode.tracking-items.add-item.004 @rule:tracking-items.add-item.single-value-defaults-to-selection @verified @source:extensions/vscode/src/prompts.ts#promptValue @test:extensions/vscode/src/test/activate.test.ts#adding an endpoint prompts for it, writes it, and opens the file it wrote
   Scenario Outline: An endpoint or domain is asked for once, starting from the selected text
-    Given the operator has "<selected>" selected in the editor
+    Given the operator has <selected> selected in the editor
     When the operator records a <kind> and accepts the suggested value
     Then an input box titled "<title>" is shown, already filled with "<value>"
     And the config gains the entry <written> under "<array>"
 
     Examples:
-      | kind     | selected             | title                            | value            | written                     | array     |
-      | Endpoint |   shop.example.com   | expiry-radar: record an endpoint | shop.example.com | {"host":"shop.example.com"} | endpoints |
-      | Domain   | example.com          | expiry-radar: record a domain    | example.com      | "example.com"               | domains   |
+      | kind     | selected                                 | title                            | value            | written                     | array     |
+      | Endpoint | "shop.example.com" with spaces around it | expiry-radar: record an endpoint | shop.example.com | {"host":"shop.example.com"} | endpoints |
+      | Domain   | "example.com"                            | expiry-radar: record a domain    | example.com      | "example.com"               | domains   |
 
   @id:vscode.tracking-items.add-item.005 @rule:tracking-items.add-item.blank-value-refused @inferred @source:extensions/vscode/src/prompts.ts#promptValue
   Scenario Outline: A blank host, domain or name cannot be accepted

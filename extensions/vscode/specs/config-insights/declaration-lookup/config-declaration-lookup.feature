@@ -11,7 +11,7 @@ Feature: Locating where tracked items are declared in the config
     When the extension locates where "<name>" is declared
     Then the location is line <line> of the config file
     And the column is the opening quote of "<name>", not the key in front of it
-    And each item in a list of domains gets its own column on that line
+    And other values declared on the same line do not share that column
 
     Examples:
       | kind              | name                 | line |

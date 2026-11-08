@@ -20,7 +20,7 @@ Feature: Ranking expiring items by blast radius
       | TLS certificate | staging-dashboard | environment staging    | 4          | TLS certificate | checkout        | environment production and public exposure | 6           | checkout        |
 
   @id:prioritisation.risk-scoring.002 @rule:prioritisation.ranking.expired-items-lead @verified @source:internal/rank/rank.go#Rank @test:internal/rank/rank_test.go#TestExpiredSortsFirst
-  Scenario: Already-expired items lead the ranking whatever their blast radius
+  Scenario: An already-expired item outranks a far-off item with a bigger blast radius
     Given a domain "example.com" expiring in 200 days
     And a secret "staging/old-token" in environment staging that expired 3 days ago
     When the operator ranks the inventory

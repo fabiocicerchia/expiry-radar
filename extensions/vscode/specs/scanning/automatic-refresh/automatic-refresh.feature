@@ -30,8 +30,8 @@ Feature: Keeping the inventory fresh automatically
 
     Examples:
       | on startup | trigger                 | outcome                                                          |
-      | true       | onConfigSaveAndInterval | about five seconds later a scan starts with the reason "startup" |
-      | true       | interval                | about five seconds later a scan starts with the reason "startup" |
+      | true       | onConfigSaveAndInterval | a few seconds later a scan starts with the reason "startup"      |
+      | true       | interval                | a few seconds later a scan starts with the reason "startup"      |
       | false      | onConfigSaveAndInterval | no scan starts                                                   |
       | true       | manual                  | no scan starts                                                   |
 
@@ -52,7 +52,7 @@ Feature: Keeping the inventory fresh automatically
   Scenario Outline: Periodic refresh runs only when the trigger includes an interval, for the folder in focus
     Given the scan trigger setting is <trigger>
     And the folder of the active editor has a config file
-    When the refresh interval elapses
+    When the refresh interval elapses while the window is focused and no scan finished recently
     Then <outcome>
 
     Examples:

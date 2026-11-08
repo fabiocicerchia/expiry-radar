@@ -35,30 +35,30 @@ Feature: Recording items in the config
 
   @id:vscode.tracking-items.entry-validation.003 @rule:tracking.entry-validation.entries-trimmed @verified @source:extensions/vscode/src/edit.ts#ENTRY_KINDS @test:extensions/vscode/src/test/edit.test.ts#entries are trimmed, so a pasted hostname does not become a name with a space
   Scenario Outline: Recorded hosts and domains are written without surrounding whitespace
-    Given the operator has pasted "<pasted>" as a <kind>
+    Given the operator has pasted <pasted> as a <kind>
     When the operator records the item
     Then the config entry is <written>
 
     Examples:
-      | kind     | pasted             | written                     |
-      | domain   |   example.com \n   | "example.com"               |
-      | endpoint |  shop.example.com  | {"host":"shop.example.com"} |
+      | kind     | pasted                                                   | written                     |
+      | domain   | "example.com" with spaces around it and a trailing newline | "example.com"               |
+      | endpoint | "shop.example.com" with spaces around it                 | {"host":"shop.example.com"} |
 
   @id:vscode.tracking-items.entry-validation.004 @rule:tracking.entry-validation.recorded-vs-discovered @verified @source:extensions/vscode/src/edit.ts#arrayForSource @test:extensions/vscode/src/test/edit.test.ts#a source maps to the array it records into, and discovery maps to none
   Scenario Outline: Only recorded items map to a config entry; discovered items have none to remove
     Given the inventory shows an item found by source <source>
-    When the operator asks to stop tracking the item
+    When the operator wants to stop tracking the item
     Then <outcome>
 
     Examples:
-      | source       | outcome                                                                                          |
-      | tls:endpoint | its entry is looked up under "endpoints" in the config                                           |
-      | domain:rdap  | its entry is looked up under "domains" in the config                                             |
-      | domain:whois | its entry is looked up under "domains" in the config                                             |
-      | manual       | its entry is looked up under "manual" in the config                                              |
-      | k8s:secret   | the warning "could not find the entry for <item> to remove" is shown and the config is unchanged |
-      | aws:acm      | the warning "could not find the entry for <item> to remove" is shown and the config is unchanged |
-      | tls:chain    | the warning "could not find the entry for <item> to remove" is shown and the config is unchanged |
+      | source       | outcome                                                                                 |
+      | tls:endpoint | its entry is looked up under "endpoints" in the config                                  |
+      | domain:rdap  | its entry is looked up under "domains" in the config                                    |
+      | domain:whois | its entry is looked up under "domains" in the config                                    |
+      | manual       | its entry is looked up under "manual" in the config                                     |
+      | k8s:secret   | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
+      | aws:acm      | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
+      | tls:chain    | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
 
   @id:vscode.tracking-items.entry-validation.005 @rule:tracking.entry-validation.manual-kind-choices @inferred @source:extensions/vscode/src/edit.ts#MANUAL_KINDS
   Scenario: A manual item's kind is chosen from the CLI's kinds, each explaining its blast radius

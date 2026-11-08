@@ -3,14 +3,14 @@ Feature: Writing tracked items into the config file
   Operators who add or stop tracking an item from the editor get a minimal, valid edit to their expiry-radar config rather than a rewritten file, so nothing they already declared is lost.
 
   Background:
-    Given the workspace has an expiry-radar config file
+    Given the operator records or removes items for the workspace's expiry-radar config
 
   @id:vscode.tracking-items.config-writing.002 @rule:tracking.config-writing.add-preserves-layout @verified @source:extensions/vscode/src/splice.ts#addToArray @test:extensions/vscode/src/test/edit.test.ts#an entry is appended to a multi-line array, indented like its siblings @test:extensions/vscode/src/test/edit.test.ts#a one-line array stays a one-line array @test:extensions/vscode/src/test/edit.test.ts#an empty array takes the first entry without a stray comma @test:extensions/vscode/src/test/edit.test.ts#four-space and tab indentation are preserved @test:extensions/vscode/src/test/edit.test.ts#a bracket inside a value does not confuse the append
   Scenario Outline: A new entry is added in the layout the array already uses
     Given the config's <array> array is written as <layout>
     When the operator adds <entry> to the <array> array
     Then the <array> array reads <result>
-    And every other line of the config is unchanged
+    And no other entry of the config is changed
     And the config still loads as valid JSON
 
     Examples:
@@ -19,7 +19,7 @@ Feature: Writing tracked items into the config file
       | domains   | one line, empty: []                      | "a.example"                | ["a.example"] with no stray comma                                                     |
       | endpoints | one host per line, indented 4 spaces     | {"host":"api.example.com"} | the new host on its own line, indented 4 spaces, with a comma after the previous host |
       | domains   | one domain per line, indented with tabs  | "b.example"                | the new domain on its own line, indented with the same tabs                           |
-      | domains   | several lines, empty                     | "a.example"                | ["a.example"] on a line of its own                                                    |
+      | domains   | several lines, empty                     | "a.example"                | "a.example" on a line of its own, inside the brackets                                 |
 
   @id:vscode.tracking-items.config-writing.003 @rule:tracking.config-writing.add-keeps-existing-config @verified @source:extensions/vscode/src/splice.ts#addKey @test:extensions/vscode/src/test/edit.test.ts#a missing key is added to the object rather than replacing it @test:extensions/vscode/src/test/edit.test.ts#an empty or absent config becomes a config
   Scenario Outline: Adding the first item of a kind keeps everything already in the config
@@ -39,6 +39,7 @@ Feature: Writing tracked items into the config file
   @id:vscode.tracking-items.config-writing.004 @rule:tracking.config-writing.non-object-config-replaced @inferred @source:extensions/vscode/src/splice.ts#addKey @questionable
   Scenario: A config that does not start with an object is replaced by a new one
     Given the config file has content that does not begin with "{", such as a leading comment or a bare list
+    And the file has no "domains" list
     When the operator adds the domain "a.example"
     Then the whole file is overwritten with a new config holding only the "domains" list with "a.example"
     And everything the file held before is gone
@@ -55,7 +56,7 @@ Feature: Writing tracked items into the config file
     Given the config's <array> list holds <entries>, one per line
     When the operator stops tracking <target>
     Then the <array> list holds <remaining>
-    And no blank line is left where the entry was
+    And, unless the list is left empty, no blank line is left where the entry was
     And the config still loads as valid JSON
 
     Examples:
@@ -68,22 +69,22 @@ Feature: Writing tracked items into the config file
 
   @id:vscode.tracking-items.config-writing.007 @rule:tracking.config-writing.remove-bounded-to-entry @verified @source:extensions/vscode/src/splice.ts#removeEntry @test:extensions/vscode/src/test/edit.test.ts#a one-line config loses one entry, not the whole document @test:extensions/vscode/src/test/edit.test.ts#removal never reaches outside the array it was given
   Scenario Outline: Removing an item never removes anything outside that one entry
-    Given the config is written on <layout>, with endpoints, domains and manual entries
-    When the operator stops tracking the endpoint "a.example"
+    Given the config is written on <layout>
+    When the operator stops tracking "a.example"
     Then only "a.example" is gone
-    And every other domain, endpoint and manual entry is still in the config
+    And every other entry is still in the config
 
     Examples:
-      | layout                                                                               |
-      | a single line, { "domains": ["a.example", "b.example"] } (removing domain a.example) |
-      | one line per list                                                                    |
+      | layout                                                                                          |
+      | a single line, { "domains": ["a.example", "b.example"] } (removing domain a.example)            |
+      | one line per list, with endpoints, domains and manual entries (removing endpoint a.example)     |
 
   @id:vscode.tracking-items.config-writing.008 @rule:tracking.config-writing.remove-refuses-unknown-position @verified @source:extensions/vscode/src/splice.ts#removeEntry @test:extensions/vscode/src/test/edit.test.ts#a position naming no entry is refused rather than guessed at
   Scenario Outline: Removal is refused when the recorded position no longer names an entry
     Given the item "a.example" was recorded at a position in the config that now <mismatch>
     When the operator stops tracking "a.example"
     Then the config file is left untouched
-    And a warning reads "expiry-radar: could not find the entry for a.example to remove."
+    And a warning reads either "expiry-radar: expiry-radar.json has changed since the last collection — refresh and try again." or "expiry-radar: could not find the entry for a.example to remove."
 
     Examples:
       | mismatch                                   |

@@ -105,4 +105,4 @@ Feature: Running a scan from the command line
     Examples:
       | flags                             | message                                                  |
       | -out /nonexistent-dir/report.html | an error that the file could not be created              |
-      | -format pdf                       | "expiry-radar: unknown format \"pdf\" (want one of ...)" |
+      | -format pdf                       | 'expiry-radar: unknown format "pdf" (want one of [table json ical prometheus html])' |

@@ -10,7 +10,7 @@ Feature: Reading the ranked inventory in the terminal
     Given the inventory holds a TLS certificate "checkout.example.com" in namespace "payments" from source "k8s:secret" expiring in 12 days
     And ranking gave it priority 0.88 and blast radius 0.9 because it is "base tls_cert, internet-facing, production"
     When the operator views the scan results
-    Then the header reads "PRIORITY  BLAST  EXPIRES IN  KIND  NAME  SOURCE  WHY"
+    Then the header shows the aligned columns PRIORITY, BLAST, EXPIRES IN, KIND, NAME, SOURCE and WHY
     And the certificate's row shows "0.88", "0.90", "12d", "tls_cert", "payments/checkout.example.com", "k8s:secret" and "base tls_cert, internet-facing, production"
     And rows appear in the order the ranking produced
 

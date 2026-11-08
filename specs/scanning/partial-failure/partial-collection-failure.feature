@@ -33,7 +33,7 @@ Feature: Keeping findings when part of a scan fails
 
   @id:scanning.partial-failure.007 @rule:scanning.partial-failure.skipped-service-is-not-a-failure @verified @source:internal/source/source.go#collectUnits @test:internal/source/k8s_test.go#TestASkippedResourceIsNotAFailure @test:internal/source/awsverify_test.go#TestASkippedServiceIsNotAFailure
   Scenario: A service the operator did not enable is skipped without a warning
-    Given the operator has not enabled webhook CA collection for the cluster
+    Given the operator has not enabled trust-anchor collection (webhook, API service and mesh CAs) for the cluster
     And the cluster has TLS secret "prod/shop-tls"
     When the operator runs a scan
     Then the inventory contains "prod/shop-tls"

@@ -4,12 +4,13 @@ Feature: Status bar summary of what expires next
 
   Background:
     Given the extension is running in a workspace with an expiry-radar config
-    And the status bar warning window ("expiry-radar.status.warnWithinDays") is 14 days
+    And the status bar warning window ("expiryRadar.status.warnWithinDays") is 14 days
 
   @id:vscode.inventory-panel.attention-indicators.003 @rule:inventory.status-bar.shows-soonest-deadline @inferred @source:extensions/vscode/src/status.ts#StatusBar
   Scenario Outline: The status bar shows the soonest deadline, coloured by how close it is
     Given the latest inventory holds an item "api.example.com" whose soonest deadline is <days_left> days away
     And every other item expires later than "api.example.com"
+    And every source was read without failing
     When the operator looks at the status bar
     Then the status bar reads "<text>"
     And the status bar uses the <icon> icon
@@ -25,10 +26,10 @@ Feature: Status bar summary of what expires next
   @id:vscode.inventory-panel.attention-indicators.004 @rule:inventory.status-bar.tooltip-explains-next-item @inferred @source:extensions/vscode/src/status.ts#StatusBar
   Scenario: The status bar tooltip explains the next item to expire and how many are tracked
     Given the latest inventory tracks 12 items, 2 of which have already expired
-    And the soonest is the TLS certificate "pay.example.com" from the "tls" source, blast radius 0.92, "serves the payment path"
+    And the soonest is the TLS certificate "pay.example.com" from the "tls:endpoint" source, blast radius 0.92, "serves the payment path"
     When the operator hovers over the status bar
     Then the tooltip starts with "Next: pay.example.com" and its time left
-    And the tooltip names the item's kind and its source "tls"
+    And the tooltip names the item's kind and its source "tls:endpoint"
     And the tooltip reads "Blast radius 0.92: serves the payment path"
     And the tooltip reads "Tracking 12 item(s), 2 already expired."
     And the tooltip ends with "Click to open the report."

@@ -50,8 +50,8 @@ Feature: Tracking AWS expiries beyond certificates, keys and secrets
     Examples:
       | denied                                | listed                                                                               | warning                                               |
       | nothing is denied                     | "server-cert/legacy-elb" as a TLS certificate and "saml/corp-okta" as a trust anchor | no warning for this service                           |
-      | listing server certificates is denied | only "saml/corp-okta" as a trust anchor                                              | a warning beginning "iam-certs: server certificates:" |
-      | listing SAML providers is denied      | only "server-cert/legacy-elb" as a TLS certificate                                   | a warning beginning "iam-certs: saml providers:"      |
+      | listing server certificates is denied | only "saml/corp-okta" as a trust anchor                                              | a warning containing "iam-certs: server certificates:" |
+      | listing SAML providers is denied      | only "server-cert/legacy-elb" as a TLS certificate                                   | a warning containing "iam-certs: saml providers:"      |
 
   @id:cloud-providers.aws-coverage-gaps.005 @rule:cloud.aws-gaps.route53-auto-renew-is-managed-renewal @verified @source:internal/source/awsgaps.go#route53Domains @test:internal/source/awsgaps_test.go#TestRoute53DomainsAutoRenewIsDeRanked
   Scenario Outline: A Route 53 domain on auto-renew is marked as managed renewal; every registration counts as public

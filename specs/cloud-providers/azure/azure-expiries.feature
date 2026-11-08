@@ -8,7 +8,7 @@ Feature: Finding what expires in Entra ID and Key Vault
   @id:cloud-providers.azure.001 @rule:cloud-providers.azure.app-registration-credentials-reported @verified @source:internal/source/azure.go#azureCredentialItems @test:internal/source/identity_test.go#TestAzureReportsAppRegistrationSecretsAndCertificates
   Scenario: App registration client secrets and certificates are each reported with their own expiry
     Given app registration "payments-api" has a client secret "ci-secret" ending 2026-11-28
-    And and a certificate credential "signing-cert" with usage "Sign" ending 2026-11-28
+    And a certificate credential "signing-cert" with usage "Sign" ending 2026-11-28
     When the operator runs a scan
     Then "payments-api/ci-secret" is listed as a secret from source "azure:app" labelled credential "client secret"
     And "payments-api/signing-cert" is listed as a TLS certificate labelled credential "certificate"
@@ -31,7 +31,7 @@ Feature: Finding what expires in Entra ID and Key Vault
   @id:cloud-providers.azure.004 @rule:cloud-providers.azure.off-host-continuation-refused @verified @source:internal/source/azure.go#sameHost @test:internal/source/identity_test.go#TestAzureWillNotFollowAContinuationURLToAnotherHost @questionable
   Scenario: A continuation link to another host is not followed, and the scan says so
     Given the first page of app registrations lists "app/s"
-    And and that page's continuation link points at https://attacker.example/v1.0/applications
+    And that page's continuation link points at https://attacker.example/v1.0/applications
     When the operator runs a scan
     Then no request carrying the Azure token is sent to attacker.example
     And the scan reports "the API returned a continuation URL on another host"

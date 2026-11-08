@@ -7,7 +7,7 @@ Feature: Copying an item's details
 
   @id:vscode.inventory-panel.item-actions.001 @rule:panel.item.copy-details @inferred @source:extensions/vscode/src/commands.ts#Commands
   Scenario: Copying an item puts its deadline, reason and details on the clipboard
-    When the operator copies "shop.example.com:443"
-    Then the clipboard's first line is "shop.example.com:443 — <time left>"
+    When the operator chooses "Copy Details" on "shop.example.com:443"
+    Then the clipboard's first line is "shop.example.com:443 — 12d"
     And the next line is why it is ranked where it is
     And each further line is one of the item's details

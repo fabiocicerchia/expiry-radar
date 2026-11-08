@@ -18,4 +18,4 @@ Feature: Probing a single host
   Scenario: A probe that finds nothing says so, with the CLI's warnings
     Given the host "gone.example.com" does not answer and its domain lookup fails
     When the operator probes "gone.example.com"
-    Then the warning "expiry-radar: nothing came back for gone.example.com — <warnings>." is shown
+    Then a warning starting "expiry-radar: nothing came back for gone.example.com" is shown, followed by the CLI's source warnings joined by "; "

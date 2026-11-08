@@ -7,7 +7,7 @@ Feature: Tracking GitHub token and signing-key expiry
 
   @id:credentials.code-hosting-tokens.001 @rule:credentials.github.gpg-denial-message @inferred @source:internal/source/github.go#ghGet @questionable
   Scenario: A denied GPG key listing is reported with the organization-owner hint
-    Given the token lacks permission to read the user's GPG keys
+    Given GitHub refuses the token's request for the user's GPG keys with 403 Forbidden
     When the operator runs a scan
     Then the run warns "gpg-keys: GET /user/gpg_keys: 403 Forbidden — listing an organization's tokens needs an owner credential"
     And no GPG keys are reported

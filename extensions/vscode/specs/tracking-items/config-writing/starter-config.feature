@@ -9,7 +9,7 @@ Feature: Creating a starter config file
   Scenario Outline: A new config is seeded from the repository example, or from a minimal default
     Given the folder <example_state>
     When the operator opens the config and chooses "Create it"
-    Then expiry-radar.json is created with <contents>
+    Then the config file is created at the configured config path, or as expiry-radar.json, with <contents>
     And it opens in the editor
     And an existing file at that path is never overwritten
 

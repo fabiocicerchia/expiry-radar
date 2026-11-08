@@ -15,7 +15,7 @@ Feature: Grouping the inventory by kind
     And inside each group items keep their ranked order and rows no longer repeat the kind
 
   @id:vscode.inventory-panel.grouping.002 @rule:inventory.grouping.expand-all-reopens-groups @inferred @source:extensions/vscode/src/inventoryView.ts#InventoryView
-  Scenario: Expand All reopens every group, and hand-collapsed groups otherwise stay collapsed
+  Scenario: Expand All reopens every group, including ones collapsed by hand
     Given the inventory is grouped by kind
     And the operator collapsed the "Secret" group by hand
     When the operator chooses Expand All

@@ -15,4 +15,4 @@ Feature: Pointing recorded items at their config line
       | domain:rdap  | is     |
       | domain:whois | is     |
       | manual       | is     |
-      | k8s:ingress  | is not |
+      | k8s:secret   | is not |

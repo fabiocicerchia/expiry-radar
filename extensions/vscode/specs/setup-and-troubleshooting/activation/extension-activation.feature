@@ -6,5 +6,5 @@ Feature: Extension activation
   Scenario: Every command the extension advertises can be run
     Given the extension manifest lists the expiry-radar commands
     When the editor activates the extension
-    Then every listed expiry-radar command can be run from the command palette
+    Then every listed expiry-radar command is available to run
     And no command is available that the manifest does not list

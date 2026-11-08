@@ -44,7 +44,7 @@ Feature: Declaring expiries by hand
 
   @id:configuration.manual-inventory.004 @rule:configuration.manual-inventory.every-kind-declarable @verified @source:internal/source/manual.go#Kinds @test:internal/source/manual_test.go#TestValidateManualAcceptsEveryKindTheToolReports
   Scenario Outline: Every kind the tool reports can be declared by hand
-    Given a manual entry of kind "<kind>" expiring "2027-03-01"
+    Given a named manual entry of kind "<kind>" expiring "2027-03-01"
     When the operator runs a scan with that config file
     Then the configuration is accepted
     And the entry is reported with kind "<kind>"

@@ -3,7 +3,7 @@ Feature: Diagnosing an empty or short inventory
   Serves the operator who got an empty or suspiciously small panel by explaining, in the log and a one-line summary, what stops a scan running or limits its results.
 
   Background:
-    Given the operator runs the doctor for a workspace folder
+    Given a workspace folder is open
 
   @id:vscode.setup-and-troubleshooting.environment-check.001 @rule:setup.doctor.summary-reflects-worst-finding @verified @source:extensions/vscode/src/doctor.ts#runDoctor @test:extensions/vscode/src/test/doctor.test.ts#a binary that runs and a config with both free sources reads clean @test:extensions/vscode/src/test/doctor.test.ts#something on disk that is not expiry-radar is named, not trusted @test:extensions/vscode/src/test/doctor.test.ts#a config that enables nothing at all is an error, and the summary says so
   Scenario Outline: The doctor's summary reflects its most serious finding
@@ -29,7 +29,7 @@ Feature: Diagnosing an empty or short inventory
 
   @id:vscode.setup-and-troubleshooting.environment-check.003 @rule:setup.doctor.foreign-binary-is-warned @verified @source:extensions/vscode/src/doctor.ts#checkBinaryIsRadar @test:extensions/vscode/src/test/doctor.test.ts#something on disk that is not expiry-radar is named, not trusted
   Scenario: A binary that does not look like expiry-radar is named, not trusted
-    Given the configured binary runs but its usage text does not mention expiry-radar
+    Given the binary the extension found runs but its usage text does not mention expiry-radar
     When the operator runs the doctor
     Then the report says "! <binary path> ran, but does not look like expiry-radar"
     And the report quotes the first line the binary printed
@@ -77,8 +77,8 @@ Feature: Diagnosing an empty or short inventory
   @id:vscode.setup-and-troubleshooting.environment-check.007 @rule:setup.doctor.shrinking-settings-noted @inferred @source:extensions/vscode/src/doctor.ts#noteSettings
   Scenario: Settings that narrow what a scan collects are pointed out without raising the summary
     Given "expiryRadar.view.withinDays" is 30
-    And "expiryRadar.view.minPriority" is 2
+    And "expiryRadar.view.minPriority" is 0.5
     When the operator runs the doctor
     Then the report says "· \"expiryRadar.view.withinDays\" is 30 — anything further out is not collected"
-    And the report says "· \"expiryRadar.view.minPriority\" is 2 — lower-ranked items are not collected"
+    And the report says "· \"expiryRadar.view.minPriority\" is 0.5 — lower-ranked items are not collected"
     And these notes alone leave the summary at "everything the doctor checks looks fine"

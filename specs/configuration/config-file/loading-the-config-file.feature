@@ -13,9 +13,9 @@ Feature: Loading the config file
     And the error names "expiry-radar.json" and says "<message>"
 
     Examples:
-      | content                                               | message          |
-      | a truncated document {"domains": [                    | unexpected EOF   |
-      | a list where text is given {"domains": "example.com"} | cannot unmarshal |
+      | content                                                  | message          |
+      | a truncated document {"domains": [                       | unexpected EOF   |
+      | text where a list is expected {"domains": "example.com"} | cannot unmarshal |
 
   @id:configuration.config-file.002 @rule:configuration.config-file.unknown-key-refused @verified @source:internal/config/config.go#Load @test:internal/config/config_test.go#TestLoadRejectsConfigsThatWouldSilentlyScanLess
   Scenario: A misspelt key in the config file is refused instead of silently disabling a source

@@ -9,4 +9,4 @@ Feature: Tracking domains and certificates held at Namecheap
   Scenario: An unallowlisted machine is told it is the IP, not the credentials
     Given the machine running the scan is not on the Namecheap account's IP allowlist
     When the operator runs a scan
-    Then the scan reports error 1011150 followed by "(this machine's public IP is not allowlisted in the Namecheap account)"
+    Then the scan reports Namecheap error 1011150 with its message and the note "(this machine's public IP is not allowlisted in the Namecheap account)"

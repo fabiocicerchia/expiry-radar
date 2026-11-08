@@ -15,7 +15,7 @@ Feature: Acting on an inventory item
   Scenario Outline: Only items recorded in the config file can be removed from the panel
     Given the item "<item>" was <origin>
     When the operator opens the item's context menu
-    Then Remove Item is <availability>
+    Then "Stop Tracking This Item" is <availability>
 
     Examples:
       | item                | origin                       | availability |

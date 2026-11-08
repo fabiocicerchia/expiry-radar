@@ -12,7 +12,7 @@ Feature: Seeing what expires in priority order
     And it found a TLS certificate "staging.example.com" expiring in 5 days with priority 0.20
     When the operator looks at the inventory panel in its default grouping
     Then the list reads "db-password", "pay.example.com", "staging.example.com" in that order
-    And each row shows the days left, the kind, the source and the priority, e.g. "5d · TLS certificate · k8s · p 0.90"
+    And each row shows the days left, the kind, the source and the priority, e.g. "5d · TLS certificate · k8s:secret · p 0.90"
 
   @id:vscode.inventory-panel.ranked-list.002 @rule:inventory.panel.severity-icon @inferred @source:extensions/vscode/src/inventoryView.ts#ICONS
   Scenario Outline: Each item's icon shows how close its deadline is
@@ -29,7 +29,7 @@ Feature: Seeing what expires in priority order
 
   @id:vscode.inventory-panel.ranked-list.003 @rule:inventory.panel.item-tooltip-explains-rank @inferred @source:extensions/vscode/src/inventoryView.ts#InventoryView
   Scenario: An item's tooltip explains why it ranks where it does
-    Given the last scan found the TLS certificate "pay.example.com" expiring on 2026-11-20 with blast radius 0.85, discovered by the "k8s" source, labelled env=prod
+    Given the last scan found the TLS certificate "pay.example.com" expiring on 2026-11-20 with blast radius 0.85, discovered by the "k8s:secret" source, labelled env=prod
     When the operator hovers over the item
     Then the tooltip shows the name, the days left and the reason it was ranked
     And it shows the kind, source, expiry date 2026-11-20, priority and blast radius 0.85

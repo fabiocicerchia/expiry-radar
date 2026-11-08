@@ -30,9 +30,9 @@ Feature: Running a collection
 
   @id:vscode.scanning.on-demand-scan.006 @rule:scanning.run.no-sources-is-an-error-not-empty @verified @source:extensions/vscode/src/runner.ts#runRadar @test:extensions/vscode/src/test/contract.test.ts#a run with no sources at all is an error, not an empty inventory
   Scenario: A run with nothing to collect is an error, never an empty inventory
-    Given the run has no config file, no hosts and no domains to check
-    When the operator probes without naming a host
-    Then the scan fails with a message containing "exit 2"
+    Given the run may not read the config file and names no hosts and no domains to check
+    When the CLI is run
+    Then the run fails with a message containing "exit 2"
     And the panel does not show an empty inventory
 
   @id:vscode.scanning.on-demand-scan.007 @rule:scanning.run.timeout-past-cli-budget @inferred @source:extensions/vscode/src/runner.ts#runRadar
