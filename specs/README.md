@@ -4,6 +4,7 @@ What this code does, one atomic Gherkin scenario per behaviour, read from the co
 Tags: `@verified` a test asserts it · `@inferred` read from the code only · `@gap` an entry point no test covers · `@human` written or amended by a person, never rewritten.
 
 ## Certificates and trust
+
 Finding TLS certificates, CAs and signing certificates before they lapse.
 
 - **App signing**: [Tracking Apple signing certificates and provisioning profiles](certificates/app-signing/apple-signing-expiry.feature) (2)
@@ -13,6 +14,7 @@ Finding TLS certificates, CAs and signing certificates before they lapse.
 - **TLS endpoints**: [Reading certificates from live TLS endpoints](certificates/tls-endpoints/tls-endpoint-certificates.feature) (7)
 
 ## Cloud providers
+
 Read-only inventory of expiring resources in each cloud and edge platform.
 
 - **AWS**: [Collecting expiring items from AWS](cloud-providers/aws/aws-expiry-collection.feature) (2)
@@ -24,6 +26,7 @@ Read-only inventory of expiring resources in each cloud and edge platform.
 - **Other clouds and CDNs**: [Tracking Scaleway domains, load-balancer certificates and API keys](cloud-providers/other-clouds/scaleway-expiries.feature) (2)
 
 ## Configuration
+
 Telling the tool what to scan and what each thing means to the business.
 
 - **Config file**: [Loading the config file](configuration/config-file/loading-the-config-file.feature) (3)
@@ -32,6 +35,7 @@ Telling the tool what to scan and what each thing means to the business.
 - **Validation**: [Validating federation provider configuration](configuration/validation/federation-provider-validation.feature) (1), [Refusing source configuration that cannot scan](configuration/validation/refusing-unusable-source-config.feature) (1)
 
 ## Secrets and credentials
+
 Tracking tokens, keys, leases and secrets that expire or must be rotated.
 
 - **Code-hosting tokens**: [Tracking GitHub token and signing-key expiry](credentials/code-hosting-tokens/github-credentials.feature) (1), [Tracking GitLab tokens and Pages certificates](credentials/code-hosting-tokens/gitlab-tokens-and-pages-certificates.feature) (3)
@@ -40,18 +44,21 @@ Tracking tokens, keys, leases and secrets that expire or must be rotated.
 - **Rotation policy**: [Marking rotation-policy deadlines](credentials/rotation-policy/policy-deadline-labelling.feature) (1), [Giving never-expiring API keys a rotation deadline](credentials/rotation-policy/rotation-policy-deadlines.feature) (8)
 
 ## Developer tooling
+
 Building, testing, installing and verifying the tool itself.
 
 - **Build and install**: [Installing expiry-radar from a checkout](developer-tooling/build-and-install/installing-from-a-checkout.feature) (5)
 - **Live account verification**: [Verifying the AWS adapters against a live account](developer-tooling/live-verification/aws-live-verification.feature) (2)
 
 ## Domain names
+
 Knowing when domain registrations lapse and whether they will auto-renew.
 
 - **Public registration lookup**: [Reading domain registration expiry](domains/rdap-lookup/domain-registration-expiry.feature) (1)
 - **Registrar accounts**: [Tracking domains and certificates held at Namecheap](domains/registrar-accounts/namecheap-registrar.feature) (1), [Reading domain renewal status from registrar accounts](domains/registrar-accounts/registrar-renewal-status.feature) (1)
 
 ## Editor integrations
+
 Seeing and acting on the inventory from inside Neovim and VS Code.
 
 - **Editing entries**: [Recording and removing entries from Neovim](editor-integrations/editing-entries/nvim-editing-entries.feature) (6)
@@ -61,11 +68,13 @@ Seeing and acting on the inventory from inside Neovim and VS Code.
 - **Running scans**: [Running collections from Neovim](editor-integrations/scheduled-scans/nvim-running-scans.feature) (8)
 
 ## Blast-radius ranking
+
 Ordering the inventory by how much breaks when each item lapses, not just by date.
 
 - **Risk scoring**: [Ranking expiring items by blast radius](prioritisation/risk-scoring/blast-radius-ranking.feature) (8)
 
 ## Reports and exports
+
 Presenting the ranked inventory to people and to other systems.
 
 - **Calendar feed**: [Publishing expiries to the team calendar](reporting/calendar-feed/calendar-feed.feature) (6)
@@ -76,6 +85,7 @@ Presenting the ranked inventory to people and to other systems.
 - **Terminal table**: [Reading the ranked inventory in the terminal](reporting/terminal-table/ranked-terminal-table.feature) (3)
 
 ## Scanning
+
 How a run collects every expiring thing from every configured source and merges it into one inventory.
 
 - **Concurrent collection**: [Collecting every source under one deadline](scanning/collection/concurrent-collection.feature) (2)
