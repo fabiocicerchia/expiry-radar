@@ -2686,14 +2686,6 @@
   ],
   "source/aws": [
    {
-    "from_source": "internal/source/source.go#collectUnits",
-    "rule": "aws.collection.denied-service-keeps-others"
-   },
-   {
-    "from_source": "internal/source/source.go#collectUnits",
-    "rule": "aws.collection.partial-results-kept-and-flagged"
-   },
-   {
     "from_source": "internal/source/source.go#policyDeadline",
     "rule": "aws.iam.access-key-rotation-deadline"
    }
@@ -2717,12 +2709,7 @@
    }
   ],
   "source/cloudflare-api": [],
-  "source/digitalocean": [
-   {
-    "from_source": "internal/config/validate.go#requireEnv",
-    "rule": "cloud-providers.digitalocean.token-required"
-   }
-  ],
+  "source/digitalocean": [],
   "source/fastly": [
    {
     "from_source": "internal/source/source.go#collectUnits",
@@ -2828,14 +2815,20 @@
   ],
   "source/source": [],
   "source/tls": [],
-  "source/vault": [
-   {
-    "from_source": "docs/vault-readonly-policy.hcl",
-    "rule": "credentials.vault.read-only-policy-suffices"
-   }
-  ]
+  "source/vault": []
  },
- "retired": [],
+ "retired": [
+  "cloud-providers.other-clouds.001",
+  "cloud-providers.aws.001",
+  "cloud-providers.aws.002",
+  "configuration.source-setup.004",
+  "developer-tooling.live-verification.001",
+  "developer-tooling.live-verification.002",
+  "reporting.format-selection.001",
+  "reporting.format-selection.003",
+  "reporting.terminal-table.003",
+  "credentials.vault.001"
+ ],
  "scenarios": {
   "certificates.app-signing.001": {
    "file": "specs/certificates/app-signing/apple-signing-expiry.feature",
@@ -3165,31 +3158,6 @@
    "test": "",
    "tests": []
   },
-  "cloud-providers.aws.001": {
-   "file": "specs/cloud-providers/aws/aws-expiry-collection.feature",
-   "fingerprint": "06ad20a95cc0",
-   "human": false,
-   "rule": "aws.collection.denied-service-keeps-others",
-   "source": "internal/source/aws.go#collectServices",
-   "status": "verified",
-   "test": "internal/source/awsverify_test.go#TestOneDeniedServiceKeepsTheOthersFindings",
-   "tests": [
-    "internal/source/awsverify_test.go#TestOneDeniedServiceKeepsTheOthersFindings"
-   ]
-  },
-  "cloud-providers.aws.002": {
-   "file": "specs/cloud-providers/aws/aws-expiry-collection.feature",
-   "fingerprint": "e7b1398416ba",
-   "human": false,
-   "rule": "aws.collection.partial-results-kept-and-flagged",
-   "source": "internal/source/source.go#collectUnits",
-   "status": "verified",
-   "test": "internal/source/awsverify_test.go#TestPartialItemsFromAFailingServiceAreStillKept",
-   "tests": [
-    "internal/source/awsverify_test.go#TestPartialItemsFromAFailingServiceAreStillKept",
-    "internal/source/aws_test.go#TestAWSSourceReportsAnIAMFailureRatherThanASilentlyShortList"
-   ]
-  },
   "cloud-providers.aws.003": {
    "file": "specs/cloud-providers/aws/aws-expiry-collection.feature",
    "fingerprint": "b312b6a664de",
@@ -3372,18 +3340,6 @@
    "test": "",
    "tests": []
   },
-  "cloud-providers.other-clouds.001": {
-   "file": "specs/cloud-providers/other-clouds/digitalocean-certificates.feature",
-   "fingerprint": "1c209e6f13ed",
-   "human": false,
-   "rule": "cloud-providers.digitalocean.token-required",
-   "source": "internal/config/validate.go#requireEnv",
-   "status": "verified",
-   "test": "internal/source/hosting_test.go#TestHostingSourcesNeedTheirCredentialBeforeRunning",
-   "tests": [
-    "internal/source/hosting_test.go#TestHostingSourcesNeedTheirCredentialBeforeRunning"
-   ]
-  },
   "cloud-providers.other-clouds.002": {
    "file": "specs/cloud-providers/other-clouds/scaleway-expiries.feature",
    "fingerprint": "d313ca1abb6e",
@@ -3528,19 +3484,6 @@
    "test": "internal/config/config_test.go#TestEveryConfiguredProviderIsConstructed",
    "tests": [
     "internal/config/config_test.go#TestEveryConfiguredProviderIsConstructed"
-   ]
-  },
-  "configuration.source-setup.004": {
-   "file": "specs/configuration/source-setup/source-opt-in.feature",
-   "fingerprint": "4dee3b1dd70b",
-   "human": false,
-   "rule": "configuration.sources.empty-config-scans-nothing",
-   "source": "internal/config/sources.go#Sources",
-   "status": "verified",
-   "test": "internal/config/config_test.go#TestNothingIsEnabledImplicitly",
-   "tests": [
-    "internal/config/config_test.go#TestNothingIsEnabledImplicitly",
-    "cmd/expiry-radar/e2e_test.go#TestE2ENoSourcesIsAUsageError"
    ]
   },
   "configuration.validation.001": {
@@ -3763,18 +3706,6 @@
     "internal/source/rotation_test.go#TestARotationDeadlineSaysItIsAPolicyNotAnIssuerDate"
    ]
   },
-  "credentials.vault.001": {
-   "file": "specs/credentials/vault/vault-expiry.feature",
-   "fingerprint": "06bf675b4479",
-   "human": false,
-   "rule": "credentials.vault.read-only-policy-suffices",
-   "source": "internal/source/vault.go#VaultSource",
-   "status": "verified",
-   "test": "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest",
-   "tests": [
-    "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest"
-   ]
-  },
   "developer-tooling.build-and-install.001": {
    "file": "specs/developer-tooling/build-and-install/installing-from-a-checkout.feature",
    "fingerprint": "16bed69eefe0",
@@ -3821,26 +3752,6 @@
    "human": false,
    "rule": "tooling.editor-test.runs-against-fresh-binary",
    "source": "Makefile#ext-test",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "developer-tooling.live-verification.001": {
-   "file": "specs/developer-tooling/live-verification/verifying-aws-adapters.feature",
-   "fingerprint": "5704837466d0",
-   "human": false,
-   "rule": "verification.aws.requires-aws-source",
-   "source": "cmd/expiry-radar/main.go#runVerifyAWS",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "developer-tooling.live-verification.002": {
-   "file": "specs/developer-tooling/live-verification/verifying-aws-adapters.feature",
-   "fingerprint": "5704837466d0",
-   "human": false,
-   "rule": "verification.aws.exit-status-reflects-checks",
-   "source": "cmd/expiry-radar/main.go#runVerifyAWS",
    "status": "inferred",
    "test": "",
    "tests": []
@@ -4459,22 +4370,6 @@
     "internal/output/output_test.go#TestICalIsWellFormed"
    ]
   },
-  "reporting.format-selection.001": {
-   "file": "specs/reporting/format-selection/choosing-a-report-format.feature",
-   "fingerprint": "3aa6b251d723",
-   "human": false,
-   "rule": "reporting.format.supported-formats",
-   "source": "internal/output/output.go#RenderAt",
-   "status": "verified",
-   "test": "internal/output/output_test.go#TestTableShowsWhy",
-   "tests": [
-    "internal/output/output_test.go#TestTableShowsWhy",
-    "internal/output/output_test.go#TestJSONCountsExpired",
-    "internal/output/output_test.go#TestICalIsWellFormed",
-    "internal/output/output_test.go#TestPrometheusExposition",
-    "internal/output/output_test.go#TestHTMLReportIsSelfContainedAndFlagsTheDeadline"
-   ]
-  },
   "reporting.format-selection.002": {
    "file": "specs/reporting/format-selection/choosing-a-report-format.feature",
    "fingerprint": "3aa6b251d723",
@@ -4485,20 +4380,6 @@
    "test": "internal/output/output_test.go#TestUnknownFormatIsAnError",
    "tests": [
     "internal/output/output_test.go#TestUnknownFormatIsAnError"
-   ]
-  },
-  "reporting.format-selection.003": {
-   "file": "specs/reporting/format-selection/choosing-a-report-format.feature",
-   "fingerprint": "7f29f20a713e",
-   "human": false,
-   "rule": "reporting.time-left.expired-never-reads-as-zero",
-   "source": "internal/output/output.go#humanDays",
-   "status": "verified",
-   "test": "internal/output/output_test.go#TestTableShowsWhy",
-   "tests": [
-    "internal/output/output_test.go#TestTableShowsWhy",
-    "internal/output/output_test.go#TestTableFlagsExpiredInsteadOfSayingZero",
-    "internal/output/output_test.go#TestHTMLReportIsSelfContainedAndFlagsTheDeadline"
    ]
   },
   "reporting.format-selection.004": {
@@ -4733,16 +4614,6 @@
     "internal/output/output_test.go#TestTableFlagsExpiredInsteadOfSayingZero",
     "internal/output/output_test.go#TestTableShowsWhy"
    ]
-  },
-  "reporting.terminal-table.003": {
-   "file": "specs/reporting/terminal-table/ranked-terminal-table.feature",
-   "fingerprint": "5a1c0527cad1",
-   "human": false,
-   "rule": "reporting.terminal-table.namespaced-name",
-   "source": "internal/output/output.go#displayName",
-   "status": "inferred",
-   "test": "",
-   "tests": []
   },
   "reporting.terminal-table.004": {
    "file": "specs/reporting/terminal-table/ranked-terminal-table.feature",

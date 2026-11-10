@@ -59,10 +59,3 @@ Feature: Recording items in the config
       | k8s:secret   | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
       | aws:acm      | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
       | tls:chain    | it has no config entry, so Stop Tracking is not offered and the config is unchanged     |
-
-  @id:vscode.tracking-items.entry-validation.005 @rule:tracking.entry-validation.manual-kind-choices @inferred @source:extensions/vscode/src/edit.ts#MANUAL_KINDS
-  Scenario: A manual item's kind is chosen from the CLI's kinds, each explaining its blast radius
-    Given the operator is at the kind step of recording a manual item
-    When the operator opens the kind choice
-    Then the choices are, in order: Trust anchor, Domain, Intermediate CA, TLS certificate, IAM access key, Secret, Vault lease
-    And each choice shows a hint about what fails when it expires, such as "every leaf it signed, at once" for Intermediate CA

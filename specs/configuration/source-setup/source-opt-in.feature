@@ -42,10 +42,3 @@ Feature: Choosing which sources a scan runs
     When the operator runs a scan
     Then the scan includes exactly one source for each of tls:endpoint, domain:rdap, manual, k8s, vault, aws, cloudflare, gitlab, github, gcp, digitalocean, scaleway, namecheap, rotation, azure, okta, federation, fastly, hetzner, harbor, jfrog, registrar and apple
     And the scan includes 23 sources in total
-
-  @id:configuration.source-setup.004 @rule:configuration.sources.empty-config-scans-nothing @verified @source:internal/config/sources.go#Sources @test:internal/config/config_test.go#TestNothingIsEnabledImplicitly @test:cmd/expiry-radar/e2e_test.go#TestE2ENoSourcesIsAUsageError
-  Scenario: A config that enables nothing is refused as a usage error, not reported as an empty inventory
-    Given the config file enables no source and no endpoints or domains are passed on the command line
-    When the operator runs a scan
-    Then the run exits with the usage-error status
-    And the operator sees "no sources configured"

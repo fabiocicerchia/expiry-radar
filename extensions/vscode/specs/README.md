@@ -15,8 +15,8 @@ The tree view and status bar where operators browse what is expiring, in blast-r
 - **Attention indicators**: [Signalling what needs action today](inventory-panel/attention-indicators/inventory-attention-badge.feature) (2), [Status bar summary of what expires next](inventory-panel/attention-indicators/status-bar-next-deadline.feature) (7)
 - **Filtering**: [Filtering the inventory](inventory-panel/filtering/inventory-filtering.feature) (3)
 - **Grouping and expansion**: [Grouping the inventory by kind](inventory-panel/grouping/inventory-grouping.feature) (2)
-- **Item actions**: [Copying an item's details](inventory-panel/item-actions/copy-item-details.feature) (1), [Acting on an inventory item](inventory-panel/item-actions/inventory-item-actions.feature) (2)
-- **Ranked list**: [Seeing what expires in priority order](inventory-panel/ranked-list/inventory-ranked-list.feature) (6), [Ordering the inventory panel](inventory-panel/ranked-list/panel-order.feature) (1)
+- **Item actions**: [Copying an item's details](inventory-panel/item-actions/copy-item-details.feature) (1), [Acting on an inventory item](inventory-panel/item-actions/inventory-item-actions.feature) (1)
+- **Ranked list**: [Seeing what expires in priority order](inventory-panel/ranked-list/inventory-ranked-list.feature) (6)
 
 ## Reports and probes
 One-off documents and answers produced outside the regular inventory refresh.
@@ -47,6 +47,6 @@ Getting the extension connected to the CLI and finding out why a scan came back 
 Recording and removing things to watch without hand-editing the config schema.
 
 - **Add item**: [Recording a new item from the editor](tracking-items/add-item/add-tracked-item.feature) (2), [Recording an item to track](tracking-items/add-item/recording-an-item.feature) (5)
-- **Config file writing**: [Writing tracked items into the config file](tracking-items/config-writing/config-file-writing.feature) (7), [Creating a starter config file](tracking-items/config-writing/starter-config.feature) (1)
-- **Entry validation**: [Validating a recorded expiry date](tracking-items/entry-validation/manual-expiry-date.feature) (1), [Recording items in the config](tracking-items/entry-validation/recording-entries.feature) (5)
+- **Config file writing**: [Writing tracked items into the config file](tracking-items/config-writing/config-file-writing.feature) (6), [Creating a starter config file](tracking-items/config-writing/starter-config.feature) (1)
+- **Entry validation**: [Recording items in the config](tracking-items/entry-validation/recording-entries.feature) (4)
 - **Remove item**: [Stopping tracking of a recorded item](tracking-items/remove-item/remove-tracked-item.feature) (4)

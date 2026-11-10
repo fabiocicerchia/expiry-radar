@@ -44,13 +44,6 @@ Feature: Writing tracked items into the config file
     Then the whole file is overwritten with a new config holding only the "domains" list with "a.example"
     And everything the file held before is gone
 
-  @id:vscode.tracking-items.config-writing.005 @rule:tracking.config-writing.cursor-on-new-entry @verified @source:extensions/vscode/src/splice.ts#addToArray @test:extensions/vscode/src/test/edit.test.ts#the reported line is where the entry actually landed @test:extensions/vscode/src/test/edit.test.ts#an entry is appended to a multi-line array, indented like its siblings
-  Scenario: After adding an item, the config opens with the cursor on the new entry
-    Given the config lists the domain "a.example" on its own line
-    When the operator adds the domain "b.example"
-    Then the config opens in the editor
-    And the cursor is on the line that reads "b.example"
-
   @id:vscode.tracking-items.config-writing.006 @rule:tracking.config-writing.remove-leaves-valid-config @verified @source:extensions/vscode/src/splice.ts#removeEntry @test:extensions/vscode/src/test/edit.test.ts#removing the middle of a multi-line array leaves valid JSON @test:extensions/vscode/src/test/edit.test.ts#removing the last element takes the comma before it, not after @test:extensions/vscode/src/test/edit.test.ts#removing the only element leaves an empty array, not a broken one @test:extensions/vscode/src/test/edit.test.ts#an entry spanning several lines is removed whole @test:extensions/vscode/src/test/edit.test.ts#a brace inside a value does not end the element early
   Scenario Outline: Removing a recorded item leaves a valid config with the other entries intact
     Given the config's <array> list holds <entries>, one per line

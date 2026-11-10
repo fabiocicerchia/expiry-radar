@@ -5,22 +5,6 @@ Feature: Collecting expiring items from AWS
   Background:
     Given the operator has enabled the aws source for account 123456789012
 
-  @id:cloud-providers.aws.001 @rule:aws.collection.denied-service-keeps-others @verified @source:internal/source/aws.go#collectServices @test:internal/source/awsverify_test.go#TestOneDeniedServiceKeepsTheOthersFindings
-  Scenario: A denied AWS service does not lose the other services' findings
-    Given the role may not list ACM certificates
-    And the account has one active IAM access key and one secret with a rotation schedule
-    When the operator runs a scan
-    Then the inventory lists the IAM access key and the secret
-    And the scan reports a gap that names the acm service and the access-denied reason
-
-  @id:cloud-providers.aws.002 @rule:aws.collection.partial-results-kept-and-flagged @verified @source:internal/source/source.go#collectUnits @test:internal/source/awsverify_test.go#TestPartialItemsFromAFailingServiceAreStillKept @test:internal/source/aws_test.go#TestAWSSourceReportsAnIAMFailureRatherThanASilentlyShortList
-  Scenario: A service that fails part-way keeps what it read and is still reported as failed
-    Given the account has more IAM users than fit on one page
-    And AWS refuses to list one user's access keys
-    When the operator runs a scan
-    Then the access keys read before the refusal stay in the inventory
-    And the scan reports a gap naming the iam service instead of presenting a short list as complete
-
   @id:cloud-providers.aws.003 @rule:aws.iam.access-key-rotation-deadline @verified @source:internal/source/aws.go#accessKeyItems @test:internal/source/aws_test.go#TestAWSSourceTurnsAccessKeyAgeIntoARotationDeadline @test:internal/source/aws_test.go#TestAWSSourceDefaultsToANinetyDayRotationWindow
   Scenario Outline: An active IAM access key is due for rotation a fixed number of days after it was created
     Given user alice has an active access key AKIAALICE1 created on 2026-01-01

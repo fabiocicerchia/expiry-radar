@@ -11,4 +11,4 @@ Making sure the tool only gets read access to the systems it inspects.
 ## Documentation
 The published guides and reference material for using and running expiry-radar.
 
-- **Docs site look and feel**: [Branding the documentation site](documentation/site-styling/docs-site-look-and-feel.feature) (3)
+- **Docs site look and feel**: [Branding the documentation site](documentation/site-styling/docs-site-look-and-feel.feature) (1)

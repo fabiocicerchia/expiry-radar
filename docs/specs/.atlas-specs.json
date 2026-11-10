@@ -47,8 +47,8 @@
    },
    {
     "candidate": "Hero block layout and tagline",
-    "covered_by": "docs.styling.security-palette-shared",
-    "reason": "DUPLICATE_OF",
+    "covered_by": "",
+    "reason": "TRIVIAL",
     "source": "docs/stylesheets/extra.css#.md-typeset .hero"
    },
    {
@@ -84,7 +84,10 @@
   ],
   "stylesheets/extra": []
  },
- "retired": [],
+ "retired": [
+  "docs.documentation.site-styling.001",
+  "docs.documentation.site-styling.003"
+ ],
  "scenarios": {
   "docs.access-security.read-only-policies.001": {
    "file": "docs/specs/access-security/read-only-policies/vault-read-only-policy.feature",
@@ -132,32 +135,12 @@
    "test": "",
    "tests": []
   },
-  "docs.documentation.site-styling.001": {
-   "file": "docs/specs/documentation/site-styling/docs-site-look-and-feel.feature",
-   "fingerprint": "ac660254fd34",
-   "human": false,
-   "rule": "docs.styling.security-palette-shared",
-   "source": "docs/stylesheets/extra.css#:root",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
   "docs.documentation.site-styling.002": {
    "file": "docs/specs/documentation/site-styling/docs-site-look-and-feel.feature",
    "fingerprint": "ac660254fd34",
    "human": false,
    "rule": "docs.styling.no-external-requests",
    "source": "docs/stylesheets/extra.css#:root",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "docs.documentation.site-styling.003": {
-   "file": "docs/specs/documentation/site-styling/docs-site-look-and-feel.feature",
-   "fingerprint": "c702704e5aae",
-   "human": false,
-   "rule": "docs.styling.no-placeholder-logo",
-   "source": "docs/stylesheets/extra.css#.md-header__button.md-logo",
    "status": "inferred",
    "test": "",
    "tests": []

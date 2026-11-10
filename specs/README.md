@@ -15,20 +15,20 @@ Finding TLS certificates, CAs and signing certificates before they lapse.
 ## Cloud providers
 Read-only inventory of expiring resources in each cloud and edge platform.
 
-- **AWS**: [Collecting expiring items from AWS](cloud-providers/aws/aws-expiry-collection.feature) (4)
+- **AWS**: [Collecting expiring items from AWS](cloud-providers/aws/aws-expiry-collection.feature) (2)
 - **AWS extended coverage**: [Tracking AWS expiries beyond certificates, keys and secrets](cloud-providers/aws-coverage-gaps/aws-extended-coverage.feature) (6)
 - **Azure**: [Finding what expires in Entra ID and Key Vault](cloud-providers/azure/azure-expiries.feature) (4)
 - **Cloudflare**: [Reading the Cloudflare API](cloud-providers/cloudflare/cloudflare-api-access.feature) (4)
 - **Google Cloud**: [Finding what expires in Google Cloud](cloud-providers/gcp/gcp-expiries.feature) (2)
 - **Provider API access**: [Reading provider APIs with a credential](cloud-providers/http-api-client/provider-api-access.feature) (4)
-- **Other clouds and CDNs**: [Tracking DigitalOcean certificates](cloud-providers/other-clouds/digitalocean-certificates.feature) (1), [Tracking Scaleway domains, load-balancer certificates and API keys](cloud-providers/other-clouds/scaleway-expiries.feature) (2)
+- **Other clouds and CDNs**: [Tracking Scaleway domains, load-balancer certificates and API keys](cloud-providers/other-clouds/scaleway-expiries.feature) (2)
 
 ## Configuration
 Telling the tool what to scan and what each thing means to the business.
 
 - **Config file**: [Loading the config file](configuration/config-file/loading-the-config-file.feature) (3)
 - **Manual entries**: [Declaring expiries by hand](configuration/manual-inventory/manual-inventory-entries.feature) (4)
-- **Source setup**: [Choosing which sources a scan runs](configuration/source-setup/source-opt-in.feature) (4)
+- **Source setup**: [Choosing which sources a scan runs](configuration/source-setup/source-opt-in.feature) (3)
 - **Validation**: [Validating federation provider configuration](configuration/validation/federation-provider-validation.feature) (1), [Refusing source configuration that cannot scan](configuration/validation/refusing-unusable-source-config.feature) (1)
 
 ## Secrets and credentials
@@ -38,13 +38,12 @@ Tracking tokens, keys, leases and secrets that expire or must be rotated.
 - **Identity provider tokens**: [Tracking Okta API tokens and SAML signing certificates](credentials/identity-tokens/okta-tokens-and-signing-certificates.feature) (3)
 - **Registry credentials**: [Tracking registry credential expiry](credentials/registry-credentials/registry-credential-expiry.feature) (1)
 - **Rotation policy**: [Marking rotation-policy deadlines](credentials/rotation-policy/policy-deadline-labelling.feature) (1), [Giving never-expiring API keys a rotation deadline](credentials/rotation-policy/rotation-policy-deadlines.feature) (8)
-- **Vault**: [Tracking what expires in Vault](credentials/vault/vault-expiry.feature) (1)
 
 ## Developer tooling
 Building, testing, installing and verifying the tool itself.
 
 - **Build and install**: [Installing expiry-radar from a checkout](developer-tooling/build-and-install/installing-from-a-checkout.feature) (5)
-- **Live account verification**: [Verifying the AWS adapters against a live account](developer-tooling/live-verification/aws-live-verification.feature) (2), [Verifying the AWS adapters against a real account](developer-tooling/live-verification/verifying-aws-adapters.feature) (2)
+- **Live account verification**: [Verifying the AWS adapters against a live account](developer-tooling/live-verification/aws-live-verification.feature) (2)
 
 ## Domain names
 Knowing when domain registrations lapse and whether they will auto-renew.
@@ -70,11 +69,11 @@ Ordering the inventory by how much breaks when each item lapses, not just by dat
 Presenting the ranked inventory to people and to other systems.
 
 - **Calendar feed**: [Publishing expiries to the team calendar](reporting/calendar-feed/calendar-feed.feature) (6)
-- **Format selection**: [Choosing a report format](reporting/format-selection/choosing-a-report-format.feature) (4)
+- **Format selection**: [Choosing a report format](reporting/format-selection/choosing-a-report-format.feature) (2)
 - **HTML report**: [Sharing a standalone HTML report of the ranked inventory](reporting/html-report/html-report.feature) (8)
 - **JSON export**: [Exporting the ranked inventory as JSON](reporting/json-export/json-export.feature) (5)
 - **Prometheus metrics**: [Exposing expiries as Prometheus metrics](reporting/metrics/prometheus-metrics.feature) (4)
-- **Terminal table**: [Reading the ranked inventory in the terminal](reporting/terminal-table/ranked-terminal-table.feature) (4)
+- **Terminal table**: [Reading the ranked inventory in the terminal](reporting/terminal-table/ranked-terminal-table.feature) (3)
 
 ## Scanning
 How a run collects every expiring thing from every configured source and merges it into one inventory.

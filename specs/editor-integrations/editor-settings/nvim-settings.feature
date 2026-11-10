@@ -3,13 +3,13 @@ Feature: Neovim plugin settings
   Gives the operator safe defaults and rejects settings that would misbehave before any collection runs.
 
   Background:
-    Giventhe operator uses the expiry-radar plugin in Neovim
+    Given the operator uses the expiry-radar plugin in Neovim
 
   @id:editor-integrations.editor-settings.001 @rule:editor.settings.invalid-options-rejected @verified @source:extensions/nvim/lua/expiry-radar/config.lua#M.validate @test:extensions/nvim/tests/config_spec.lua#rejects a trigger that does not exist @test:extensions/nvim/tests/config_spec.lua#rejects a debounce short enough to hammer a registry @test:extensions/nvim/tests/config_spec.lua#rejects a priority floor outside 0..1 @test:extensions/nvim/tests/config_spec.lua#rejects a cmd that is not a list
   Scenario Outline: Settings that would misbehave are rejected at setup
-    Giventhe operator's setup sets <option> to <value>
-    WhenNeovim loads the plugin setup
-    Thensetup fails with a message that <option> must be <expected>
+    Given the operator's setup sets <option> to <value>
+    When Neovim loads the plugin setup
+    Then setup fails with a message that <option> must be <expected>
 
     Examples:
       | option                   | value          | expected                 |
@@ -22,26 +22,26 @@ Feature: Neovim plugin settings
 
   @id:editor-integrations.editor-settings.002 @rule:editor.settings.partial-settings-keep-defaults @verified @source:extensions/nvim/lua/expiry-radar/config.lua#merge @test:extensions/nvim/tests/config_spec.lua#merges nested tables rather than replacing them @test:extensions/nvim/tests/config_spec.lua#returns the defaults when given nothing
   Scenario: Setting one option keeps the defaults of the others
-    Giventhe operator's setup sets only the collection trigger to manual
-    WhenNeovim loads the plugin setup
-    Thenthe trigger is manual
-    Andthe refresh interval stays 60 minutes and the collection timeout stays 120 seconds
+    Given the operator's setup sets only the collection trigger to manual
+    When Neovim loads the plugin setup
+    Then the trigger is manual
+    And the refresh interval stays 60 minutes and the collection timeout stays 120 seconds
 
   @id:editor-integrations.editor-settings.003 @rule:editor.settings.info-window-never-narrower-than-warning @verified @source:extensions/nvim/lua/expiry-radar/config.lua#M.validate @test:extensions/nvim/tests/config_spec.lua#widens an info window that would swallow the warning window @questionable
   Scenario: An information window narrower than the warning window is widened to match
-    Giventhe operator's setup sets the warning window to 30 days and the information window to 7 days
-    WhenNeovim loads the plugin setup
-    Thenthe information window is 30 days
+    Given the operator's setup sets the warning window to 30 days and the information window to 7 days
+    When Neovim loads the plugin setup
+    Then the information window is 30 days
 
   @id:editor-integrations.editor-settings.004 @rule:editor.settings.disabled-plugin-collects-nothing @inferred @source:extensions/nvim/lua/expiry-radar/init.lua#M.setup @questionable
   Scenario: A disabled plugin never collects and clears its squiggles
-    Giventhe operator's setup disables the plugin
-    Whenthe operator opens the inventory report
-    Thenno collection runs and no squiggles are shown
-    Andthe operator sees only "expiry-radar: collecting…" and no report appears
+    Given the operator's setup disables the plugin
+    When the operator opens the inventory report
+    Then no collection runs and no squiggles are shown
+    And the operator sees only "expiry-radar: collecting…" and no report appears
 
   @id:editor-integrations.editor-settings.005 @rule:editor.settings.commands-work-without-setup @inferred @source:extensions/nvim/plugin/expiry-radar.lua#ready
   Scenario: Commands work with the defaults before any setup
-    Giventhe operator never called the plugin setup
-    Whenthe operator runs any expiry-radar command
-    Thenthe plugin uses its default settings rather than failing
+    Given the operator never called the plugin setup
+    When the operator runs any expiry-radar command
+    Then the plugin uses its default settings rather than failing

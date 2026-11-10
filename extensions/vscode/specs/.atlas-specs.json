@@ -855,12 +855,7 @@
   "src/locate": [],
   "src/log": [],
   "src/parse": [],
-  "src/prompts": [
-   {
-    "from_source": "extensions/vscode/src/edit.ts#invalidExpires",
-    "rule": "tracking-items.entry-validation.expiry-cli-accepts"
-   }
-  ],
+  "src/prompts": [],
   "src/report": [],
   "src/runner": [
    {
@@ -893,7 +888,13 @@
   "src/types": [],
   "vscode/esbuild": []
  },
- "retired": [],
+ "retired": [
+  "vscode.inventory-panel.ranked-list.007",
+  "vscode.inventory-panel.item-actions.003",
+  "vscode.tracking-items.entry-validation.006",
+  "vscode.tracking-items.entry-validation.005",
+  "vscode.tracking-items.config-writing.005"
+ ],
  "scenarios": {
   "vscode.config-insights.declaration-lookup.001": {
    "file": "extensions/vscode/specs/config-insights/declaration-lookup/recorded-vs-discovered-placement.feature",
@@ -1175,16 +1176,6 @@
    "test": "",
    "tests": []
   },
-  "vscode.inventory-panel.item-actions.003": {
-   "file": "extensions/vscode/specs/inventory-panel/item-actions/inventory-item-actions.feature",
-   "fingerprint": "fd7f861b0bcb",
-   "human": false,
-   "rule": "inventory.actions.only-recorded-items-removable",
-   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
   "vscode.inventory-panel.ranked-list.001": {
    "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
    "fingerprint": "fd7f861b0bcb",
@@ -1244,18 +1235,6 @@
    "status": "inferred",
    "test": "",
    "tests": []
-  },
-  "vscode.inventory-panel.ranked-list.007": {
-   "file": "extensions/vscode/specs/inventory-panel/ranked-list/panel-order.feature",
-   "fingerprint": "2363eadfc116",
-   "human": false,
-   "rule": "inventory-panel.order.deadline-then-priority",
-   "source": "extensions/vscode/src/parse.ts#compareItems",
-   "status": "verified",
-   "test": "extensions/vscode/src/test/parse.test.ts#items sort worst deadline first, then by priority",
-   "tests": [
-    "extensions/vscode/src/test/parse.test.ts#items sort worst deadline first, then by priority"
-   ]
   },
   "vscode.reports-and-probes.host-probe.001": {
    "file": "extensions/vscode/specs/reports-and-probes/host-probe/host-probe.feature",
@@ -2024,19 +2003,6 @@
    "test": "",
    "tests": []
   },
-  "vscode.tracking-items.config-writing.005": {
-   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
-   "fingerprint": "cdece139d9fd",
-   "human": false,
-   "rule": "tracking.config-writing.cursor-on-new-entry",
-   "source": "extensions/vscode/src/splice.ts#addToArray",
-   "status": "verified",
-   "test": "extensions/vscode/src/test/edit.test.ts#the reported line is where the entry actually landed",
-   "tests": [
-    "extensions/vscode/src/test/edit.test.ts#the reported line is where the entry actually landed",
-    "extensions/vscode/src/test/edit.test.ts#an entry is appended to a multi-line array, indented like its siblings"
-   ]
-  },
   "vscode.tracking-items.config-writing.006": {
    "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
    "fingerprint": "3190276e807e",
@@ -2126,26 +2092,6 @@
    "tests": [
     "extensions/vscode/src/test/edit.test.ts#a source maps to the array it records into, and discovery maps to none"
    ]
-  },
-  "vscode.tracking-items.entry-validation.005": {
-   "file": "extensions/vscode/specs/tracking-items/entry-validation/recording-entries.feature",
-   "fingerprint": "29514361a350",
-   "human": false,
-   "rule": "tracking.entry-validation.manual-kind-choices",
-   "source": "extensions/vscode/src/edit.ts#MANUAL_KINDS",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "vscode.tracking-items.entry-validation.006": {
-   "file": "extensions/vscode/specs/tracking-items/entry-validation/manual-expiry-date.feature",
-   "fingerprint": "62a2ebdc8089",
-   "human": false,
-   "rule": "tracking-items.entry-validation.expiry-cli-accepts",
-   "source": "extensions/vscode/src/edit.ts#invalidExpires",
-   "status": "inferred",
-   "test": "",
-   "tests": []
   },
   "vscode.tracking-items.remove-item.001": {
    "file": "extensions/vscode/specs/tracking-items/remove-item/remove-tracked-item.feature",

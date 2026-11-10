@@ -28,18 +28,6 @@ Feature: Reading the ranked inventory in the terminal
       | -4        | EXPIRED 4d ago |
       | -0.5      | EXPIRED 0d ago |
 
-  @id:reporting.terminal-table.003 @rule:reporting.terminal-table.namespaced-name @inferred @source:internal/output/output.go#displayName
-  Scenario Outline: An item from a namespace is named with its namespace, never twice
-    Given an item is named "<name>" in namespace "<namespace>"
-    When the operator views the scan results
-    Then its NAME column reads "<shown>"
-
-    Examples:
-      | name                  | namespace | shown                         |
-      | checkout.example.com  | payments  | payments/checkout.example.com |
-      | payments/checkout-tls | payments  | payments/checkout-tls         |
-      | example.com           |           | example.com                   |
-
   @id:reporting.terminal-table.004 @rule:reporting.terminal-table.empty-inventory-notice @inferred @source:internal/output/table.go#renderTable
   Scenario: An empty scan says nothing is expiring or no source was enabled, instead of a bare header
     Given the scan found no expiring items
