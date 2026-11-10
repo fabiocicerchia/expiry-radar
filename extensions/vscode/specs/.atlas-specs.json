@@ -1,0 +1,2320 @@
+{
+ "excluded": {
+  "scripts/copy-package-files": [
+   {
+    "candidate": "Root path worked out as three directories above scripts/",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/scripts/copy-package-files.mjs#copy-package-files"
+   },
+   {
+    "candidate": "Copied files are gitignored inside extensions/vscode so only one changelog lives in git",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "extensions/vscode/.gitignore"
+   },
+   {
+    "candidate": "Copy runs after typecheck, tests and the esbuild production bundle in vscode:prepublish",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "extensions/vscode/package.json#vscode:prepublish"
+   },
+   {
+    "candidate": "The packaged extension carries the repository's licence and changelog",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/scripts/copy-package-files.mjs#copy-package-files"
+   },
+   {
+    "candidate": "Packaging stops when the licence or the changelog is missing",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/scripts/copy-package-files.mjs#copy-package-files"
+   }
+  ],
+  "src/collector": [
+   {
+    "candidate": "Status bar shows the collecting folder during a run and idle summary afterwards",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/collector.ts#Collector.paint"
+   },
+   {
+    "candidate": "Diagnostics published for every folder in the store after a run",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/collector.ts#Collector.publishDiagnostics"
+   },
+   {
+    "candidate": "Snapshot records generatedAt, configPath, duration and warnings",
+    "covered_by": "",
+    "reason": "TECH_PERSISTENCE",
+    "source": "extensions/vscode/src/collector.ts#Collector.execute"
+   },
+   {
+    "candidate": "Unreadable config file leaves items unplaced instead of failing the run",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/collector.ts#withOrigins"
+   },
+   {
+    "candidate": "Config re-read every run rather than cached",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/collector.ts#withOrigins"
+   },
+   {
+    "candidate": "A scan that lost a source warns that the inventory is incomplete",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.announceWarnings"
+   },
+   {
+    "candidate": "The incomplete-inventory warning leads to the environment check",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.announceWarnings"
+   },
+   {
+    "candidate": "A failed scan shows its error, but automatic failures stay quiet for a minute",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.reportFailure"
+   },
+   {
+    "candidate": "A cancelled scan shows no error",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.reportFailure"
+   },
+   {
+    "candidate": "A failed scan leaves the previous inventory in place",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.execute"
+   },
+   {
+    "candidate": "A missing expiry-radar binary is offered for install once until settings change",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/collector.ts#Collector.reportFailure"
+   }
+  ],
+  "src/commands": [
+   {
+    "candidate": "Table of command ids registered with the editor",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Filter, group by kind/rank and expand all commands",
+    "covered_by": "pass-through to InventoryView (inventory-panel/filtering, inventory-panel/grouping)",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Show Log command",
+    "covered_by": "setup-and-troubleshooting/activity-log",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Check Environment command",
+    "covered_by": "setup-and-troubleshooting/environment-check (runDoctor)",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Cancel command stops the running scan",
+    "covered_by": "Scheduler.cancel (scanning/automatic-refresh)",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Report rendering runs outside the scheduler's single-flight lane",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Render warnings and failures go through the collector's announcement",
+    "covered_by": "scanning/failed-sources",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Opening an existing config file opens it in the editor",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Remove shows an error when the config cannot be read",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "No-folder refusal on probe and add item",
+    "covered_by": "scanning.on-demand.requires-open-folder",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   }
+  ],
+  "src/config": [
+   {
+    "candidate": "Default values for every setting (interval 60, warn 14, info 30, trigger onConfigSaveAndInterval, ...)",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/config.ts#readSettings"
+   },
+   {
+    "candidate": "Blank or whitespace-only entries in endpoints/domains are dropped and the rest trimmed",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/config.ts#readSettings"
+   },
+   {
+    "candidate": "path and configPath are trimmed; empty means auto-detect / expiry-radar.json in the folder",
+    "covered_by": "setup-and-troubleshooting/cli-discovery and setup-and-troubleshooting/workspace-folders (resolved in folder/runner code, not here)",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/config.ts#readSettings"
+   },
+   {
+    "candidate": "extraArgs passed through without trimming",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/config.ts#readSettings"
+   },
+   {
+    "candidate": "Settings are read per workspace folder scope",
+    "covered_by": "setup-and-troubleshooting/workspace-folders (folder.ts owns which folder applies)",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/config.ts#readSettings"
+   },
+   {
+    "candidate": "Settings and Trigger type shapes",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/config.ts#Settings"
+   }
+  ],
+  "src/diagnostics": [
+   {
+    "candidate": "All diagnostics written in one collection.set call instead of one per file",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "Line/column clamped to 0 when the origin is 0 or negative",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "clear() and dispose() empty or release the diagnostic collection",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher"
+   },
+   {
+    "candidate": "Uri.file keys the collection by filesystem path",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "extensions/vscode/src/test/diagnostics.test.ts"
+   },
+   {
+    "candidate": "Namespace fact appears in the message only when the item has one",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/parse.ts#describe"
+   },
+   {
+    "candidate": "Items not declared in the config get no squiggle",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "Squiggles can be turned off for one workspace folder",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "A squiggle runs from where the entry is declared to the end of that line, labelled expiry-radar with the item's kind",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "Squiggles always match the latest scan, so a renewed item's squiggle disappears",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   },
+   {
+    "candidate": "In a multi-root workspace, each folder's config keeps its own squiggles",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/diagnostics.ts#DiagnosticPublisher.publish"
+   }
+  ],
+  "src/doctor": [
+   {
+    "candidate": "Healthy config lists endpoint and domain counts and the reachable kubernetes/vault/aws targets as ok lines",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/doctor.ts#describeConfig"
+   },
+   {
+    "candidate": "Config path shown relative to the workspace folder",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/doctor.ts#checkConfig"
+   },
+   {
+    "candidate": "Severity marks \u2713 ! \u2717 \u00b7 and indented detail lines",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/doctor.ts#Findings"
+   },
+   {
+    "candidate": "Binary identity probed with -h because there is no --version",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/doctor.ts#checkBinaryIsRadar"
+   },
+   {
+    "candidate": "Fixture stand-in binary script used by the tests",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "extensions/vscode/src/test/doctor.test.ts#fixture"
+   }
+  ],
+  "src/edit": [
+   {
+    "candidate": "ENTRY_KINDS table keyed by kind so a new kind is one row",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/edit.ts#ENTRY_KINDS"
+   },
+   {
+    "candidate": "renderEntry delegates to the per-kind renderer",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/edit.ts#renderEntry"
+   },
+   {
+    "candidate": "isRealDate uses Date.UTC round-trip",
+    "covered_by": "tracking.entry-validation.expiry-accepted-only-as-cli-accepts",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/edit.ts#isRealDate"
+   },
+   {
+    "candidate": "Lower-case t/z separators accepted in RFC 3339 timestamps",
+    "covered_by": "tracking.entry-validation.expiry-accepted-only-as-cli-accepts",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/edit.ts#invalidExpires"
+   },
+   {
+    "candidate": "Splicing entries into arrays and removing them (tests in edit.test.ts exercise splice.ts)",
+    "covered_by": "splice.ts module (tracking-items/config-writing); not read here",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/test/edit.test.ts"
+   }
+  ],
+  "src/extension": [
+   {
+    "candidate": "Disposing the extension clears the startup timer and periodic interval",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/extension.ts#scheduleStartupCollection"
+   },
+   {
+    "candidate": "Switching active editor refreshes the inventory panel",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/extension.ts#activate"
+   },
+   {
+    "candidate": "Store changes repaint the panel, diagnostics and status bar",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/extension.ts#activate"
+   },
+   {
+    "candidate": "Saves of non-file documents (untitled, remote schemes) or files outside any workspace folder are ignored",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/extension.ts#onSave"
+   },
+   {
+    "candidate": "Scans run one at a time with debounce from settings",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/extension.ts#activate"
+   },
+   {
+    "candidate": "'expiry-radar extension activated' log line",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/extension.ts#activate"
+   },
+   {
+    "candidate": "deactivate does nothing",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/extension.ts#deactivate"
+   }
+  ],
+  "src/folder": [
+   {
+    "candidate": "Commands warn \"expiry-radar: open a folder first.\" when no folder is open",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/commands.ts#registerCommands"
+   },
+   {
+    "candidate": "Single shared helper so collection and diagnostics cannot describe different folders",
+    "covered_by": "workspace.folders.command-targets-active-editor-folder",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/folder.ts#primaryFolder"
+   }
+  ],
+  "src/inventoryview": [
+   {
+    "candidate": "Grouping commands publish the expiryRadar.grouping context key for title-bar menus",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Tree model built once per refresh rather than per getChildren call",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Item and group ids include the expansion revision and a per-group index",
+    "covered_by": "inventory.grouping.expand-all-reopens-groups",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Recorded item rows carry the config file as resource URI",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Switching back to rank grouping shows the flat list again",
+    "covered_by": "inventory.panel.ranked-by-deadline-then-priority",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Days-left wording (\"expired Nd ago\", \"today\", \"Nd\")",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/parse.ts#humanDays"
+   },
+   {
+    "candidate": "Cancelling the filter picker keeps the current filter",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   },
+   {
+    "candidate": "Tooltip hint for recorded items (\"click to open the line, or right-click to remove\")",
+    "covered_by": "inventory.panel.item-tooltip-explains-rank",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/inventoryView.ts#InventoryView"
+   }
+  ],
+  "src/locate": [
+   {
+    "candidate": "Text is scanned rather than parsed with JSON.parse to keep positions",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/locate.ts#declaredIn"
+   },
+   {
+    "candidate": "arraySpan is exported for splice.ts to append entries",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/locate.ts#arraySpan"
+   },
+   {
+    "candidate": "Offset to 1-based line/column conversion",
+    "covered_by": "config-insights.declaration-lookup.points-at-declared-value",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/locate.ts#positionOf"
+   },
+   {
+    "candidate": "Empty host/name strings are not recorded",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/locate.ts#declaredIn"
+   },
+   {
+    "candidate": "Malformed escape falls back to raw text",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/locate.ts#unescape"
+   }
+  ],
+  "src/log": [
+   {
+    "candidate": "The channel is created on first use rather than at activation",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/log.ts#log"
+   },
+   {
+    "candidate": "disposeLog releases the channel and lets a later call create a fresh one",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/log.ts#disposeLog"
+   },
+   {
+    "candidate": "What each run writes to the log (reason, results, failed sources)",
+    "covered_by": "Written by collector.ts, runner.ts, scheduler.ts and doctor.ts, not by this module. Their own modules should specify it.",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/log.ts#log"
+   }
+  ],
+  "src/parse": [
+   {
+    "candidate": "An empty report yields no entries without crashing",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/parse.ts#toItems"
+   },
+   {
+    "candidate": "SEVERITIES / SEVERITY_LABEL / KINDS constant lists and their order",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/parse.ts#SEVERITY_LABEL"
+   },
+   {
+    "candidate": "Exact internal id format with numeric suffix",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/parse.ts#itemId"
+   },
+   {
+    "candidate": "Tiebreak by days left then by name within equal severity and priority",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/parse.ts#compareItems"
+   }
+  ],
+  "src/prompts": [
+   {
+    "candidate": "Prompt definitions kept in one table (ENTRY_PROMPTS) so a new kind is a new row",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/prompts.ts#ENTRY_PROMPTS"
+   },
+   {
+    "candidate": "Placeholder example text in each input box (shop.example.com, example.com, acme-corp.co.uk, 2027-03-01)",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/prompts.ts#promptManualEntry"
+   },
+   {
+    "candidate": "selectedText returns empty when no editor or empty selection",
+    "covered_by": "tracking-items.add-item.single-value-defaults-to-selection",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/prompts.ts#selectedText"
+   },
+   {
+    "candidate": "Manual item name step validates non-blank",
+    "covered_by": "tracking-items.add-item.blank-value-refused",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/prompts.ts#promptManualEntry"
+   }
+  ],
+  "src/report": [
+   {
+    "candidate": "A report rendered while the tab is hidden is painted only when the tab becomes visible again",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/report.ts#ReportView"
+   },
+   {
+    "candidate": "The last report is remembered so Open Report can reuse it without collecting again",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/report.ts#ReportView"
+   },
+   {
+    "candidate": "Light/dark palette follows the editor theme via prefers-color-scheme",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/report.ts"
+   },
+   {
+    "candidate": "The tab keeps its state (filters, scroll) while hidden",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/report.ts#ReportView"
+   },
+   {
+    "candidate": "The report tab is closed when the extension shuts down",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/report.ts#ReportView"
+   }
+  ],
+  "src/runner": [
+   {
+    "candidate": "Found binary is remembered per workspace folder until expiryRadar settings change",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#resolveBinary"
+   },
+   {
+    "candidate": "stdout capped at 32M characters",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#exec"
+   },
+   {
+    "candidate": "UTF-8 decoded on the stream rather than per chunk",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#exec"
+   },
+   {
+    "candidate": "SIGTERM then SIGKILL after 3s; taskkill on Windows",
+    "covered_by": "scanning.run.cancel-stops-everything-started",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#exec"
+   },
+   {
+    "candidate": "A normal scan with no config file omits -config",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#buildArgs"
+   },
+   {
+    "candidate": "The format is the one the caller asked for (json/html/ical/prometheus/table)",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#buildArgs"
+   },
+   {
+    "candidate": "Report that is not JSON, or has no items, is an error",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/runner.ts#collect"
+   },
+   {
+    "candidate": "Activity log lines for each run (command, duration, failed sources)",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#runRadar"
+   },
+   {
+    "candidate": "Free-standing command runner used by the doctor",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/runner.ts#probe"
+   },
+   {
+    "candidate": "PATH lookup honours PATHEXT on Windows",
+    "covered_by": "cli.discovery.most-explicit-location-wins",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/runner.ts#findOnPath"
+   },
+   {
+    "candidate": "HTML and iCal outputs are well-formed (contract tests)",
+    "covered_by": "belongs to reports-and-probes/html-report and report-export modules",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/test/contract.test.ts"
+   }
+  ],
+  "src/scheduler": [
+   {
+    "candidate": "An automatic request never displaces a queued manual request",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.schedule"
+   },
+   {
+    "candidate": "Cancelling the progress notification cancels only that scan (cancelJob)",
+    "covered_by": "scanning.on-demand-scan.cancel-stops-running-and-queued",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.cancelJob"
+   },
+   {
+    "candidate": "runNow's promise resolves when its own job finishes, so the report opens after its scan",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.runNow"
+   },
+   {
+    "candidate": "A queued request is re-armed with zero delay when the active run finishes",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler"
+   },
+   {
+    "candidate": "Re-arming the sweep when settings or workspace folders change",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.setSweep"
+   },
+   {
+    "candidate": "Disposing the scheduler clears timers and cancels the active run",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.dispose"
+   },
+   {
+    "candidate": "A scan the user starts cancels an automatic scan already running",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.runNow"
+   },
+   {
+    "candidate": "Cancelling stops the running scan and drops the queued automatic scan",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/scheduler.ts#Scheduler.cancel"
+   }
+  ],
+  "src/splice": [
+   {
+    "candidate": "Brackets inside string values are skipped when finding where an array ends (text scan instead of parse)",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/splice.ts#elementSpans"
+   },
+   {
+    "candidate": "Offset/line arithmetic helpers (indentAt, lineOf, offsetOf)",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/splice.ts#indentAt"
+   },
+   {
+    "candidate": "Checking that the config line still names the item before removal",
+    "covered_by": "tracking-items/remove-item (owned by the commands module)",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/commands.ts#Commands"
+   },
+   {
+    "candidate": "Discovered items have no config list to remove from",
+    "covered_by": "inventory-panel/item-actions (owned by the edit module)",
+    "reason": "DUPLICATE_OF",
+    "source": "extensions/vscode/src/edit.ts#arrayForSource"
+   }
+  ],
+  "src/status": [
+   {
+    "candidate": "Clicking the status bar runs the Open Report command",
+    "covered_by": "the visible \"Click to open the report.\" hint in inventory.status-bar.tooltip-explains-next-item; opening the report belongs to reports-and-probes/html-report",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/status.ts#StatusBar"
+   },
+   {
+    "candidate": "Status bar item is right-aligned at priority 100 and named \"expiry-radar\"",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/status.ts#StatusBar"
+   },
+   {
+    "candidate": "Status bar item is disposed with the extension",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/status.ts#StatusBar"
+   },
+   {
+    "candidate": "Fractional days are floored in the status text (e.g. 0.4 days shows \"today\")",
+    "covered_by": "inventory.status-bar.shows-soonest-deadline",
+    "reason": "TRIVIAL",
+    "source": "extensions/vscode/src/parse.ts#humanDays"
+   }
+  ],
+  "src/store": [
+   {
+    "candidate": "A folder that has never been scanned has no items and no snapshot",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/store.ts#ResultStore.items"
+   },
+   {
+    "candidate": "Collected folders are listed in workspace order (used to choose the panel's fallback folder)",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/store.ts#ResultStore.folders"
+   },
+   {
+    "candidate": "Failed-source warnings are kept with the folder's snapshot",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/store.ts#ResultStore.set"
+   },
+   {
+    "candidate": "Every change fires exactly one change event; clear empties all folders",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/store.ts#ResultStore.clear"
+   },
+   {
+    "candidate": "Disposing the store releases its event emitter",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/store.ts#ResultStore.dispose"
+   }
+  ],
+  "src/types": [
+   {
+    "candidate": "ReportItem/Report mirror the JSON shape written by `expiry-radar -format json` (priority, blastRadius, daysLeft, expired, kind, name, namespace, source, expires, why, labels; generatedAt, count, expired, items)",
+    "covered_by": "Type declarations only; the JSON contract is enforced by renderJSON in internal/output/output.go and read in parse.ts (scanning/inventory-snapshot)",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/types.ts#ReportItem"
+   },
+   {
+    "candidate": "Kind is an open-ended set (trust_anchor, tls_cert, intermediate_ca, secret, iam_access_key, vault_lease, domain, or any new string)",
+    "covered_by": "Compile-time type only; how unknown kinds are shown belongs to the panel/grouping modules",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "extensions/vscode/src/types.ts#Kind"
+   },
+   {
+    "candidate": "Severity ladder expired/urgent/soon/ok follows the deadline, not the priority",
+    "covered_by": "Only the type and its doc comment live here; the bucketing logic is in parse.ts (scanning/inventory-snapshot)",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/types.ts#Severity"
+   },
+   {
+    "candidate": "Item carries a stable id across runs, a namespace/name display and an optional config-file origin (1-based line)",
+    "covered_by": "Derived in parse.ts and locate.ts (scanning/inventory-snapshot, config-insights/declaration-lookup); no code here enforces it",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/types.ts#Item"
+   },
+   {
+    "candidate": "Snapshot keeps failed-source warnings verbatim so a partial inventory never looks clean",
+    "covered_by": "A field and comment only; surfacing failed sources is enforced elsewhere (scanning/failed-sources)",
+    "reason": "UNVERIFIABLE",
+    "source": "extensions/vscode/src/types.ts#Snapshot"
+   }
+  ],
+  "vscode/esbuild": [
+   {
+    "candidate": "The extension host code is bundled from src/extension.ts into one CommonJS file, dist/extension.js, for Node 18, with the editor's `vscode` module left external",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "extensions/vscode/esbuild.mjs#options"
+   },
+   {
+    "candidate": "A --production build minifies the bundle and leaves out source maps; other builds keep source maps and are not minified",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "extensions/vscode/esbuild.mjs#production"
+   },
+   {
+    "candidate": "--watch rebuilds the bundle every time a source file changes",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "extensions/vscode/esbuild.mjs#watch"
+   },
+   {
+    "candidate": "--tests bundles each src/test/*.test.ts into out/ and swaps in src/test/vscode-shim.ts for the `vscode` import, so the unit tests run under plain node --test with no editor",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "extensions/vscode/esbuild.mjs#tests"
+   }
+  ]
+ },
+ "lifted": {
+  "scripts/copy-package-files": [
+   {
+    "from_source": "extensions/vscode/scripts/copy-package-files.mjs#copy-package-files",
+    "rule": "extension.packaging.ships-root-license-and-changelog: every distributed extension package carries the Apache-2.0 LICENSE and the one release-please changelog"
+   }
+  ],
+  "src/collector": [],
+  "src/commands": [],
+  "src/config": [],
+  "src/diagnostics": [],
+  "src/doctor": [],
+  "src/edit": [],
+  "src/extension": [
+   {
+    "from_source": "extensions/vscode/src/runner.ts#hasSources",
+    "rule": "Automatic scans run only in folders that have a config file or endpoints/domains in settings (scanning.automatic.quiet-without-sources)"
+   }
+  ],
+  "src/folder": [],
+  "src/inventoryview": [],
+  "src/locate": [],
+  "src/log": [],
+  "src/parse": [],
+  "src/prompts": [],
+  "src/report": [],
+  "src/runner": [
+   {
+    "from_source": "extensions/vscode/src/runner.ts#hasSources",
+    "rule": "scanning.sources.nothing-configured-means-nothing-collected"
+   },
+   {
+    "from_source": "extensions/vscode/src/runner.ts#buildArgs",
+    "rule": "probe.scope.only-the-named-host"
+   }
+  ],
+  "src/scheduler": [],
+  "src/splice": [
+   {
+    "from_source": "extensions/vscode/src/splice.ts#addKey",
+    "rule": "Adding an item never drops entries the config already declares"
+   },
+   {
+    "from_source": "extensions/vscode/src/splice.ts#removeEntry",
+    "rule": "Removing an item deletes only that entry and refuses when the recorded position names no entry"
+   }
+  ],
+  "src/status": [],
+  "src/store": [
+   {
+    "from_source": "extensions/vscode/src/store.ts#ResultStore",
+    "rule": "scanning.inventory.latest-scan-replaces-previous: the inventory shows only what the latest successful scan found, never items left over from earlier runs"
+   }
+  ],
+  "src/types": [],
+  "vscode/esbuild": []
+ },
+ "retired": [
+  "vscode.inventory-panel.ranked-list.007",
+  "vscode.inventory-panel.item-actions.003",
+  "vscode.tracking-items.entry-validation.006",
+  "vscode.tracking-items.entry-validation.005",
+  "vscode.tracking-items.config-writing.005"
+ ],
+ "scenarios": {
+  "vscode.config-insights.declaration-lookup.001": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/recorded-vs-discovered-placement.feature",
+   "fingerprint": "6d92a1a5eab2",
+   "human": false,
+   "rule": "config-insights.declaration.only-recorded-items-placed",
+   "source": "extensions/vscode/src/collector.ts#withOrigins",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.config-insights.declaration-lookup.002": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "37d3b022da23",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.points-at-declared-value",
+   "source": "extensions/vscode/src/locate.ts#declaredIn",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#an endpoint host is placed on the line that declares it",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#an endpoint host is placed on the line that declares it",
+    "extensions/vscode/src/test/locate.test.ts#domains are placed individually, not as one array"
+   ]
+  },
+  "vscode.config-insights.declaration-lookup.003": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "37d3b022da23",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.exact-name-match",
+   "source": "extensions/vscode/src/locate.ts#declaredIn",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#a host with a port keeps the port, because the item name does",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#a host with a port keeps the port, because the item name does",
+    "extensions/vscode/src/test/locate.test.ts#an escaped character in a host round-trips to the name the CLI reports"
+   ]
+  },
+  "vscode.config-insights.declaration-lookup.004": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "37d3b022da23",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.only-recorded-items-located",
+   "source": "extensions/vscode/src/locate.ts#declaredIn",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#only the two declared arrays are scanned",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#only the two declared arrays are scanned"
+   ]
+  },
+  "vscode.config-insights.declaration-lookup.005": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "37d3b022da23",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.first-declaration-wins",
+   "source": "extensions/vscode/src/locate.ts#declaredIn",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#the first declaration of a duplicated host wins",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#the first declaration of a duplicated host wins"
+   ]
+  },
+  "vscode.config-insights.declaration-lookup.006": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "b3186563e6c2",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.incomplete-config-claims-nothing",
+   "source": "extensions/vscode/src/locate.ts#arraySpan",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#a config being typed claims nothing rather than guessing",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#a config being typed claims nothing rather than guessing",
+    "extensions/vscode/src/test/locate.test.ts#a config with neither array is not an error"
+   ]
+  },
+  "vscode.config-insights.declaration-lookup.007": {
+   "file": "extensions/vscode/specs/config-insights/declaration-lookup/config-declaration-lookup.feature",
+   "fingerprint": "b3186563e6c2",
+   "human": false,
+   "rule": "config-insights.declaration-lookup.brackets-in-values-ignored",
+   "source": "extensions/vscode/src/locate.ts#arraySpan",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/locate.test.ts#a brace inside a value cannot close the array early",
+   "tests": [
+    "extensions/vscode/src/test/locate.test.ts#a brace inside a value cannot close the array early"
+   ]
+  },
+  "vscode.config-insights.expiry-squiggles.001": {
+   "file": "extensions/vscode/specs/config-insights/expiry-squiggles/config-expiry-squiggles.feature",
+   "fingerprint": "712b21e9a27f",
+   "human": false,
+   "rule": "config-insights.squiggles.severity-follows-deadline",
+   "source": "extensions/vscode/src/diagnostics.ts#severityFor",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/diagnostics.test.ts#severity follows the deadline, on the configured windows",
+   "tests": [
+    "extensions/vscode/src/test/diagnostics.test.ts#severity follows the deadline, on the configured windows"
+   ]
+  },
+  "vscode.config-insights.expiry-squiggles.002": {
+   "file": "extensions/vscode/specs/config-insights/expiry-squiggles/config-expiry-squiggles.feature",
+   "fingerprint": "3dd28e89841b",
+   "human": false,
+   "rule": "config-insights.squiggles.message-explains-ranking",
+   "source": "extensions/vscode/src/diagnostics.ts#message",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/diagnostics.test.ts#the message says what expires, when, and why it is ranked where it is",
+   "tests": [
+    "extensions/vscode/src/test/diagnostics.test.ts#the message says what expires, when, and why it is ranked where it is",
+    "extensions/vscode/src/test/diagnostics.test.ts#an expired item says how long it has been broken"
+   ]
+  },
+  "vscode.config-insights.expiry-squiggles.003": {
+   "file": "extensions/vscode/specs/config-insights/expiry-squiggles/config-expiry-squiggles.feature",
+   "fingerprint": "3dd28e89841b",
+   "human": false,
+   "rule": "config-insights.squiggles.same-day-wording",
+   "source": "extensions/vscode/src/diagnostics.ts#message",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.001": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/inventory-attention-badge.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.attention.badge-counts-expired-and-urgent",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.002": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/inventory-attention-badge.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.attention.collecting-indicator",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.003": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.shows-soonest-deadline",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.004": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.tooltip-explains-next-item",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.005": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.failed-sources-always-flagged",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.006": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.empty-inventory",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.007": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.not-yet-collected",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.008": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "58eceb53fc7e",
+   "human": false,
+   "rule": "inventory.status-bar.shows-scan-in-progress",
+   "source": "extensions/vscode/src/status.ts#StatusBar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.attention-indicators.009": {
+   "file": "extensions/vscode/specs/inventory-panel/attention-indicators/status-bar-next-deadline.feature",
+   "fingerprint": "db2124b10501",
+   "human": false,
+   "rule": "inventory.status-bar.reflects-primary-folder-only",
+   "source": "extensions/vscode/src/collector.ts#Collector",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.filtering.001": {
+   "file": "extensions/vscode/specs/inventory-panel/filtering/inventory-filtering.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.filtering.match-both-axes",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.filtering.002": {
+   "file": "extensions/vscode/specs/inventory-panel/filtering/inventory-filtering.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.filtering.choices-show-counts",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.filtering.003": {
+   "file": "extensions/vscode/specs/inventory-panel/filtering/inventory-filtering.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.filtering.empty-axis-means-all",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.grouping.001": {
+   "file": "extensions/vscode/specs/inventory-panel/grouping/inventory-grouping.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.grouping.kind-groups-by-worst-deadline",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.grouping.002": {
+   "file": "extensions/vscode/specs/inventory-panel/grouping/inventory-grouping.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.grouping.expand-all-reopens-groups",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.item-actions.001": {
+   "file": "extensions/vscode/specs/inventory-panel/item-actions/copy-item-details.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "panel.item.copy-details",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.item-actions.002": {
+   "file": "extensions/vscode/specs/inventory-panel/item-actions/inventory-item-actions.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.actions.recorded-item-opens-declaration",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.001": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.panel.ranked-by-deadline-then-priority",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.002": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "31d44d27a0a8",
+   "human": false,
+   "rule": "inventory.panel.severity-icon",
+   "source": "extensions/vscode/src/inventoryView.ts#ICONS",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.003": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.panel.item-tooltip-explains-rank",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.004": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.panel.failed-sources-notice",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.005": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.panel.empty-state-guidance",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.inventory-panel.ranked-list.006": {
+   "file": "extensions/vscode/specs/inventory-panel/ranked-list/inventory-ranked-list.feature",
+   "fingerprint": "fd7f861b0bcb",
+   "human": false,
+   "rule": "inventory.panel.follows-active-folder",
+   "source": "extensions/vscode/src/inventoryView.ts#InventoryView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.host-probe.001": {
+   "file": "extensions/vscode/specs/reports-and-probes/host-probe/host-probe.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "probes.host.cert-and-domain-without-config",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.host-probe.002": {
+   "file": "extensions/vscode/specs/reports-and-probes/host-probe/host-probe.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "probes.host.nothing-returned-warns",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.host-probe.003": {
+   "file": "extensions/vscode/specs/reports-and-probes/host-probe/host-probe-prompt.feature",
+   "fingerprint": "1e004d5d85a1",
+   "human": false,
+   "rule": "reports-and-probes.host-probe.host-from-selection",
+   "source": "extensions/vscode/src/prompts.ts#promptHost",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.host-probe.004": {
+   "file": "extensions/vscode/specs/reports-and-probes/host-probe/one-off-probe.feature",
+   "fingerprint": "c9153d7a51b6",
+   "human": false,
+   "rule": "probe.scope.only-the-named-host",
+   "source": "extensions/vscode/src/runner.ts#buildArgs",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/runner.test.ts#a one-off probe drops the config, the settings and the extra args",
+   "tests": [
+    "extensions/vscode/src/test/runner.test.ts#a one-off probe drops the config, the settings and the extra args",
+    "extensions/vscode/src/test/runner.test.ts#a one-off probe says \"no config\" out loud, rather than omitting the flag",
+    "extensions/vscode/src/test/contract.test.ts#a probe ignores the config file sitting next to it"
+   ]
+  },
+  "vscode.reports-and-probes.html-report.001": {
+   "file": "extensions/vscode/specs/reports-and-probes/html-report/html-report-freshness.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "reports.html.re-rendered-when-stale",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.html-report.002": {
+   "file": "extensions/vscode/specs/reports-and-probes/html-report/html-report-view.feature",
+   "fingerprint": "195fbce7ac5d",
+   "human": false,
+   "rule": "reports.html-report.shown-as-cli-renders-it",
+   "source": "extensions/vscode/src/report.ts#ReportView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.html-report.003": {
+   "file": "extensions/vscode/specs/reports-and-probes/html-report/html-report-view.feature",
+   "fingerprint": "195fbce7ac5d",
+   "human": false,
+   "rule": "reports.html-report.single-tab-reused",
+   "source": "extensions/vscode/src/report.ts#ReportView",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.html-report.004": {
+   "file": "extensions/vscode/specs/reports-and-probes/html-report/html-report-view.feature",
+   "fingerprint": "566ed20e877e",
+   "human": false,
+   "rule": "reports.html-report.external-links-open-in-browser",
+   "source": "extensions/vscode/src/report.ts#adapt",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.html-report.005": {
+   "file": "extensions/vscode/specs/reports-and-probes/html-report/html-report-view.feature",
+   "fingerprint": "566ed20e877e",
+   "human": false,
+   "rule": "reports.html-report.no-network-access",
+   "source": "extensions/vscode/src/report.ts#adapt",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.report-export.001": {
+   "file": "extensions/vscode/specs/reports-and-probes/report-export/report-export.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "reports.export.dated-file-in-chosen-format",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.reports-and-probes.report-export.002": {
+   "file": "extensions/vscode/specs/reports-and-probes/report-export/export-format-choice.feature",
+   "fingerprint": "48c5aea087ac",
+   "human": false,
+   "rule": "reports-and-probes.report-export.four-formats",
+   "source": "extensions/vscode/src/prompts.ts#pickExportFormat",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.001": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/automatic-refresh.feature",
+   "fingerprint": "8bbe5b165062",
+   "human": false,
+   "rule": "scanning.automatic.config-save-triggers-scan",
+   "source": "extensions/vscode/src/extension.ts#onSave",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.002": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/automatic-refresh.feature",
+   "fingerprint": "f2f4b9a3d252",
+   "human": false,
+   "rule": "scanning.automatic.startup-scan",
+   "source": "extensions/vscode/src/extension.ts#scheduleStartupCollection",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.003": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/automatic-refresh.feature",
+   "fingerprint": "628bc97ec104",
+   "human": false,
+   "rule": "scanning.automatic.quiet-without-sources",
+   "source": "extensions/vscode/src/extension.ts#scheduleAutomatic",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.004": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/automatic-refresh.feature",
+   "fingerprint": "02fcb34ef7be",
+   "human": false,
+   "rule": "scanning.automatic.periodic-refresh",
+   "source": "extensions/vscode/src/extension.ts#setSweep",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.005": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/automatic-refresh.feature",
+   "fingerprint": "b68278a2b953",
+   "human": false,
+   "rule": "scanning.automatic.settings-apply-live",
+   "source": "extensions/vscode/src/extension.ts#activate",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.006": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/pacing-automatic-scans.feature",
+   "fingerprint": "9bcdfbc52bc8",
+   "human": false,
+   "rule": "scanning.automatic-refresh.saves-debounced-into-one-run",
+   "source": "extensions/vscode/src/scheduler.ts#Scheduler",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/scheduler.test.ts#a burst of requests collapses into one run, and the newest wins",
+   "tests": [
+    "extensions/vscode/src/test/scheduler.test.ts#a burst of requests collapses into one run, and the newest wins"
+   ]
+  },
+  "vscode.scanning.automatic-refresh.007": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/pacing-automatic-scans.feature",
+   "fingerprint": "9bcdfbc52bc8",
+   "human": false,
+   "rule": "scanning.automatic-refresh.one-collection-at-a-time",
+   "source": "extensions/vscode/src/scheduler.ts#Scheduler",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/scheduler.test.ts#only one collection runs at a time",
+   "tests": [
+    "extensions/vscode/src/test/scheduler.test.ts#only one collection runs at a time"
+   ]
+  },
+  "vscode.scanning.automatic-refresh.008": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/pacing-automatic-scans.feature",
+   "fingerprint": "9bcdfbc52bc8",
+   "human": false,
+   "rule": "scanning.automatic-refresh.periodic-skips-unfocused-or-fresh",
+   "source": "extensions/vscode/src/scheduler.ts#Scheduler",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.automatic-refresh.009": {
+   "file": "extensions/vscode/specs/scanning/automatic-refresh/pacing-automatic-scans.feature",
+   "fingerprint": "9bcdfbc52bc8",
+   "human": false,
+   "rule": "scanning.automatic-refresh.one-pending-request-across-folders",
+   "source": "extensions/vscode/src/scheduler.ts#Scheduler",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.failed-sources.001": {
+   "file": "extensions/vscode/specs/scanning/failed-sources/failed-source-detection.feature",
+   "fingerprint": "f8783c571bc2",
+   "human": false,
+   "rule": "scanning.failed-sources.warning-lines-reported",
+   "source": "extensions/vscode/src/parse.ts#parseWarnings",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#parseWarnings picks the failed sources out of stderr",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#parseWarnings picks the failed sources out of stderr",
+    "extensions/vscode/src/test/parse.test.ts#parseWarnings finds nothing in a clean run"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.001": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "d37a8431d5c3",
+   "human": false,
+   "rule": "inventory.snapshot.severity-by-deadline",
+   "source": "extensions/vscode/src/parse.ts#severity",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#severity follows the deadline, on the report thresholds",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#severity follows the deadline, on the report thresholds",
+    "extensions/vscode/src/test/parse.test.ts#severity thresholds are configurable, and 0 still means urgent-only-if-due",
+    "extensions/vscode/src/test/parse.test.ts#toItems buckets each item by its deadline"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.002": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "20445acb4a7b",
+   "human": false,
+   "rule": "inventory.snapshot.days-left-wording",
+   "source": "extensions/vscode/src/parse.ts#humanDays",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#humanDays never says a cheerful zero for something already broken",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#humanDays never says a cheerful zero for something already broken"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.003": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "b7ae5f43fc67",
+   "human": false,
+   "rule": "inventory.snapshot.namespace-prefixed-once",
+   "source": "extensions/vscode/src/parse.ts#displayName",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#displayName prefixes the namespace exactly once",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#displayName prefixes the namespace exactly once"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.004": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "2f3d28aed81c",
+   "human": false,
+   "rule": "inventory.snapshot.duplicate-reports-kept",
+   "source": "extensions/vscode/src/parse.ts#toItems",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#toItems assigns a stable id, and disambiguates a genuine duplicate",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#toItems assigns a stable id, and disambiguates a genuine duplicate"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.005": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "b568150d1e26",
+   "human": false,
+   "rule": "inventory.snapshot.readable-kind-labels",
+   "source": "extensions/vscode/src/parse.ts#kindLabel",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#kindLabel stays readable for a kind this build has never heard of",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#kindLabel stays readable for a kind this build has never heard of"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.006": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-reading.feature",
+   "fingerprint": "fb222f058e8b",
+   "human": false,
+   "rule": "inventory.snapshot.item-facts",
+   "source": "extensions/vscode/src/parse.ts#describe",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/parse.test.ts#describe names the namespace only when there is one",
+   "tests": [
+    "extensions/vscode/src/test/parse.test.ts#describe names the namespace only when there is one"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.007": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-per-folder.feature",
+   "fingerprint": "6b4909cd32b5",
+   "human": false,
+   "rule": "scanning.inventory.latest-scan-replaces-previous",
+   "source": "extensions/vscode/src/store.ts#ResultStore",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/store.test.ts#a newer collection replaces the previous one outright",
+   "tests": [
+    "extensions/vscode/src/test/store.test.ts#a newer collection replaces the previous one outright"
+   ]
+  },
+  "vscode.scanning.inventory-snapshot.008": {
+   "file": "extensions/vscode/specs/scanning/inventory-snapshot/inventory-snapshot-per-folder.feature",
+   "fingerprint": "6b4909cd32b5",
+   "human": false,
+   "rule": "scanning.inventory.separate-per-workspace-folder",
+   "source": "extensions/vscode/src/store.ts#ResultStore",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.on-demand-scan.001": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/on-demand-scan.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "scanning.on-demand.requires-open-folder",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.on-demand-scan.002": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/on-demand-scan.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "scanning.on-demand.no-sources-offers-setup",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.on-demand-scan.003": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/on-demand-scan.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "scanning.on-demand.cancellable-progress",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.on-demand-scan.004": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "b054e9e2c412",
+   "human": false,
+   "rule": "scanning.run.report-kept-on-threshold-or-partial-exit",
+   "source": "extensions/vscode/src/runner.ts#runRadar",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/process.test.ts#exit 1 with a report on stdout is a report, and its warnings are kept",
+   "tests": [
+    "extensions/vscode/src/test/process.test.ts#exit 1 with a report on stdout is a report, and its warnings are kept",
+    "extensions/vscode/src/test/contract.test.ts#a report that lost a source is still a report, and says which one"
+   ]
+  },
+  "vscode.scanning.on-demand-scan.005": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "b054e9e2c412",
+   "human": false,
+   "rule": "scanning.run.failure-shows-cli-message",
+   "source": "extensions/vscode/src/runner.ts#runRadar",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/process.test.ts#exit 2 is a failure that carries the CLI's own message",
+   "tests": [
+    "extensions/vscode/src/test/process.test.ts#exit 2 is a failure that carries the CLI's own message"
+   ]
+  },
+  "vscode.scanning.on-demand-scan.006": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "b054e9e2c412",
+   "human": false,
+   "rule": "scanning.run.no-sources-is-an-error-not-empty",
+   "source": "extensions/vscode/src/runner.ts#runRadar",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/contract.test.ts#a run with no sources at all is an error, not an empty inventory",
+   "tests": [
+    "extensions/vscode/src/test/contract.test.ts#a run with no sources at all is an error, not an empty inventory"
+   ]
+  },
+  "vscode.scanning.on-demand-scan.007": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "b054e9e2c412",
+   "human": false,
+   "rule": "scanning.run.timeout-past-cli-budget",
+   "source": "extensions/vscode/src/runner.ts#runRadar",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.scanning.on-demand-scan.008": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "b054e9e2c412",
+   "human": false,
+   "rule": "scanning.run.cancel-stops-everything-started",
+   "source": "extensions/vscode/src/runner.ts#runRadar",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/process.test.ts#cancelling a collection kills what the CLI started, not just the CLI",
+   "tests": [
+    "extensions/vscode/src/test/process.test.ts#cancelling a collection kills what the CLI started, not just the CLI"
+   ]
+  },
+  "vscode.scanning.on-demand-scan.009": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/running-a-collection.feature",
+   "fingerprint": "7674138b6b6c",
+   "human": false,
+   "rule": "scanning.sources.nothing-configured-means-nothing-collected",
+   "source": "extensions/vscode/src/runner.ts#hasSources",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/runner.test.ts#a folder with no config and no settings has nothing to collect",
+   "tests": [
+    "extensions/vscode/src/test/runner.test.ts#a folder with no config and no settings has nothing to collect"
+   ]
+  },
+  "vscode.scanning.on-demand-scan.010": {
+   "file": "extensions/vscode/specs/scanning/on-demand-scan/controlling-scans.feature",
+   "fingerprint": "9bcdfbc52bc8",
+   "human": false,
+   "rule": "scanning.on-demand-scan.failure-does-not-block-later-scans",
+   "source": "extensions/vscode/src/scheduler.ts#Scheduler",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/scheduler.test.ts#a failed run does not poison the queue",
+   "tests": [
+    "extensions/vscode/src/test/scheduler.test.ts#a failed run does not poison the queue"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.activation.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/activation/extension-activation.feature",
+   "fingerprint": "b68278a2b953",
+   "human": false,
+   "rule": "activation.commands.all-advertised-available",
+   "source": "extensions/vscode/src/extension.ts#activate",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/activate.test.ts#activate registers exactly the commands the manifest contributes",
+   "tests": [
+    "extensions/vscode/src/test/activate.test.ts#activate registers exactly the commands the manifest contributes"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.activity-log.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/activity-log/activity-log.feature",
+   "fingerprint": "a488341d43dc",
+   "human": false,
+   "rule": "vscode.activity-log.single-named-channel",
+   "source": "extensions/vscode/src/log.ts#log",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.cli-discovery.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/cli-discovery/cli-discovery.feature",
+   "fingerprint": "4aa6f8e986b0",
+   "human": false,
+   "rule": "cli.discovery.most-explicit-location-wins",
+   "source": "extensions/vscode/src/runner.ts#resolveBinary",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.cli-discovery.002": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/cli-discovery/cli-discovery.feature",
+   "fingerprint": "edc431b778dc",
+   "human": false,
+   "rule": "cli.discovery.missing-binary-offers-install",
+   "source": "extensions/vscode/src/runner.ts#promptInstall",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.environment-check.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "e077f0192643",
+   "human": false,
+   "rule": "setup.doctor.summary-reflects-worst-finding",
+   "source": "extensions/vscode/src/doctor.ts#runDoctor",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/doctor.test.ts#a binary that runs and a config with both free sources reads clean",
+   "tests": [
+    "extensions/vscode/src/test/doctor.test.ts#a binary that runs and a config with both free sources reads clean",
+    "extensions/vscode/src/test/doctor.test.ts#something on disk that is not expiry-radar is named, not trusted",
+    "extensions/vscode/src/test/doctor.test.ts#a config that enables nothing at all is an error, and the summary says so"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.environment-check.002": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "6d4d0034e78b",
+   "human": false,
+   "rule": "setup.doctor.missing-binary-is-error",
+   "source": "extensions/vscode/src/doctor.ts#locateBinary",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.environment-check.003": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "d40d493d5343",
+   "human": false,
+   "rule": "setup.doctor.foreign-binary-is-warned",
+   "source": "extensions/vscode/src/doctor.ts#checkBinaryIsRadar",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/doctor.test.ts#something on disk that is not expiry-radar is named, not trusted",
+   "tests": [
+    "extensions/vscode/src/test/doctor.test.ts#something on disk that is not expiry-radar is named, not trusted"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.environment-check.004": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "3d3ed6653a71",
+   "human": false,
+   "rule": "setup.doctor.missing-config-explained",
+   "source": "extensions/vscode/src/doctor.ts#checkConfig",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/doctor.test.ts#no config and nothing in the settings is the warning that explains an empty panel",
+   "tests": [
+    "extensions/vscode/src/test/doctor.test.ts#no config and nothing in the settings is the warning that explains an empty panel"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.environment-check.005": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "1972b9744ca8",
+   "human": false,
+   "rule": "setup.doctor.unusable-config-is-error",
+   "source": "extensions/vscode/src/doctor.ts#describeConfig",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/doctor.test.ts#a config that is not JSON is reported as unusable rather than as empty",
+   "tests": [
+    "extensions/vscode/src/test/doctor.test.ts#a config that is not JSON is reported as unusable rather than as empty",
+    "extensions/vscode/src/test/doctor.test.ts#a config that enables nothing at all is an error, and the summary says so"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.environment-check.006": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "1972b9744ca8",
+   "human": false,
+   "rule": "setup.doctor.enabled-source-needs-credentials",
+   "source": "extensions/vscode/src/doctor.ts#describeConfig",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/doctor.test.ts#an enabled source with no credentials in the environment is a warning each",
+   "tests": [
+    "extensions/vscode/src/test/doctor.test.ts#an enabled source with no credentials in the environment is a warning each"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.environment-check.007": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/environment-check/environment-doctor.feature",
+   "fingerprint": "d311ca643bc7",
+   "human": false,
+   "rule": "setup.doctor.shrinking-settings-noted",
+   "source": "extensions/vscode/src/doctor.ts#noteSettings",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.settings.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/settings-sanity-limits.feature",
+   "fingerprint": "61ea666958ec",
+   "human": false,
+   "rule": "settings.limits.out-of-range-values-clamped",
+   "source": "extensions/vscode/src/config.ts#readSettings",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.settings.002": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/settings-sanity-limits.feature",
+   "fingerprint": "61ea666958ec",
+   "human": false,
+   "rule": "settings.limits.info-window-not-shorter-than-warning-window",
+   "source": "extensions/vscode/src/config.ts#readSettings",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.settings.003": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/collection-settings.feature",
+   "fingerprint": "c9153d7a51b6",
+   "human": false,
+   "rule": "settings.collection.hosts-and-domains-add-to-config",
+   "source": "extensions/vscode/src/runner.ts#buildArgs",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/runner.test.ts#settings endpoints and domains add to the config, comma-joined",
+   "tests": [
+    "extensions/vscode/src/test/runner.test.ts#settings endpoints and domains add to the config, comma-joined",
+    "extensions/vscode/src/test/runner.test.ts#a resolved config file is passed as -config"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.settings.004": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/collection-settings.feature",
+   "fingerprint": "5d40f4652fb4",
+   "human": false,
+   "rule": "settings.collection.config-path-resolution",
+   "source": "extensions/vscode/src/runner.ts#resolveConfig",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.settings.005": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/collection-settings.feature",
+   "fingerprint": "c9153d7a51b6",
+   "human": false,
+   "rule": "settings.collection.view-filters-applied-by-cli",
+   "source": "extensions/vscode/src/runner.ts#buildArgs",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/runner.test.ts#the view filters are pushed down to the CLI, and only when set",
+   "tests": [
+    "extensions/vscode/src/test/runner.test.ts#the view filters are pushed down to the CLI, and only when set"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.settings.006": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/settings/collection-settings.feature",
+   "fingerprint": "c9153d7a51b6",
+   "human": false,
+   "rule": "settings.collection.extra-args-override",
+   "source": "extensions/vscode/src/runner.ts#buildArgs",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/runner.test.ts#extra args go last, so a user can override what we chose",
+   "tests": [
+    "extensions/vscode/src/test/runner.test.ts#extra args go last, so a user can override what we chose"
+   ]
+  },
+  "vscode.setup-and-troubleshooting.workspace-folders.001": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/workspace-folders/command-target-folder.feature",
+   "fingerprint": "6112d239ec60",
+   "human": false,
+   "rule": "workspace.folders.command-targets-active-editor-folder",
+   "source": "extensions/vscode/src/folder.ts#primaryFolder",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.setup-and-troubleshooting.workspace-folders.002": {
+   "file": "extensions/vscode/specs/setup-and-troubleshooting/workspace-folders/command-target-folder.feature",
+   "fingerprint": "a427c9f44e85",
+   "human": false,
+   "rule": "workspace.folders.settings-read-per-folder",
+   "source": "extensions/vscode/src/folder.ts#settingsFor",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.add-item.001": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/add-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.add.writes-shows-and-scans",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.add-item.002": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/add-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.add.creates-config-when-missing",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.add-item.003": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/recording-an-item.feature",
+   "fingerprint": "4be2414365c7",
+   "human": false,
+   "rule": "tracking-items.add-item.three-recordable-kinds",
+   "source": "extensions/vscode/src/prompts.ts#pickEntryKind",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/activate.test.ts#adding an endpoint prompts for it, writes it, and opens the file it wrote",
+   "tests": [
+    "extensions/vscode/src/test/activate.test.ts#adding an endpoint prompts for it, writes it, and opens the file it wrote"
+   ]
+  },
+  "vscode.tracking-items.add-item.004": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/recording-an-item.feature",
+   "fingerprint": "8963c49d7c78",
+   "human": false,
+   "rule": "tracking-items.add-item.single-value-defaults-to-selection",
+   "source": "extensions/vscode/src/prompts.ts#promptValue",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/activate.test.ts#adding an endpoint prompts for it, writes it, and opens the file it wrote",
+   "tests": [
+    "extensions/vscode/src/test/activate.test.ts#adding an endpoint prompts for it, writes it, and opens the file it wrote"
+   ]
+  },
+  "vscode.tracking-items.add-item.005": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/recording-an-item.feature",
+   "fingerprint": "8963c49d7c78",
+   "human": false,
+   "rule": "tracking-items.add-item.blank-value-refused",
+   "source": "extensions/vscode/src/prompts.ts#promptValue",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.add-item.006": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/recording-an-item.feature",
+   "fingerprint": "1222a5caceab",
+   "human": false,
+   "rule": "tracking-items.add-item.manual-kind-sets-blast-radius",
+   "source": "extensions/vscode/src/prompts.ts#promptManualEntry",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.add-item.007": {
+   "file": "extensions/vscode/specs/tracking-items/add-item/recording-an-item.feature",
+   "fingerprint": "1222a5caceab",
+   "human": false,
+   "rule": "tracking-items.add-item.backing-out-records-nothing",
+   "source": "extensions/vscode/src/prompts.ts#promptManualEntry",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/activate.test.ts#backing out of the first prompt writes no config at all",
+   "tests": [
+    "extensions/vscode/src/test/activate.test.ts#backing out of the first prompt writes no config at all"
+   ]
+  },
+  "vscode.tracking-items.config-writing.001": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/starter-config.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "config.starter.seeded-from-example",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.config-writing.002": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "cdece139d9fd",
+   "human": false,
+   "rule": "tracking.config-writing.add-preserves-layout",
+   "source": "extensions/vscode/src/splice.ts#addToArray",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#an entry is appended to a multi-line array, indented like its siblings",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#an entry is appended to a multi-line array, indented like its siblings",
+    "extensions/vscode/src/test/edit.test.ts#a one-line array stays a one-line array",
+    "extensions/vscode/src/test/edit.test.ts#an empty array takes the first entry without a stray comma",
+    "extensions/vscode/src/test/edit.test.ts#four-space and tab indentation are preserved",
+    "extensions/vscode/src/test/edit.test.ts#a bracket inside a value does not confuse the append"
+   ]
+  },
+  "vscode.tracking-items.config-writing.003": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "f8cb737b887f",
+   "human": false,
+   "rule": "tracking.config-writing.add-keeps-existing-config",
+   "source": "extensions/vscode/src/splice.ts#addKey",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#a missing key is added to the object rather than replacing it",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#a missing key is added to the object rather than replacing it",
+    "extensions/vscode/src/test/edit.test.ts#an empty or absent config becomes a config"
+   ]
+  },
+  "vscode.tracking-items.config-writing.004": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "f8cb737b887f",
+   "human": false,
+   "rule": "tracking.config-writing.non-object-config-replaced",
+   "source": "extensions/vscode/src/splice.ts#addKey",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.config-writing.006": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "3190276e807e",
+   "human": false,
+   "rule": "tracking.config-writing.remove-leaves-valid-config",
+   "source": "extensions/vscode/src/splice.ts#removeEntry",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#removing the middle of a multi-line array leaves valid JSON",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#removing the middle of a multi-line array leaves valid JSON",
+    "extensions/vscode/src/test/edit.test.ts#removing the last element takes the comma before it, not after",
+    "extensions/vscode/src/test/edit.test.ts#removing the only element leaves an empty array, not a broken one",
+    "extensions/vscode/src/test/edit.test.ts#an entry spanning several lines is removed whole",
+    "extensions/vscode/src/test/edit.test.ts#a brace inside a value does not end the element early"
+   ]
+  },
+  "vscode.tracking-items.config-writing.007": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "3190276e807e",
+   "human": false,
+   "rule": "tracking.config-writing.remove-bounded-to-entry",
+   "source": "extensions/vscode/src/splice.ts#removeEntry",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#a one-line config loses one entry, not the whole document",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#a one-line config loses one entry, not the whole document",
+    "extensions/vscode/src/test/edit.test.ts#removal never reaches outside the array it was given"
+   ]
+  },
+  "vscode.tracking-items.config-writing.008": {
+   "file": "extensions/vscode/specs/tracking-items/config-writing/config-file-writing.feature",
+   "fingerprint": "3190276e807e",
+   "human": false,
+   "rule": "tracking.config-writing.remove-refuses-unknown-position",
+   "source": "extensions/vscode/src/splice.ts#removeEntry",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#a position naming no entry is refused rather than guessed at",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#a position naming no entry is refused rather than guessed at"
+   ]
+  },
+  "vscode.tracking-items.entry-validation.001": {
+   "file": "extensions/vscode/specs/tracking-items/entry-validation/recording-entries.feature",
+   "fingerprint": "62a2ebdc8089",
+   "human": false,
+   "rule": "tracking.entry-validation.expiry-accepted-only-as-cli-accepts",
+   "source": "extensions/vscode/src/edit.ts#invalidExpires",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#the date check accepts what the CLI accepts",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#the date check accepts what the CLI accepts",
+    "extensions/vscode/src/test/edit.test.ts#the date check rejects what the CLI would reject at load"
+   ]
+  },
+  "vscode.tracking-items.entry-validation.002": {
+   "file": "extensions/vscode/specs/tracking-items/entry-validation/recording-entries.feature",
+   "fingerprint": "d0e04b8909bd",
+   "human": false,
+   "rule": "tracking.entry-validation.manual-entry-shape",
+   "source": "extensions/vscode/src/edit.ts#ENTRY_KINDS",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#a manual entry carries what ranking needs, and omits what it does not",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#a manual entry carries what ranking needs, and omits what it does not"
+   ]
+  },
+  "vscode.tracking-items.entry-validation.003": {
+   "file": "extensions/vscode/specs/tracking-items/entry-validation/recording-entries.feature",
+   "fingerprint": "d0e04b8909bd",
+   "human": false,
+   "rule": "tracking.entry-validation.entries-trimmed",
+   "source": "extensions/vscode/src/edit.ts#ENTRY_KINDS",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#entries are trimmed, so a pasted hostname does not become a name with a space",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#entries are trimmed, so a pasted hostname does not become a name with a space"
+   ]
+  },
+  "vscode.tracking-items.entry-validation.004": {
+   "file": "extensions/vscode/specs/tracking-items/entry-validation/recording-entries.feature",
+   "fingerprint": "eb3b0e49a0dc",
+   "human": false,
+   "rule": "tracking.entry-validation.recorded-vs-discovered",
+   "source": "extensions/vscode/src/edit.ts#arrayForSource",
+   "status": "verified",
+   "test": "extensions/vscode/src/test/edit.test.ts#a source maps to the array it records into, and discovery maps to none",
+   "tests": [
+    "extensions/vscode/src/test/edit.test.ts#a source maps to the array it records into, and discovery maps to none"
+   ]
+  },
+  "vscode.tracking-items.remove-item.001": {
+   "file": "extensions/vscode/specs/tracking-items/remove-item/remove-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.remove.only-recorded-items",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.remove-item.002": {
+   "file": "extensions/vscode/specs/tracking-items/remove-item/remove-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.remove.requires-confirmation",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.remove-item.003": {
+   "file": "extensions/vscode/specs/tracking-items/remove-item/remove-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.remove.refuses-when-config-changed",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "vscode.tracking-items.remove-item.004": {
+   "file": "extensions/vscode/specs/tracking-items/remove-item/remove-tracked-item.feature",
+   "fingerprint": "2c57db8c9a51",
+   "human": false,
+   "rule": "tracking.remove.removes-entry-and-rescans",
+   "source": "extensions/vscode/src/commands.ts#Commands",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  }
+ },
+ "taxonomy": {
+  "domains": [
+   {
+    "areas": [
+     {
+      "description": "A user-started collection with a cancellable progress notification that feeds the panel, diagnostics and status bar.",
+      "slug": "on-demand-scan",
+      "title": "On-demand scan"
+     },
+     {
+      "description": "Scans on startup, on a periodic timer and when the config file is saved, one at a time, staying quiet in folders with nothing configured.",
+      "slug": "automatic-refresh",
+      "title": "Automatic refresh"
+     },
+     {
+      "description": "Showing sources that failed during a run so a partial inventory never looks like a clean one, without repeating popups for automatic runs.",
+      "slug": "failed-sources",
+      "title": "Failed-source reporting"
+     },
+     {
+      "description": "Reading the CLI's JSON report into rows with stable identity, severity, days left and display names, kept as one fresh snapshot per workspace folder.",
+      "slug": "inventory-snapshot",
+      "title": "Inventory snapshot"
+     }
+    ],
+    "description": "Collecting the ranked expiry inventory by running expiry-radar and turning its results into what the editor shows.",
+    "slug": "scanning",
+    "title": "Scanning"
+   },
+   {
+    "areas": [
+     {
+      "description": "The default single list in priority order, with icons per severity, tooltips explaining each item and a notice at the top for failed sources.",
+      "slug": "ranked-list",
+      "title": "Ranked list"
+     },
+     {
+      "description": "Switching between grouping by rank and by kind, with groups ordered by worst deadline and an Expand All action.",
+      "slug": "grouping",
+      "title": "Grouping and expansion"
+     },
+     {
+      "description": "A multi-select filter by how close the deadline is and by item kind, where an empty axis means everything.",
+      "slug": "filtering",
+      "title": "Filtering"
+     },
+     {
+      "description": "The view badge and status bar summary counting what has expired or expires next.",
+      "slug": "attention-indicators",
+      "title": "Attention indicators"
+     },
+     {
+      "description": "Per-row actions such as copying an item's details and context menus that depend on whether the item was recorded or discovered.",
+      "slug": "item-actions",
+      "title": "Item actions"
+     }
+    ],
+    "description": "The tree view and status bar where operators browse what is expiring, in blast-radius order.",
+    "slug": "inventory-panel",
+    "title": "Inventory panel"
+   },
+   {
+    "areas": [
+     {
+      "description": "Editor diagnostics on declared hosts, domains and manual entries, with severity set by deadline and messages explaining the blast radius.",
+      "slug": "expiry-squiggles",
+      "title": "Expiry squiggles"
+     },
+     {
+      "description": "Finding the exact line and column where each recorded item is declared, by scanning the config text rather than parsing it.",
+      "slug": "declaration-lookup",
+      "title": "Declaration lookup"
+     }
+    ],
+    "description": "Linking expiring items back to the lines in expiry-radar.json that declared them.",
+    "slug": "config-insights",
+    "title": "Config file insights"
+   },
+   {
+    "areas": [
+     {
+      "description": "A guided prompt sequence to record a host, domain or manual item, defaulting to the current selection and starting a scan right away.",
+      "slug": "add-item",
+      "title": "Add item"
+     },
+     {
+      "description": "Rejecting expiry dates and entries the CLI would refuse, and rendering each kind as the JSON the config expects.",
+      "slug": "entry-validation",
+      "title": "Entry validation"
+     },
+     {
+      "description": "Stopping tracking of a recorded item, after checking that the config line still names it.",
+      "slug": "remove-item",
+      "title": "Remove item"
+     },
+     {
+      "description": "Adding entries to and removing them from the config file in place, creating a starter config from the repository example when none exists.",
+      "slug": "config-writing",
+      "title": "Config file writing"
+     }
+    ],
+    "description": "Recording and removing things to watch without hand-editing the config schema.",
+    "slug": "tracking-items",
+    "title": "Tracking items"
+   },
+   {
+    "areas": [
+     {
+      "description": "Showing the CLI's own self-contained HTML report in an editor tab, with a CSP, a bridge for external links and stale-report replacement.",
+      "slug": "html-report",
+      "title": "HTML report view"
+     },
+     {
+      "description": "Exporting the inventory to a file in a user-chosen output format.",
+      "slug": "report-export",
+      "title": "Report export"
+     },
+     {
+      "description": "Checking one host's certificate chain and domain registration right away without touching the config.",
+      "slug": "host-probe",
+      "title": "Host probe"
+     }
+    ],
+    "description": "One-off documents and answers produced outside the regular inventory refresh.",
+    "slug": "reports-and-probes",
+    "title": "Reports and probes"
+   },
+   {
+    "areas": [
+     {
+      "description": "Finding the expiry-radar binary in the usual locations and offering a one-click install when it is missing.",
+      "slug": "cli-discovery",
+      "title": "CLI discovery and install"
+     },
+     {
+      "description": "A doctor command that checks the binary, the config, settings that shrink results and missing credentials for enabled sources.",
+      "slug": "environment-check",
+      "title": "Environment check"
+     },
+     {
+      "description": "Extension settings such as binary path, config path, refresh interval, warning windows and extra arguments, with sanity checks.",
+      "slug": "settings",
+      "title": "Settings"
+     },
+     {
+      "description": "Picking which workspace folder a command applies to, and what config file it resolves to, in single- and multi-root workspaces.",
+      "slug": "workspace-folders",
+      "title": "Workspace folders"
+     },
+     {
+      "description": "An output channel recording each run, its reason and its results, opened with Show Log.",
+      "slug": "activity-log",
+      "title": "Activity log"
+     },
+     {
+      "description": "Wiring the extension into the editor at startup: registering commands, views and watchers, and the delayed first scan.",
+      "slug": "activation",
+      "title": "Extension activation"
+     }
+    ],
+    "description": "Getting the extension connected to the CLI and finding out why a scan came back empty or wrong.",
+    "slug": "setup-and-troubleshooting",
+    "title": "Setup and troubleshooting"
+   },
+   {
+    "areas": [
+     {
+      "description": "Bundling the extension host code into one file with esbuild, and aliasing a vscode shim so unit tests run without an editor.",
+      "slug": "bundling",
+      "title": "Bundling"
+     },
+     {
+      "description": "Copying the LICENSE and the root changelog into the .vsix package at packaging time.",
+      "slug": "packaging",
+      "title": "Packaging"
+     }
+    ],
+    "description": "Building and packaging the extension for distribution.",
+    "slug": "developer-tooling",
+    "title": "Developer tooling"
+   }
+  ]
+ }
+}

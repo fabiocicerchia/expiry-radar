@@ -1,0 +1,226 @@
+{
+ "excluded": {
+  "docs/vault-readonly-policy": [
+   {
+    "candidate": "Policy file comment telling the operator to repeat blocks per extra mount (pki_int)",
+    "covered_by": "vault.policy.grants-per-pki-mount",
+    "reason": "DUPLICATE_OF",
+    "source": "docs/vault-readonly-policy.hcl#path \"pki/cert/*\""
+   },
+   {
+    "candidate": "Test regex parsing of HCL path blocks and Vault '*' prefix-glob matching",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest"
+   }
+  ],
+  "stylesheets/extra": [
+   {
+    "candidate": "Translucent blurred header with hairline divider and shadow on scroll",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-header"
+   },
+   {
+    "candidate": "Heading weights, letter-spacing and font features",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset h1"
+   },
+   {
+    "candidate": "Rounded bordered code blocks",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .highlight"
+   },
+   {
+    "candidate": "Card-styled tables with uppercase headers (comment says they scroll, but the rule sets overflow: hidden; scrolling comes from Material's wrapper)",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset table:not([class])"
+   },
+   {
+    "candidate": "Pill buttons with hover lift",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .md-button"
+   },
+   {
+    "candidate": "Hero block layout and tagline",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .hero"
+   },
+   {
+    "candidate": "Feature card radius, hover lift and accent icon colour",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .grid.cards > ul > li"
+   },
+   {
+    "candidate": "Dark scheme background colours for page, header and tabs",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#[data-md-color-scheme=\"slate\"]"
+   },
+   {
+    "candidate": "Nav and footer weight and colour tweaks, smooth scrolling",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-nav__title"
+   }
+  ]
+ },
+ "lifted": {
+  "docs/vault-readonly-policy": [
+   {
+    "from_source": "docs/vault-readonly-policy.hcl#path \"auth/token/lookup-self\"",
+    "rule": "vault.policy.read-list-only"
+   },
+   {
+    "from_source": "internal/source/vault.go#VaultSource",
+    "rule": "vault.policy.no-lease-enumeration"
+   }
+  ],
+  "stylesheets/extra": []
+ },
+ "retired": [
+  "docs.documentation.site-styling.001",
+  "docs.documentation.site-styling.003"
+ ],
+ "scenarios": {
+  "docs.access-security.read-only-policies.001": {
+   "file": "docs/specs/access-security/read-only-policies/vault-read-only-policy.feature",
+   "fingerprint": "fb22f8c8e697",
+   "human": false,
+   "rule": "vault.policy.read-list-only",
+   "source": "docs/vault-readonly-policy.hcl#path \"auth/token/lookup-self\"",
+   "status": "verified",
+   "test": "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest",
+   "tests": [
+    "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest"
+   ]
+  },
+  "docs.access-security.read-only-policies.002": {
+   "file": "docs/specs/access-security/read-only-policies/vault-read-only-policy.feature",
+   "fingerprint": "91b7ed223910",
+   "human": false,
+   "rule": "vault.policy.covers-every-scan-request",
+   "source": "docs/vault-readonly-policy.hcl#path \"pki/cert/*\"",
+   "status": "verified",
+   "test": "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest",
+   "tests": [
+    "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest"
+   ]
+  },
+  "docs.access-security.read-only-policies.003": {
+   "file": "docs/specs/access-security/read-only-policies/vault-read-only-policy.feature",
+   "fingerprint": "06bf675b4479",
+   "human": false,
+   "rule": "vault.policy.no-lease-enumeration",
+   "source": "internal/source/vault.go#VaultSource",
+   "status": "verified",
+   "test": "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest",
+   "tests": [
+    "internal/source/vault_test.go#TestVaultPolicyDocCoversEveryRequest"
+   ]
+  },
+  "docs.access-security.read-only-policies.004": {
+   "file": "docs/specs/access-security/read-only-policies/vault-read-only-policy.feature",
+   "fingerprint": "18b851740df4",
+   "human": false,
+   "rule": "vault.policy.grants-per-pki-mount",
+   "source": "docs/vault-readonly-policy.hcl#path \"pki/certs\"",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "docs.documentation.site-styling.002": {
+   "file": "docs/specs/documentation/site-styling/docs-site-look-and-feel.feature",
+   "fingerprint": "ac660254fd34",
+   "human": false,
+   "rule": "docs.styling.no-external-requests",
+   "source": "docs/stylesheets/extra.css#:root",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  }
+ },
+ "taxonomy": {
+  "domains": [
+   {
+    "areas": [
+     {
+      "description": "Listing and reading certificates from Vault PKI mounts to learn when they expire.",
+      "slug": "vault-pki",
+      "title": "Vault PKI certificates"
+     },
+     {
+      "description": "Collecting IAM keys and secrets from cloud accounts, one service at a time, so a denied permission does not lose the findings from other services.",
+      "slug": "cloud-credentials",
+      "title": "Cloud credentials"
+     },
+     {
+      "description": "Checking live TLS certificates and their intermediate CAs for expiry.",
+      "slug": "tls-endpoints",
+      "title": "TLS endpoints and chains"
+     }
+    ],
+    "description": "Finding everything that expires across the systems expiry-radar reads from.",
+    "slug": "discovery",
+    "title": "Expiry discovery"
+   },
+   {
+    "areas": [
+     {
+      "description": "Least-privilege policies, such as the Vault policy, that give only the read and list rights needed for scanning.",
+      "slug": "read-only-policies",
+      "title": "Read-only access policies"
+     },
+     {
+      "description": "Letting the tool look up its own credential so it can confirm who it is and what it can access.",
+      "slug": "token-identity",
+      "title": "Token self-check"
+     }
+    ],
+    "description": "Making sure the tool only gets read access to the systems it inspects.",
+    "slug": "access-security",
+    "title": "Access and security"
+   },
+   {
+    "areas": [
+     {
+      "description": "Ordering findings so items on critical paths come before low-impact ones.",
+      "slug": "blast-radius-ranking",
+      "title": "Blast-radius ranking"
+     },
+     {
+      "description": "Presenting the ranked inventory in formats people and machines can read.",
+      "slug": "reports",
+      "title": "Reports and output"
+     }
+    ],
+    "description": "Ranking expiring items by blast radius and showing the results.",
+    "slug": "prioritisation",
+    "title": "Prioritisation and reporting"
+   },
+   {
+    "areas": [
+     {
+      "description": "Custom styling applied to the published documentation site.",
+      "slug": "site-styling",
+      "title": "Docs site look and feel"
+     },
+     {
+      "description": "Instructions and sample configuration for connecting sources and granting access.",
+      "slug": "setup-guides",
+      "title": "Setup guides"
+     }
+    ],
+    "description": "The published guides and reference material for using and running expiry-radar.",
+    "slug": "documentation",
+    "title": "Documentation"
+   }
+  ]
+ }
+}
