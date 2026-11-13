@@ -3,9 +3,9 @@ module github.com/fabiocicerchia/expiry-radar
 go 1.26
 
 // Minimum build toolchain: every govulncheck finding on this module is a
-// stdlib CVE fixed by 1.26.6 (crypto/tls, encoding/asn1, encoding/xml,
+// stdlib CVE fixed by 1.26.11 (crypto/tls, encoding/asn1, encoding/xml,
 // html/template, net/http, net/url).
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.48.0
