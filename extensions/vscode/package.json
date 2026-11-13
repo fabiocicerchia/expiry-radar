@@ -386,15 +386,15 @@
     "test:coverage": "node esbuild.mjs --tests && node --enable-source-maps --test --experimental-test-coverage --test-coverage-exclude=\"src/test/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=out/lcov.info \"out/**/*.test.js\"",
     "copy-legal": "node scripts/copy-package-files.mjs",
     "vscode:prepublish": "npm run typecheck && npm test && node esbuild.mjs --production && npm run copy-legal",
-    "package": "npx --yes @vscode/vsce@3.9.2 package --no-dependencies",
-    "publish": "npx --yes @vscode/vsce@3.9.2 publish --no-dependencies"
+    "package": "npx --yes @vscode/vsce@4.1.1 package --no-dependencies",
+    "publish": "npx --yes @vscode/vsce@4.1.1 publish --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.2.0",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.6.0"
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "@azure/msal-node": "^7.1.0",

@@ -165,7 +165,7 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
           VSIX: ${{ needs.package.outputs.vsix }}
-        run: npx --yes @vscode/vsce@3.9.2 publish --no-dependencies --packagePath "$EXT/$VSIX"
+        run: npx --yes @vscode/vsce@4.1.1 publish --no-dependencies --packagePath "$EXT/$VSIX"
 
       # Where VSCodium and Cursor look. A separate registry with its own
       # namespace and token, not a mirror of the Marketplace.
