@@ -213,6 +213,15 @@ have to act on:
   That asymmetry is the point of reading this API at all;
 - a **registrar** domain with `auto_renew` set is de-ranked the same way.
 
+A pack holds one certificate per signature algorithm, each with its own date,
+so each is its own row. They cover the same hosts, so a multi-certificate pack
+names its rows by algorithm, `kodebeat.com (2 hosts) · ECDSA` and `· RSA`
+(the signature is also a `signature` label); a single-certificate pack keeps
+the plain name. Anything that still shares a name within a zone, such as two
+packs over the same hosts, is numbered (`#2`), so no report names one thing
+twice: a consumer such as stillvalid rightly refuses a report that gives one
+name two dates.
+
 Cloudflare keeps API tokens in two places and they are not the same list.
 Anything created under **Manage Account > API Tokens** is *account*-owned and
 answers at `/accounts/{id}/tokens`; **My Profile > API Tokens** is user-owned
