@@ -149,7 +149,23 @@ type cfCertificatePack struct {
 		Issuer    string   `json:"issuer"`
 		Status    string   `json:"status"`
 		ExpiresOn string   `json:"expires_on"`
+		Signature string   `json:"signature"`
 	} `json:"certificates"`
+}
+
+// algorithm is the short name of a certificate's signature, for telling the
+// certificates of one pack apart: ECDSAWithSHA256 -> ECDSA, SHA256WithRSA -> RSA.
+func algorithm(signature string) string {
+	s := strings.ToUpper(signature)
+	switch {
+	case strings.Contains(s, "ECDSA"):
+		return "ECDSA"
+	case strings.Contains(s, "RSA"):
+		return "RSA"
+	case strings.Contains(s, "ED25519"):
+		return "Ed25519"
+	}
+	return signature
 }
 
 type cfCustomCertificate struct {
@@ -190,6 +206,13 @@ func (s *CloudflareSource) certsForZone(ctx context.Context, client *http.Client
 			}
 			it := s.certItem(z, "cloudflare:edge", hosts, c.Issuer, c.Status, expires)
 			it.Labels = label(it.Labels, "pack-type", p.Type)
+			it.Labels = label(it.Labels, "signature", c.Signature)
+			// One name per row: a pack's certificates cover the same hosts, so
+			// without this they all come out as "zone (N hosts)". A single-
+			// certificate pack keeps the plain name its history is under.
+			if alg := algorithm(c.Signature); len(p.Certificates) > 1 && alg != "" {
+				it.Name += " · " + alg
+			}
 			// Cloudflare renews a universal or advanced pack itself. That is
 			// the same evidence cert-manager gives: a deadline something else
 			// is meeting is not one you have to act on.
@@ -239,7 +262,22 @@ func (s *CloudflareSource) certsForZone(ctx context.Context, client *http.Client
 		})
 	}
 
-	return items, joinErrs(warnings)
+	return distinctNames(items), joinErrs(warnings)
+}
+
+// distinctNames numbers what still shares a kind and name within the zone (two
+// packs over the same hosts, say): a report that names one thing twice gives
+// two dates for it, and a consumer can only refuse it.
+func distinctNames(items []Item) []Item {
+	count := map[string]int{}
+	for i := range items {
+		key := string(items[i].Kind) + "\x00" + items[i].Name
+		count[key]++
+		if n := count[key]; n > 1 {
+			items[i].Name += " #" + strconv.Itoa(n)
+		}
+	}
+	return items
 }
 
 // certItem builds the shape the three certificate endpoints share, including

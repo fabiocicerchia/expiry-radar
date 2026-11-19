@@ -96,6 +96,49 @@ func TestCloudflareReportsEdgeAndCustomCertificates(t *testing.T) {
 	}
 }
 
+// A pack holds one certificate per signature algorithm. Both are rows (each has
+// its own date), so both need a name of their own: stillvalid refuses a report
+// that names one thing twice, and it is right to — two dates, one name.
+func TestCloudflarePackCertificatesHaveDistinctNames(t *testing.T) {
+	soon := time.Now().Add(20 * 24 * time.Hour).Format(time.RFC3339)
+	later := time.Now().Add(40 * 24 * time.Hour).Format(time.RFC3339)
+	hosts := []string{"kodebeat.com", "*.kodebeat.com"}
+	cert := func(id, sig, expires string) map[string]any {
+		return map[string]any{"id": id, "hosts": hosts, "issuer": "Google", "status": "active",
+			"expires_on": expires, "signature": sig}
+	}
+	srv, _ := fakeCF(map[string]any{
+		"/zones": zoneResult("kodebeat.com", false),
+		"/ssl/certificate_packs": []any{
+			map[string]any{"id": "pack1", "type": "universal", "hosts": hosts, "certificates": []any{
+				cert("c1", "ECDSAWithSHA256", soon), cert("c2", "SHA256WithRSA", later)}},
+			// A second pack over the same hosts, single certificate: still a clash.
+			map[string]any{"id": "pack2", "type": "advanced", "hosts": hosts, "certificates": []any{
+				cert("c3", "", later)}},
+		},
+	}, nil)
+	defer srv.Close()
+
+	items, err := cfTestSource(srv.URL).Collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, it := range items {
+		key := string(it.Kind) + "|" + it.Namespace + "|" + it.Name
+		if seen[key] {
+			t.Fatalf("%q named twice in one report: %+v", it.Name, items)
+		}
+		seen[key] = true
+	}
+	if _, ok := itemNamed(items, "kodebeat.com (2 hosts) · ECDSA"); !ok {
+		t.Errorf("want the ECDSA certificate named by its algorithm, got %+v", items)
+	}
+	if _, ok := itemNamed(items, "kodebeat.com (2 hosts) · RSA"); !ok {
+		t.Errorf("want the RSA certificate named by its algorithm, got %+v", items)
+	}
+}
+
 func TestCloudflareRegistrarAutoRenewIsDeRanked(t *testing.T) {
 	soon := time.Now().Add(60 * 24 * time.Hour).Format(time.RFC3339)
 	srv, _ := fakeCF(map[string]any{
